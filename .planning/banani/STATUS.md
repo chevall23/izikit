@@ -1,6 +1,181 @@
 # Banani implementation status
 
-Last updated: 2026-08-19
+Last updated: 2026-09-04
+
+## 2026-09-04 — Admin Demandes immobilières built (mockup only, no backend)
+
+Route: `frontend/src/app/admin/demandes/page.tsx`. Front-end only — no
+Prisma wiring, no `/api/admin/*` calls.
+
+Source: flow `HABITATAFRIK EQUIPE` (`DRXBZMH20_G8`), screen "Demandes
+Admin" (`QS4xOi3_zbuE`). Fills the "Demande immobilière" nav slot
+deliberately left empty when `admin-alerte-secteur` was built.
+
+Nav change: added `demande` to `AdminNavKey` and a new entry in
+`admin-nav.ts` (icon `FileText`, href `/admin/demandes`, count 12),
+inserted between `annonces` and `alerte-secteur` — insertion point
+confirmed by both this and the alerte-secteur screen's fetched sidebar
+order. Route deliberately **not** `/admin/demande-immobiliere` — that
+slug is already the public 3-step wizard
+(`frontend/src/app/demande-immobiliere/`), confirmed with the user.
+
+Scope: **REUSE** `AdminShell` (active="demande"), `AdminKpiCard` (incl.
+the `neutral` deltaTone added for `admin-alerte-secteur`),
+`AdminStatusBadge` (warning=En attente, success=Transmise,
+neutral=Archivée, reused again for a "Priorité" badge inside the
+drawer), `AdminDrawer`, `AdminPagination` — **no new shared component or
+tone needed**, this screen is structurally a near-1:1 repeat of
+`admin-alerte-secteur` (KPI row / tabs+filter+table / drawer shapes),
+just different domain fields (Demandeur/Budget/Type de bien instead of
+Propriétaire/Fréquence/Correspondances).
+
+Page: header + subtitle + Exporter/+ Nouvelle demande (inert), 4 KPI
+cards, table card with 4 status tabs (real client-side filter on the 6
+demo rows: Toutes/En attente/Transmises/Archivées), inert "Filtres"
+toggle + 4-select filter bar, 8-column table (no bulk-select, same as
+alerte-secteur), right-anchored request-detail drawer (requester
+profile, critères de recherche tags, détails financiers, informations
+admin incl. a priority badge, note du demandeur quote box), footer
+Transmettre à un agent/Modifier/Archiver-Annuler (inert).
+
+Real interactivity: status-tab filtering, row-click (or eye icon) →
+drawer open/close. Only row 1 (Aminata Koné, DEM-0047) has literal
+drawer detail from the Banani fetch; the other 5 rows got consistent
+authored detail (criteria, financial range matching their table budget,
+admin info incl. an authored priority) — same disclosed pattern as prior
+screens, confirmed with the user before coding.
+
+Verified: `tsc --noEmit` + `eslint` + `prettier` clean. Dev server
+smoke-tested via `curl` — `/admin/demandes` returns 200. 375/768/1280
+live browser check not done (no headless-browser tool in this
+environment) — flagged, not silently skipped.
+
+Plan file: `.planning/banani/admin-demandes.md`.
+
+## 2026-09-04 — Admin Alerte Secteur built (mockup only, no backend)
+
+Route: `frontend/src/app/admin/alerte-secteur/page.tsx`. Front-end only —
+no Prisma wiring, no `/api/admin/*` calls.
+
+Source: flow `HABITATAFRIK EQUIPE` (`DRXBZMH20_G8`), screen "Alerte
+Secteur Admin" (`bwoP7pzNWUzb`). **Not** part of the originally-named
+8-screen admin batch — belongs to the "Demande Immobilière"/alerting
+feature area archived raw-only on 2026-08-03 (never planned/implemented
+until now).
+
+Nav change: added `alerte-secteur` to `AdminNavKey` and a new entry in
+`admin-nav.ts` (icon `Siren`, href `/admin/alerte-secteur`, count 6),
+inserted between `annonces` and `users` per the fetched sidebar order.
+Per user's explicit choice, **"Demande immobilière" was NOT added** (no
+list page built for it yet — would have been a dead nav link); its own
+Banani screen can be fetched and planned separately later.
+
+Scope: **REUSE** `AdminShell` (active="alerte-secteur"), `AdminKpiCard`,
+`AdminStatusBadge` (success/warning/neutral — all 3 already covered),
+`AdminDrawer` (plain `title`+`titleExtra`), `AdminPagination`.
+**EXTENDED** `AdminKpiCard.deltaTone` with a new `'neutral'` option (gray
+pill) for the "Stable" KPI — first 3-tone case in the admin batch (prior
+screens only used `up`/`warn`). Page header + subtitle + Exporter/+
+Nouvelle alerte (inert), 4 KPI cards, table card with 4 status tabs (real
+client-side filter on the 6 demo rows: Toutes/Actives/En pause/Expirées),
+inert "Filtres" toggle + 4-select filter bar, 9-column table — **first
+admin table with no bulk-select checkboxes** (visual-only checkbox
+column, no selection state), right-anchored alert-detail drawer (owner
+profile, critères tags, paramètres key/value rows, correspondances
+property-match list), footer Envoyer les correspondances/Mettre en
+pause/Supprimer (inert).
+
+Real interactivity: status-tab filtering, row-click (or eye icon) → drawer
+open/close. Everything else stays inert. Only row 1 (Aminata Koné,
+ALS-0038) has literal drawer detail from the Banani fetch; the other 5
+rows got consistent authored detail (criteria, params, 0-1 match each) —
+same disclosed pattern as prior screens, confirmed with the user before
+coding.
+
+Verified: `tsc --noEmit` + `eslint` + `prettier` clean. Dev server
+smoke-tested via `curl` — `/admin/alerte-secteur` returns 200 (see task
+log). 375/768/1280 live browser check not done (no headless-browser tool
+in this environment) — flagged, not silently skipped.
+
+Plan file: `.planning/banani/admin-alerte-secteur.md`.
+
+## 2026-09-04 — Admin Gestion des annonces built (mockup only, no backend)
+
+Route: `frontend/src/app/admin/annonces/page.tsx`. Front-end only, per this
+session's admin-batch convention — no Prisma wiring, no `/api/admin/*` calls.
+
+Source: flow `HABITATAFRIK EQUIPE` (`DRXBZMH20_G8`), screen "Gestion
+Annonces" (`KwtyLo_2MeSI`).
+
+Scope: **REUSE** `AdminShell` (active="annonces"), `AdminStatusBadge`,
+`AdminBulkBar`, `AdminDrawer` (plain `title` mode), `AdminPagination`.
+**EXTENDED** `AdminStatusBadge` with a new `violet` tone (Location
+transaction badges — Vente/blue already covered by `primary`). First admin
+list screen with **no KPI row** — just status tabs + filter bar + table.
+Page header + "+ Nouvelle annonce" (inert), 5 status tabs (real
+client-side filter on the 7 demo rows: Toutes/En attente/Validées/
+Rejetées/Expirées — literal header counts, same convention as
+`admin-utilisateurs`), 6-select filter bar (inert), table card with real
+checkbox row-selection (3 rows pre-selected per the Banani source) + bulk
+bar, 7-column table (checkbox/Annonce/Ville·Pays/Prix/Transaction/Statut/
+Actions), pagination, right-anchored listing-detail drawer (info grid,
+description, propriétaire/agence card, historique timeline, motif de
+rejet textarea, footer Valider/Rejeter/Modifier/Booster/Supprimer).
+
+Real interactivity: status-tab filtering, row selection + bulk bar, row-
+click → drawer open/close. Everything else (header action, all 6 filters,
+bulk-bar buttons, row action-menu, pagination, drawer footer actions)
+stays inert. Only the 7 literal Banani rows have real Banani-sourced data
+(1 row's drawer detail is fully literal — Villa premium avec piscine; the
+other 6 got consistent authored detail, same disclosed pattern as
+`admin-utilisateurs`).
+
+Verified: `tsc --noEmit` + `eslint` + `prettier` clean. Dev server
+smoke-tested via `curl` — `/admin/annonces` returns 200. 375/768/1280 live
+browser check not done (no headless-browser tool in this environment) —
+flagged, not silently skipped.
+
+This closes "Gestion des annonces". Remaining gaps in the originally-named
+8-screen admin batch: **Visites virtuelles** and the **Pays & devises**/
+**Notifications** tabs of `admin-parametres`.
+
+Plan file: `.planning/banani/admin-annonces.md`.
+
+## 2026-09-04 — Admin Gestion Utilisateurs built (mockup only, no backend)
+
+Route: `frontend/src/app/admin/utilisateurs/page.tsx`. Front-end only, per
+this session's admin-batch convention — no Prisma wiring, no `/api/admin/*`
+calls (the real `requireAuth`/`requireAdmin` users endpoints already exist
+server-side per CLAUDE.md, but this screen doesn't call them yet).
+
+Source: flow `HABITATAFRIK EQUIPE` (`DRXBZMH20_G8`), screen "Gestion
+Utilisateurs" (`-Uy2RRwYIq6u`).
+
+Scope: **REUSE** `AdminShell` (active="users"), `AdminKpiCard`,
+`AdminStatusBadge`, `AdminPagination`. **NEW→shared** `AdminBulkBar.tsx`.
+**EXTENDED** `AdminDrawer` with an optional custom `header` slot (title now
+optional). Page header + actions, 3 KPI cards, table card with real type
+tabs (Tous/Particuliers/Agences/Démarcheurs — genuinely filter the 6 demo
+rows), filter row (inert selects), real checkbox row-selection + bulk bar,
+9-column table, pagination, right-anchored user-detail drawer
+(avatar/name/badges header, stat grid, contact block, KYC block, internal
+tabs, footer actions with status-aware Suspendre/Réactiver label flip).
+
+Real interactivity: tab filtering, row selection + bulk bar, row-click →
+drawer open/close, suspend/reactivate label flip per selected user's
+status. Everything else (header actions, filters, search, bulk-bar
+buttons, row menu, pagination, drawer sub-actions) stays inert.
+
+Verified: `tsc --noEmit` + `eslint` clean. 375/768/1280 live browser check
+not done (no headless-browser tool in this environment) — flagged, not
+silently skipped.
+
+This closes out the originally-named 8-screen admin batch except **Gestion
+des annonces**, **Visites virtuelles**, and the **Pays & devises**/
+**Notifications** settings tabs (`admin-parametres` only built Général/
+Tarification/Rôles & permissions tabs so far).
+
+Plan file: `.planning/banani/admin-utilisateurs.md`.
 
 ## 2026-08-19 — Contact Page built (real backend)
 
@@ -507,6 +682,15 @@ decisions when actually implementing, don't just copy blindly):
   Only the persistent nav + primary CTAs + auth flow are wired.
 
 ## Done
+- [x] `admin-utilisateurs` — `frontend/src/app/admin/utilisateurs/page.tsx` (route `/admin/utilisateurs`) — plan: `admin-utilisateurs.md` — commit: (uncommitted) — Banani screenId `-Uy2RRwYIq6u` ("Gestion Utilisateurs"). **UI mockup only.** Reuses `AdminShell` + `AdminKpiCard` + `AdminStatusBadge` + `AdminPagination`. New shared `AdminBulkBar.tsx`; extended `AdminDrawer` with a `header` override (avatar+name+badges header, replacing the plain title bar) reused from `admin-support`'s drawer-as-real-overlay pattern. First screen with **real client-side tab filtering** (Tous/Particuliers/Agences/Démarcheurs genuinely filter the 6 demo rows) and **real row-selection + bulk-action bar**. Suspend/Reactivate footer button flips per the selected user's status. Only Ama Kouassi's drawer content is literal Banani data; the other 5 rows got consistent authored detail (same pattern as `admin-support`). tsc + eslint clean; no live browser screenshot (Playwright sandbox limitation). Closes the original 8-screen batch except Gestion des annonces / Visites virtuelles + Pays & devises / Notifications settings tabs.
+- [x] `admin-finances` — `frontend/src/app/admin/finances/page.tsx` (route `/admin/finances`) — plan: `admin-finances.md` — commit: (uncommitted) — Banani screenId `z9rwwxh6snfW` ("Finances Jetons"). **UI mockup only.** Reuses `AdminShell` + `AdminCard`/`AdminMiniFilter` + `AdminKpiCard` verbatim (dashboard-built primitives paying off on a 2nd screen). Extended `AdminPagination` to accept `'…'` ellipsis gaps in `pages` (needed for the 1 847-row/74-page transactions table). Line chart (period tabs, 3 series + area fill) and donut chart (SVG stroke-dasharray segments) built page-local. Real state: period-tab + transaction-filter-chip selection (visual only, doesn't filter). tsc + eslint clean; no live browser screenshot (Playwright sandbox limitation). This closes out the original 8-screen admin batch except Gestion des annonces / Utilisateurs / Visites virtuelles + the Pays & devises / Notifications settings tabs — none sent yet.
+- [x] `admin-support` — `frontend/src/app/admin/support/page.tsx` (route `/admin/support`) — plan: `admin-support.md` — commit: (uncommitted) — Banani screenId `BJKHob0JudDQ` ("Modération Support"). **UI mockup only.** Reuses `AdminShell` (active="support"). New shared `AdminDrawer.tsx` (right-anchored detail overlay) and `AdminPagination.tsx`; extended `AdminStatCard` (`tone`, optional `unit`). **Layout decision**: Banani kept the 460px detail panel permanently open (`padding-right: 508px`, frozen frame) — reimplemented as a real click-to-open drawer instead (row click → `selectedId` state), full-width sheet on mobile. Row 1 (Villa de luxe – Cocody) matches Banani's drawer content exactly; rows 2–6 got consistent but authored reporter/description detail since Banani only demoed one row — flagged. "Support client" tab (count 5) has no content yet. tsc + eslint clean; no live browser screenshot (Playwright sandbox limitation).
+- [x] `admin-roles-permissions` — `frontend/src/app/admin/parametres/roles-permissions/page.tsx` (route `/admin/parametres/roles-permissions`) — plan: `admin-roles-permissions.md` — commit: (uncommitted) — Banani screenId `LZmHMZTrI3Rt` ("Rôles Permissions"). **UI mockup only.** Reuses `AdminShell` + `AdminSettingsTabs` (active="roles") + `AdminSettingsSection.headerRight`. New shared `AdminRoleBadge.tsx` (fixed 4-hue role palette: superadmin/moderator/support/accounting) and `AdminPermBadge.tsx` (full/read/none matrix cell). Same standing color-conflict as `admin-tarification` (screen theme says sky #0EA5E9, kept brand #376BFF for consistency). "12 comptes admin au total" vs 6 rows rendered — same partial-list pattern as tarification's history, flagged. Only Pays & devises / Notifications settings tabs remain unbuilt. tsc + eslint clean; no live browser screenshot (Playwright sandbox limitation).
+- [x] `admin-tarification` — `frontend/src/app/admin/parametres/tarification/page.tsx` (route `/admin/parametres/tarification`) — plan: `admin-tarification.md` — commit: (uncommitted) — Banani screenId `WCE8iUkqg8QO` ("Tarification Admin"). **UI mockup only.** Reuses `AdminShell` + `AdminSettingsTabs` (active="pricing"). New shared `AdminStatCard.tsx`, `AdminPricingCard.tsx`, `AdminHistoryRow.tsx`; extended `AdminSettingsSection` (`headerRight`, `bodyClassName`) and `AdminStatusBadge` (`neutral` tone). **Color conflict flagged**: this screen's own theme object says `--primary: #0EA5E9` (sky blue), disagreeing with every other admin screen's `#376BFF` — kept `brand` (#376BFF) for a consistent look across the shared sidebar/topbar; needs user confirmation. "8 entrées" history badge vs only 4 rows shown — kept faithful to the Banani source, flagged. tsc + eslint clean; no live browser screenshot (Playwright sandbox limitation).
+- [x] `admin-parametres` (Général tab) — `frontend/src/app/admin/parametres/page.tsx` (route `/admin/parametres`) — plan: `admin-parametres.md` — commit: (uncommitted) — Banani screenId `ikG97Z8-uL2Z` ("Paramètres Admin", name correct this time). **UI mockup only.** Reuses `AdminShell` (active="settings"); new shared `AdminSettingsTabs.tsx`, `AdminSettingsSection.tsx`/`AdminSettingsButton`, `AdminSettingsField.tsx`/`AdminUploadBox` (every future `/admin/parametres/*` tab reuses these). Reused existing `ui/Toggle.tsx` for the 3 maintenance/signup/KYC switches (real controlled state). Added page-local brand glyphs (Facebook/Instagram/Twitter/LinkedIn — lucide-react ships none). `AdminShell` gained an optional `searchPlaceholder` prop (non-breaking). Note: this screen's inline `:root` had a conflicting sky-blue scratch palette — mapped to the flow's real "Habitat Blue" theme object instead (brand #376BFF), consistent with the other admin screens. Only the Général tab is built; Pays & devises / Tarification / Rôles & permissions / Notifications tabs link out to not-yet-fetched screens. tsc + eslint clean; no live browser screenshot (Playwright sandbox limitation).
+- [x] `admin-dashboard` — `frontend/src/app/admin/page.tsx` (route `/admin`) — plan: `admin-dashboard.md` — commit: (uncommitted) — Banani screenId `x9tyH65N9HgJ` (stale Banani name "Modifier Annonce Mobile"; HTML is the full admin dashboard). **UI mockup only** — all KPIs/rows/charts hard-coded from the design. New reusable admin chrome: `admin-nav.ts`, `AdminSidebarNav.tsx`, `AdminShell.tsx` (248px sidebar + 76px topbar on `lg:`, hamburger slide-in drawer below) — every upcoming back-office screen plugs into `AdminShell`. New primitives: `AdminCard`/`AdminMiniFilter`, `AdminKpiCard`, `AdminStatusBadge`. Charts are hand-rolled SVG/CSS (no lib). Nav slugs provisionally locked: `/admin/annonces` `/admin/utilisateurs` `/admin/finances` `/admin/visites-virtuelles` `/admin/support` `/admin/parametres`. tsc + eslint clean; no live browser screenshot (Playwright sandbox limitation). Raw HTML at `.planning/banani/raw/admin-dashboard.html`.
+- [x] `admin-connexion` — `frontend/src/app/admin/connexion/page.tsx` — plan: `admin-connexion.md` — commit: (uncommitted) — Banani screenId `AMrwAz6pMkoQ` (flow `DRXBZMH20_G8`; stale Banani name "Acheter Jetons Modal", HTML is the admin **login** page — companion to `admin-inscription`). **UI mockup only.** Reuses `AdminAuthCard` + `AdminField`; new shared `frontend/src/components/admin/AdminSecondaryAction.tsx` (extracted on 2nd use, back-ported to inscription). Theme tokens arrived with this fetch ("Habitat Blue": `--primary #376BFF` = `brand`, radii `xl:12 lg:8 md:6 sm:4`) → retro-fixed the inscription screen's radii (`rounded-[20px]`→`rounded-xl`, `rounded-[10px]`→`rounded-lg`, etc.). "Portail" select dropped for parity with inscription. lint + typecheck clean; no live browser screenshot (Playwright sandbox limitation).
+- [x] `admin-inscription` — `frontend/src/app/admin/inscription/page.tsx` — plan: `admin-inscription.md` — commit: (uncommitted) — Banani screenId `x9kdIJW7jcU-` (flow `DRXBZMH20_G8`; screen *name* in Banani is the stale "Acheter Jetons Modal" but the HTML is the admin registration page). **UI mockup only — no backend wiring** (explicit user instruction). New components: `frontend/src/components/admin/AdminAuthCard.tsx` (centered single-card gradient shell), `frontend/src/components/admin/AdminField.tsx` (icon + meta/trailing field box), `frontend/src/components/admin/AdminSecondaryAction.tsx` (shared with `admin-connexion`). "Portail demandé" select dropped per user. Radii aligned to the Habitat Blue theme once it arrived (see `admin-connexion`). lint + typecheck clean; no live browser screenshot.
 - [x] `login-screen` — `frontend/src/app/login/page.tsx` — plan: `login-screen.md` — commit: (uncommitted) — raw source: `raw/login-screen.html`
 - [x] `register-screen` — `frontend/src/app/signup/page.tsx` — commit: (uncommitted) — raw source: `raw/register-screen.html` (screenId `psc8RX9dLcjv`, fetched fresh via MCP the same session it was implemented, subscription still active at that point)
   - Also added `frontend/src/app/verify-email/page.tsx` — **no Banani screen was selected/available for this step**; styled with the same `AuthSplitLayout`/brand primitives, logic modeled on `examples/frontend-pages/verify-email.tsx`. Not a literal Banani reproduction — flag if a real screen for this step turns up later.

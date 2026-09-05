@@ -1,0 +1,1343 @@
+<head>
+  <meta charset="UTF-8">
+  <title>Habitat-Afrik — Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/iconify-icon@2.1.0/dist/iconify-icon.min.js"></script>
+
+  <style id="base-styles">
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 812px;
+      background: var(--background);
+      color: var(--foreground);
+      font-family: var(--font-family-body);
+    }
+    .app {
+      min-height: 812px;
+      display: flex;
+      background: var(--background);
+    }
+    .icon-wrap {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .icon-wrap.lg {
+      width: 20px;
+      height: 20px;
+    }
+    .icon-wrap.sm {
+      width: 16px;
+      height: 16px;
+    }
+    .pill {
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+  </style>
+
+  <style id="sidebar-styles">
+    .sidebar {
+      width: 248px;
+      background: var(--sidebar);
+      border-right: 1px solid var(--border);
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .brand-block {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 6px 4px 6px;
+    }
+    .brand-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-lg);
+      background: var(--sidebar-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .brand-texts {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .brand-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--sidebar-foreground);
+      white-space: nowrap;
+    }
+    .brand-subtitle {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      white-space: nowrap;
+    }
+    .country-switcher {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--muted);
+      border-radius: var(--radius-lg);
+    }
+    .country-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .country-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: var(--card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary);
+      flex-shrink: 0;
+    }
+    .country-meta {
+      min-width: 0;
+    }
+    .country-label {
+      font-size: 11px;
+      color: var(--muted-foreground);
+      margin-bottom: 2px;
+    }
+    .country-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--sidebar-foreground);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sidebar-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sidebar-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted-foreground);
+      padding: 0 8px;
+      white-space: nowrap;
+    }
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 12px;
+      border-radius: var(--radius-lg);
+      text-decoration: none;
+      background: transparent;
+    }
+    .nav-item.active {
+      background: var(--sidebar-primary);
+    }
+    .nav-item-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .nav-item-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--sidebar-foreground);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .nav-item.active .nav-item-label {
+      color: var(--sidebar-primary-foreground);
+      font-weight: 600;
+    }
+    .nav-count {
+      min-width: 22px;
+      height: 22px;
+      padding: 0 7px;
+      border-radius: 999px;
+      background: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--secondary-foreground);
+      white-space: nowrap;
+    }
+    .nav-item.active .nav-count {
+      background: var(--card);
+      color: var(--primary);
+    }
+    .sidebar-spacer { flex: 1; }
+    .logout-item {
+      background: var(--destructive);
+    }
+    .logout-item .nav-item-label {
+      color: var(--destructive-foreground);
+      font-weight: 600;
+    }
+  </style>
+
+  <style id="main-layout-styles">
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .topbar {
+      height: 76px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      gap: 20px;
+    }
+    .searchbar {
+      width: 420px;
+      max-width: 100%;
+      height: 44px;
+      border-radius: var(--radius-lg);
+      background: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      color: var(--muted-foreground);
+    }
+    .searchbar-text {
+      font-size: 14px;
+      color: var(--muted-foreground);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .icon-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: var(--radius-lg);
+      background: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .notif-dot {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--destructive);
+    }
+    .admin-pill {
+      height: 42px;
+      padding: 0 12px;
+      border-radius: var(--radius-lg);
+      background: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .admin-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .admin-meta {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .admin-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--foreground);
+      white-space: nowrap;
+    }
+    .admin-role {
+      font-size: 11px;
+      color: var(--muted-foreground);
+      white-space: nowrap;
+    }
+    .page {
+      flex: 1;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      min-width: 0;
+    }
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .page-title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+    }
+    .page-eyebrow {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--primary);
+      white-space: nowrap;
+    }
+    .page-title {
+      font-size: 30px;
+      font-weight: 700;
+      color: var(--foreground);
+      line-height: 1.1;
+      margin: 0;
+    }
+    .page-subtitle {
+      font-size: 14px;
+      color: var(--muted-foreground);
+      line-height: 1.5;
+      max-width: 720px;
+    }
+    .page-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .button {
+      height: 40px;
+      padding: 0 14px;
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .button.secondary {
+      background: var(--card);
+      color: var(--foreground);
+      border: 1px solid var(--border);
+    }
+    .button.primary {
+      background: var(--primary);
+      color: var(--primary-foreground);
+    }
+  </style>
+
+  <style id="kpi-styles">
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+    .kpi-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .kpi-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--sidebar-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .delta {
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .delta.up {
+      background: color-mix(in srgb, var(--success) 14%, var(--card));
+      color: var(--success);
+    }
+    .delta.warn {
+      background: color-mix(in srgb, var(--warning) 16%, var(--card));
+      color: var(--warning);
+    }
+    .kpi-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--foreground);
+      line-height: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .kpi-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted-foreground);
+    }
+    .kpi-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+      white-space: nowrap;
+    }
+  </style>
+
+  <style id="content-grid-styles">
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .left-stack,
+    .right-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 18px;
+      min-width: 0;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .card-title-wrap {
+      min-width: 0;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--card-foreground);
+      margin: 0 0 4px 0;
+    }
+    .card-subtitle {
+      font-size: 13px;
+      color: var(--muted-foreground);
+      line-height: 1.45;
+    }
+    .mini-filter {
+      height: 32px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--secondary-foreground);
+      white-space: nowrap;
+    }
+  </style>
+
+  <style id="line-chart-styles">
+    .line-legend {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .legend-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--secondary-foreground);
+      white-space: nowrap;
+    }
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      flex-shrink: 0;
+    }
+    .line-chart {
+      height: 248px;
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      gap: 10px;
+      align-items: stretch;
+    }
+    .y-axis {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 8px 0 22px 0;
+      font-size: 11px;
+      color: var(--muted-foreground);
+      text-align: right;
+    }
+    .plot-area {
+      position: relative;
+      border-radius: var(--radius-lg);
+      background: linear-gradient(to bottom, transparent 0%, transparent 24%, var(--muted) 24%, var(--muted) 25%, transparent 25%, transparent 49%, var(--muted) 49%, var(--muted) 50%, transparent 50%, transparent 74%, var(--muted) 74%, var(--muted) 75%, transparent 75%, transparent 100%);
+      padding: 8px 12px 24px 12px;
+      overflow: hidden;
+    }
+    .plot-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .x-axis {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 0;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 0;
+      font-size: 11px;
+      color: var(--muted-foreground);
+    }
+    .x-axis span { white-space: nowrap; }
+  </style>
+
+  <style id="bar-chart-styles">
+    .bar-wrap {
+      display: flex;
+      align-items: flex-end;
+      gap: 16px;
+      height: 228px;
+      padding-top: 6px;
+    }
+    .bar-group {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      min-width: 0;
+    }
+    .bar-stack {
+      width: 100%;
+      max-width: 90px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 10px;
+      height: 178px;
+    }
+    .bar {
+      width: 28px;
+      border-radius: 8px 8px 0 0;
+      background: var(--primary);
+    }
+    .bar.light {
+      background: var(--sidebar-primary);
+    }
+    .bar-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--secondary-foreground);
+      white-space: nowrap;
+    }
+    .bar-meta {
+      font-size: 11px;
+      color: var(--muted-foreground);
+      white-space: nowrap;
+    }
+  </style>
+
+  <style id="activity-alert-styles">
+    .activity-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .activity-row {
+      display: grid;
+      grid-template-columns: 36px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: start;
+    }
+    .activity-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .activity-main {
+      min-width: 0;
+    }
+    .activity-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--foreground);
+      margin-bottom: 4px;
+      line-height: 1.35;
+    }
+    .activity-sub {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      line-height: 1.45;
+    }
+    .activity-time {
+      font-size: 11px;
+      color: var(--muted-foreground);
+      white-space: nowrap;
+    }
+    .alert-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .alert-card {
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .alert-card.warning {
+      background: color-mix(in srgb, var(--warning) 12%, var(--card));
+    }
+    .alert-card.danger {
+      background: color-mix(in srgb, var(--destructive) 10%, var(--card));
+    }
+    .alert-texts {
+      min-width: 0;
+    }
+    .alert-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--foreground);
+      margin-bottom: 4px;
+    }
+    .alert-sub {
+      font-size: 12px;
+      color: var(--secondary-foreground);
+      line-height: 1.45;
+    }
+    .alert-metric {
+      margin-top: 10px;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--foreground);
+      line-height: 1;
+    }
+  </style>
+
+  <style id="table-styles">
+    .table-card { padding: 0; overflow: hidden; }
+    .table-toolbar {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .table-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--foreground);
+    }
+    .tabs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .tab {
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      background: var(--muted);
+      color: var(--secondary-foreground);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .tab.active {
+      background: var(--sidebar-primary);
+      color: var(--primary);
+    }
+    .table-head,
+    .table-row {
+      display: grid;
+      grid-template-columns: 2.2fr 1.2fr 1fr 1fr 1fr 0.9fr;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 18px;
+    }
+    .table-head {
+      background: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted-foreground);
+      letter-spacing: 0.02em;
+      text-transform: none;
+    }
+    .table-row {
+      font-size: 13px;
+      color: var(--foreground);
+      border-top: 1px solid var(--border);
+    }
+    .table-row.alt {
+      background: color-mix(in srgb, var(--muted) 38%, var(--card));
+    }
+    .table-annonce {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .thumb {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .annonce-texts {
+      min-width: 0;
+    }
+    .annonce-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--foreground);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 3px;
+    }
+    .annonce-meta {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .status-badge.success {
+      background: color-mix(in srgb, var(--success) 14%, var(--card));
+      color: var(--success);
+    }
+    .status-badge.warning {
+      background: color-mix(in srgb, var(--warning) 14%, var(--card));
+      color: var(--warning);
+    }
+    .status-badge.danger {
+      background: color-mix(in srgb, var(--destructive) 12%, var(--card));
+      color: var(--destructive);
+    }
+    .status-badge.primary {
+      background: var(--sidebar-primary);
+      color: var(--primary);
+    }
+    .table-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: flex-end;
+      white-space: nowrap;
+    }
+    .action-mini {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+
+  <style id="responsive-note-styles">
+    .tablet-note {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 16px 18px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .tablet-note-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--foreground);
+      margin-bottom: 4px;
+    }
+    .tablet-note-sub {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      line-height: 1.5;
+    }
+  </style>
+</head><body>
+  <div class="app" id="admin-dashboard">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand-block" id="brand-block">
+        <div class="brand-mark">
+          <div class="icon-wrap lg">
+            <iconify-icon icon="lucide:building-2" style="font-size:20px;color:var(--primary);"></iconify-icon>
+          </div>
+        </div>
+        <div class="brand-texts">
+          <div class="brand-title">Habitat-Afrik</div>
+          <div class="brand-subtitle">Administration</div>
+        </div>
+      </div>
+
+      <div class="country-switcher" id="country-switcher" data-media-type="banani-button">
+        <div class="country-left">
+          <div class="country-avatar">AF</div>
+          <div class="country-meta">
+            <div class="country-label">Vue active</div>
+            <div class="country-value">Multi-pays agrégée</div>
+          </div>
+        </div>
+        <div class="icon-wrap sm">
+          <iconify-icon icon="lucide:chevron-down" style="font-size:16px;color:var(--muted-foreground);"></iconify-icon>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Pays</div>
+        <div class="tabs" id="country-pills">
+          <div class="tab active" data-media-type="banani-button">BJ</div>
+          <div class="tab" data-media-type="banani-button">TG</div>
+          <div class="tab" data-media-type="banani-button">CI</div>
+          <div class="tab" data-media-type="banani-button">SN</div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Navigation</div>
+        <div class="nav-list">
+          <a class="nav-item active" id="nav-dashboard" href="#" data-media-type="banani-button">
+            <div class="nav-item-left">
+              <div class="icon-wrap"><iconify-icon icon="lucide:layout-dashboard" style="font-size:18px;color:var(--primary);"></iconify-icon></div>
+              <span class="nav-item-label">Tableau de bord</span>
+            </div>
+            <span class="nav-count">4</span>
+          </a>
+          <a class="nav-item" id="nav-annonces" href="#" data-media-type="banani-button">
+            <div class="nav-item-left">
+              <div class="icon-wrap"><iconify-icon icon="lucide:clipboard-list" style="font-size:18px;color:var(--muted-foreground);"></iconify-icon></div>
+              <span class="nav-item-label">Gestion des annonces</span>
+            </div>
+          </a>
+          <a class="nav-item" id="nav-users" href="#" data-media-type="banani-button">
+            <div class="nav-item-left">
+              <div class="icon-wrap"><iconify-icon icon="lucide:users" style="font-size:18px;color:var(--muted-foreground);"></iconify-icon></div>
+              <span class="nav-item-label">Utilisateurs</span>
+            </div>
+          </a>
+          <a class="nav-item" id="nav-finance" href="#" data-media-type="banani-button">
+            <div class="nav-item-left">
+              <div class="icon-wrap"><iconify-icon icon="lucide:wallet" style="font-size:18px;color:var(--muted-foreground);"></iconify-icon></div>
+              <span class="nav-item-label">Finances &amp; jetons</span>
+            </div>
+          </a>
+          <a class="nav-item" id="nav-vr" href="#" data-media-type="banani-button">
+            <div class="nav-item-left">
+              <div class="icon-wrap"><iconify-icon icon="lucide:video" style="font-size:18px;color:var(--muted-foreground);"></iconify-icon></div>
+              <span class="nav-item-label">Visites virtuelles</span>
+            </div>
+          </a>
+          <a class="nav-item" id="nav-support" href="#" data-media-type="banani-button">
+            <div class="nav-item-left">
+              <div class="icon-wrap"><iconify-icon icon="lucide:shield-alert" style="font-size:18px;color:var(--muted-foreground);"></iconify-icon></div>
+              <span class="nav-item-label">Modération &amp; support</span>
+            </div>
+            <span class="nav-count">19</span>
+          </a>
+          <a class="nav-item" id="nav-settings" href="#" data-media-type="banani-button">
+            <div class="nav-item-left">
+              <div class="icon-wrap"><iconify-icon icon="lucide:settings-2" style="font-size:18px;color:var(--muted-foreground);"></iconify-icon></div>
+              <span class="nav-item-label">Paramètres</span>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <div class="sidebar-spacer"></div>
+
+      <a class="nav-item logout-item" id="nav-logout" href="#" data-media-type="banani-button">
+        <div class="nav-item-left">
+          <div class="icon-wrap"><iconify-icon icon="lucide:log-out" style="font-size:18px;color:var(--destructive-foreground);"></iconify-icon></div>
+          <span class="nav-item-label">Déconnexion</span>
+        </div>
+      </a>
+    </aside>
+
+    <main class="main" id="main-content">
+      <div class="topbar" id="topbar">
+        <div class="searchbar" id="global-search" data-media-type="banani-button">
+          <div class="icon-wrap"><iconify-icon icon="lucide:search" style="font-size:16px;color:var(--muted-foreground);"></iconify-icon></div>
+          <span class="searchbar-text">Rechercher une annonce, un utilisateur, un paiement ou un ticket support</span>
+        </div>
+        <div class="topbar-right">
+          <div class="icon-btn" id="notif-button" data-media-type="banani-button">
+            <iconify-icon icon="lucide:bell" style="font-size:18px;color:var(--foreground);"></iconify-icon>
+            <span class="notif-dot"></span>
+          </div>
+          <div class="admin-pill" id="admin-pill" data-media-type="banani-button">
+            <img src="https://storage.googleapis.com/banani-avatars/avatar%2Fmale%2F35-50%2FAfrican%2F3" alt="Admin" class="admin-avatar">
+            <div class="admin-meta">
+              <span class="admin-name">Kofi Mensah</span>
+              <span class="admin-role">Admin plateforme</span>
+            </div>
+            <div class="icon-wrap sm"><iconify-icon icon="lucide:chevrons-up-down" style="font-size:14px;color:var(--muted-foreground);"></iconify-icon></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="page" id="page">
+        <div class="page-header" id="page-header">
+          <div class="page-title-block">
+            <div class="page-eyebrow">Vue globale · Multi-pays agrégée</div>
+            <h1 class="page-title">Tableau de bord admin</h1>
+            <div class="page-subtitle">Suivi consolidé des annonces, revenus, modération et croissance pour le Bénin, le Togo, la Côte d'Ivoire et le Sénégal. Mise en page aérée, premium et pensée pour une lecture rapide.</div>
+          </div>
+          <div class="page-actions">
+            <div class="button secondary" id="btn-export" data-media-type="banani-button">
+              <div class="icon-wrap sm"><iconify-icon icon="lucide:download" style="font-size:14px;color:var(--foreground);"></iconify-icon></div>
+              Exporter
+            </div>
+            <div class="button primary" id="btn-report" data-media-type="banani-button">
+              <div class="icon-wrap sm"><iconify-icon icon="lucide:file-text" style="font-size:14px;color:var(--primary-foreground);"></iconify-icon></div>
+              Rapport mensuel
+            </div>
+          </div>
+        </div>
+
+        <section class="kpi-grid" id="kpi-grid">
+          <div class="kpi-card" id="kpi-active-listings" data-media-type="banani-button">
+            <div class="kpi-top">
+              <div class="kpi-icon"><iconify-icon icon="lucide:building" style="font-size:18px;color:var(--primary);"></iconify-icon></div>
+              <span class="delta up">+8,2%</span>
+            </div>
+            <div class="kpi-value">12 480</div>
+            <div class="kpi-label">Annonces actives</div>
+            <div class="kpi-foot"><span>1 124 nouvelles ce mois</span><span>30 jours</span></div>
+          </div>
+
+          <div class="kpi-card" id="kpi-signups" data-media-type="banani-button">
+            <div class="kpi-top">
+              <div class="kpi-icon"><iconify-icon icon="lucide:user-plus" style="font-size:18px;color:var(--primary);"></iconify-icon></div>
+              <span class="delta up">+14,6%</span>
+            </div>
+            <div class="kpi-value">986</div>
+            <div class="kpi-label">Nouvelles inscriptions · 7j</div>
+            <div class="kpi-foot"><span>Agences, particuliers, démarcheurs</span><span>7 jours</span></div>
+          </div>
+
+          <div class="kpi-card" id="kpi-revenue" data-media-type="banani-button">
+            <div class="kpi-top">
+              <div class="kpi-icon"><iconify-icon icon="lucide:wallet-cards" style="font-size:18px;color:var(--primary);"></iconify-icon></div>
+              <span class="delta up">+11,1%</span>
+            </div>
+            <div class="kpi-value">84,7 M FCFA</div>
+            <div class="kpi-label">Revenus du mois</div>
+            <div class="kpi-foot"><span>Jetons + commissions</span><span>Juillet 2025</span></div>
+          </div>
+
+          <div class="kpi-card" id="kpi-conversion" data-media-type="banani-button">
+            <div class="kpi-top">
+              <div class="kpi-icon"><iconify-icon icon="lucide:badge-percent" style="font-size:18px;color:var(--primary);"></iconify-icon></div>
+              <span class="delta warn">+1,9 pt</span>
+            </div>
+            <div class="kpi-value">18,4%</div>
+            <div class="kpi-label">Conversion visite → vente</div>
+            <div class="kpi-foot"><span>Référence régionale</span><span>30 jours</span></div>
+          </div>
+        </section>
+
+        <section class="content-grid" id="content-grid">
+          <div class="left-stack" id="left-stack">
+            <div class="card" id="line-chart-card">
+              <div class="card-header">
+                <div class="card-title-wrap">
+                  <h2 class="card-title">Évolution des annonces publiées par pays</h2>
+                  <div class="card-subtitle">Comparatif sur 30 jours avec focus sur la dynamique régionale.</div>
+                </div>
+                <div class="mini-filter" data-media-type="banani-button">
+                  30 derniers jours
+                  <iconify-icon icon="lucide:chevron-down" style="font-size:14px;color:var(--muted-foreground);"></iconify-icon>
+                </div>
+              </div>
+
+              <div class="line-legend">
+                <div class="legend-chip"><span class="legend-dot" style="background:var(--primary);"></span>Bénin</div>
+                <div class="legend-chip"><span class="legend-dot" style="background:var(--foreground);"></span>Togo</div>
+                <div class="legend-chip"><span class="legend-dot" style="background:var(--warning);"></span>Côte d'Ivoire</div>
+                <div class="legend-chip"><span class="legend-dot" style="background:var(--success);"></span>Sénégal</div>
+              </div>
+
+              <div class="line-chart">
+                <div class="y-axis">
+                  <span>320</span>
+                  <span>240</span>
+                  <span>160</span>
+                  <span>80</span>
+                  <span>0</span>
+                </div>
+                <div class="plot-area">
+                  <svg class="plot-svg" viewBox="0 0 760 220" preserveAspectRatio="none">
+                    <polyline points="0,168 150,154 305,136 455,116 610,102 760,78" fill="none" stroke="var(--primary)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                    <polyline points="0,182 150,174 305,166 455,144 610,130 760,124" fill="none" stroke="var(--foreground)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                    <polyline points="0,158 150,148 305,122 455,96 610,88 760,70" fill="none" stroke="var(--warning)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                    <polyline points="0,192 150,180 305,170 455,164 610,142 760,132" fill="none" stroke="var(--success)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                    <circle cx="760" cy="78" r="5" fill="var(--primary)"></circle>
+                    <circle cx="760" cy="124" r="5" fill="var(--foreground)"></circle>
+                    <circle cx="760" cy="70" r="5" fill="var(--warning)"></circle>
+                    <circle cx="760" cy="132" r="5" fill="var(--success)"></circle>
+                  </svg>
+                  <div class="x-axis">
+                    <span>01 juil.</span>
+                    <span>06 juil.</span>
+                    <span>12 juil.</span>
+                    <span>18 juil.</span>
+                    <span>24 juil.</span>
+                    <span>30 juil.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" id="bar-chart-card">
+              <div class="card-header">
+                <div class="card-title-wrap">
+                  <h2 class="card-title">Répartition des annonces par type</h2>
+                  <div class="card-subtitle">Volume et poids relatif des catégories les plus publiées.</div>
+                </div>
+                <div class="mini-filter" data-media-type="banani-button">
+                  Toutes catégories
+                  <iconify-icon icon="lucide:chevron-down" style="font-size:14px;color:var(--muted-foreground);"></iconify-icon>
+                </div>
+              </div>
+              <div class="bar-wrap">
+                <div class="bar-group">
+                  <div class="bar-stack">
+                    <div class="bar light" style="height:118px;"></div>
+                    <div class="bar" style="height:152px;"></div>
+                  </div>
+                  <div class="bar-label">Villa</div>
+                  <div class="bar-meta">2 940 annonces</div>
+                </div>
+                <div class="bar-group">
+                  <div class="bar-stack">
+                    <div class="bar light" style="height:102px;"></div>
+                    <div class="bar" style="height:166px;"></div>
+                  </div>
+                  <div class="bar-label">Appartement</div>
+                  <div class="bar-meta">3 184 annonces</div>
+                </div>
+                <div class="bar-group">
+                  <div class="bar-stack">
+                    <div class="bar light" style="height:92px;"></div>
+                    <div class="bar" style="height:130px;"></div>
+                  </div>
+                  <div class="bar-label">Terrain</div>
+                  <div class="bar-meta">2 215 annonces</div>
+                </div>
+                <div class="bar-group">
+                  <div class="bar-stack">
+                    <div class="bar light" style="height:76px;"></div>
+                    <div class="bar" style="height:104px;"></div>
+                  </div>
+                  <div class="bar-label">Bureau</div>
+                  <div class="bar-meta">1 420 annonces</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card table-card" id="recent-ads-table">
+              <div class="table-toolbar">
+                <div>
+                  <div class="table-title">Aperçu annonces à modérer</div>
+                </div>
+                <div class="tabs">
+                  <div class="tab active" data-media-type="banani-button">Toutes</div>
+                  <div class="tab" data-media-type="banani-button">En attente</div>
+                  <div class="tab" data-media-type="banani-button">Validées</div>
+                  <div class="tab" data-media-type="banani-button">Rejetées</div>
+                </div>
+              </div>
+              <div class="table-head">
+                <div>Annonce</div>
+                <div>Pays / ville</div>
+                <div>Prix</div>
+                <div>Type</div>
+                <div>Statut</div>
+                <div style="text-align:right;">Actions</div>
+              </div>
+              <div class="table-row alt" data-media-type="banani-button">
+                <div class="table-annonce">
+                  <img class="thumb" data-aspect-ratio="1:1" data-query="luxury villa west africa blue sky premium real estate exterior white facade pool" alt="Villa" src="https://storage.googleapis.com/banani-generated-images/generated-images/94b1683e-a38b-4f0a-9596-198785fc75af.jpg">
+                  <div class="annonce-texts">
+                    <div class="annonce-name">Villa premium avec piscine</div>
+                    <div class="annonce-meta">Réf. HA-8941</div>
+                  </div>
+                </div>
+                <div>Abidjan, CI</div>
+                <div>185 M FCFA</div>
+                <div>Vente</div>
+                <div><span class="status-badge warning">En attente</span></div>
+                <div class="table-actions">
+                  <div class="action-mini" data-media-type="banani-button"><iconify-icon icon="lucide:eye" style="font-size:15px;color:var(--foreground);"></iconify-icon></div>
+                  <div class="action-mini" data-media-type="banani-button"><iconify-icon icon="lucide:check" style="font-size:15px;color:var(--success);"></iconify-icon></div>
+                </div>
+              </div>
+              <div class="table-row" data-media-type="banani-button">
+                <div class="table-annonce">
+                  <img class="thumb" data-aspect-ratio="1:1" data-query="apartment building west africa urban residential premium listing exterior modern" alt="Appartement" src="https://storage.googleapis.com/banani-generated-images/generated-images/caba0b3a-e0b3-4862-824e-5e4ac1b9888c.jpg">
+                  <div class="annonce-texts">
+                    <div class="annonce-name">Appartement T4 centre-ville</div>
+                    <div class="annonce-meta">Réf. HA-8912</div>
+                  </div>
+                </div>
+                <div>Dakar, SN</div>
+                <div>72 M FCFA</div>
+                <div>Vente</div>
+                <div><span class="status-badge success">Validée</span></div>
+                <div class="table-actions">
+                  <div class="action-mini" data-media-type="banani-button"><iconify-icon icon="lucide:pencil" style="font-size:15px;color:var(--foreground);"></iconify-icon></div>
+                  <div class="action-mini" data-media-type="banani-button"><iconify-icon icon="lucide:arrow-up-right" style="font-size:15px;color:var(--primary);"></iconify-icon></div>
+                </div>
+              </div>
+              <div class="table-row alt" data-media-type="banani-button">
+                <div class="table-annonce">
+                  <img class="thumb" data-aspect-ratio="1:1" data-query="land plot west africa development site aerial real estate investment" alt="Terrain" src="https://storage.googleapis.com/banani-generated-images/generated-images/05725849-8cd3-4bfd-b818-fd767b0ef4ac.jpg">
+                  <div class="annonce-texts">
+                    <div class="annonce-name">Terrain de 800 m² en périphérie</div>
+                    <div class="annonce-meta">Réf. HA-8864</div>
+                  </div>
+                </div>
+                <div>Cotonou, BJ</div>
+                <div>24 M FCFA</div>
+                <div>Vente</div>
+                <div><span class="status-badge danger">Rejetée</span></div>
+                <div class="table-actions">
+                  <div class="action-mini" data-media-type="banani-button"><iconify-icon icon="lucide:file-warning" style="font-size:15px;color:var(--warning);"></iconify-icon></div>
+                  <div class="action-mini" data-media-type="banani-button"><iconify-icon icon="lucide:trash-2" style="font-size:15px;color:var(--destructive);"></iconify-icon></div>
+                </div>
+              </div>
+              <div class="table-row" data-media-type="banani-button">
+                <div class="table-annonce">
+                  <img class="thumb" data-aspect-ratio="1:1" data-query="modern office building west africa business district commercial property" alt="Bureau" src="https://storage.googleapis.com/banani-generated-images/generated-images/6d7fc71b-cdfc-40e3-b22a-e01a1744d201.jpg">
+                  <div class="annonce-texts">
+                    <div class="annonce-name">Plateau bureaux quartier affaires</div>
+                    <div class="annonce-meta">Réf. HA-8807</div>
+                  </div>
+                </div>
+                <div>Lomé, TG</div>
+                <div>3,8 M FCFA/mois</div>
+                <div>Location</div>
+                <div><span class="status-badge primary">Boostée</span></div>
+                <div class="table-actions">
+                  <div class="action-mini" data-media-type="banani-button"><iconify-icon icon="lucide:rocket" style="font-size:15px;color:var(--primary);"></iconify-icon></div>
+                  <div class="action-mini" data-media-type="banani-button"><iconify-icon icon="lucide:more-horizontal" style="font-size:15px;color:var(--muted-foreground);"></iconify-icon></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="right-stack" id="right-stack">
+            <div class="card" id="activity-card">
+              <div class="card-header">
+                <div class="card-title-wrap">
+                  <h2 class="card-title">Activité récente</h2>
+                  <div class="card-subtitle">Dernières annonces, signalements et paiements observés sur la plateforme.</div>
+                </div>
+                <div class="mini-filter" data-media-type="banani-button">En direct</div>
+              </div>
+              <div class="activity-list">
+                <div class="activity-row" data-media-type="banani-button">
+                  <div class="activity-icon"><iconify-icon icon="lucide:building-2" style="font-size:16px;color:var(--primary);"></iconify-icon></div>
+                  <div class="activity-main">
+                    <div class="activity-title">Nouvelle annonce postée · Villa duplex à Cocody</div>
+                    <div class="activity-sub">Agence Babi Prestige · Abidjan, Côte d'Ivoire</div>
+                  </div>
+                  <div class="activity-time">Il y a 8 min</div>
+                </div>
+                <div class="activity-row" data-media-type="banani-button">
+                  <div class="activity-icon"><iconify-icon icon="lucide:shield-alert" style="font-size:16px;color:var(--warning);"></iconify-icon></div>
+                  <div class="activity-main">
+                    <div class="activity-title">Signalement reçu sur une annonce terrain</div>
+                    <div class="activity-sub">Motif: coordonnées invalides · Cotonou, Bénin</div>
+                  </div>
+                  <div class="activity-time">Il y a 21 min</div>
+                </div>
+                <div class="activity-row" data-media-type="banani-button">
+                  <div class="activity-icon"><iconify-icon icon="lucide:credit-card" style="font-size:16px;color:var(--success);"></iconify-icon></div>
+                  <div class="activity-main">
+                    <div class="activity-title">Paiement jetons confirmé · 420 000 FCFA</div>
+                    <div class="activity-sub">Agence Horizon Immo · Mobile Money · Sénégal</div>
+                  </div>
+                  <div class="activity-time">Il y a 34 min</div>
+                </div>
+                <div class="activity-row" data-media-type="banani-button">
+                  <div class="activity-icon"><iconify-icon icon="lucide:user-round-x" style="font-size:16px;color:var(--destructive);"></iconify-icon></div>
+                  <div class="activity-main">
+                    <div class="activity-title">Compte agence suspendu temporairement</div>
+                    <div class="activity-sub">3 annonces en doublon détectées · Lomé, Togo</div>
+                  </div>
+                  <div class="activity-time">Il y a 1 h</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" id="alerts-widget">
+              <div class="card-header">
+                <div class="card-title-wrap">
+                  <h2 class="card-title">Alertes opérationnelles</h2>
+                  <div class="card-subtitle">Zones à traiter en priorité côté modération et sécurité.</div>
+                </div>
+              </div>
+              <div class="alert-list">
+                <div class="alert-card warning" data-media-type="banani-button">
+                  <div class="icon-wrap lg"><iconify-icon icon="lucide:clock-3" style="font-size:18px;color:var(--warning);"></iconify-icon></div>
+                  <div class="alert-texts">
+                    <div class="alert-title">Annonces en attente de modération</div>
+                    <div class="alert-sub">Backlog à répartir entre l'équipe conformité pour maintenir un délai moyen inférieur à 2 h.</div>
+                    <div class="alert-metric">126</div>
+                  </div>
+                </div>
+                <div class="alert-card danger" data-media-type="banani-button">
+                  <div class="icon-wrap lg"><iconify-icon icon="lucide:siren" style="font-size:18px;color:var(--destructive);"></iconify-icon></div>
+                  <div class="alert-texts">
+                    <div class="alert-title">Comptes suspects</div>
+                    <div class="alert-sub">Profils avec activité anormale, paiements incohérents ou annonces répétitives détectées.</div>
+                    <div class="alert-metric">18</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" id="finance-widget">
+              <div class="card-header">
+                <div class="card-title-wrap">
+                  <h2 class="card-title">Revenus rapides</h2>
+                  <div class="card-subtitle">Lecture synthétique des flux du mois courant.</div>
+                </div>
+              </div>
+              <div class="activity-list">
+                <div class="activity-row">
+                  <div class="activity-icon"><iconify-icon icon="lucide:coins" style="font-size:16px;color:var(--primary);"></iconify-icon></div>
+                  <div class="activity-main">
+                    <div class="activity-title">Vente de jetons</div>
+                    <div class="activity-sub">42,3 M FCFA · 4 812 packs vendus</div>
+                  </div>
+                  <div class="activity-time">50%</div>
+                </div>
+                <div class="activity-row">
+                  <div class="activity-icon"><iconify-icon icon="lucide:landmark" style="font-size:16px;color:var(--success);"></iconify-icon></div>
+                  <div class="activity-main">
+                    <div class="activity-title">Commissions</div>
+                    <div class="activity-sub">31,9 M FCFA · ventes confirmées</div>
+                  </div>
+                  <div class="activity-time">38%</div>
+                </div>
+                <div class="activity-row">
+                  <div class="activity-icon"><iconify-icon icon="lucide:video" style="font-size:16px;color:var(--warning);"></iconify-icon></div>
+                  <div class="activity-main">
+                    <div class="activity-title">Visites virtuelles</div>
+                    <div class="activity-sub">10,5 M FCFA · prestations VR</div>
+                  </div>
+                  <div class="activity-time">12%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="tablet-note" id="tablet-note">
+          <div class="icon-wrap lg"><iconify-icon icon="lucide:tablet-smartphone" style="font-size:18px;color:var(--primary);"></iconify-icon></div>
+          <div>
+            <div class="tablet-note-title">Mode tablette simplifié prévu</div>
+            <div class="tablet-note-sub">Sur tablette, la structure peut passer en une seule colonne, avec sidebar condensée en tiroir, KPI en grille 2×2 et tableaux résumés en cartes compactes pour conserver la lisibilité.</div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>

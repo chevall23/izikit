@@ -1,0 +1,29 @@
+<head>
+  <meta charset="UTF-8">
+  <title>Habitat-Afrik — Modération &amp; Support</title>
+  <!-- Raw Banani source for screenId BJKHob0JudDQ (flow DRXBZMH20_G8), fetched 2026-09-04.
+       Screen name correct: "Modération Support". Theme object here says --primary: #376BFF
+       (brand) — no conflict, matches admin-dashboard/admin-connexion/admin-inscription (the
+       inline scratch :root inside this HTML also happens to use literal #0EA5E9 hex values, but
+       that's just how this particular screen's generator wrote its CSS, not a `theme` object
+       disagreement like admin-tarification/admin-roles-permissions).
+
+       Reuses the shared sidebar/topbar chrome (Modération & support active in nav). Body: page
+       header with an "Exporter" action, 2-tab switcher (Signalements 14 / Support client 5 — only
+       Signalements has table content in this fetch), 3 KPI cards, a 5-filter bar + Réinitialiser,
+       a "41 signalements" data table (6 rows, type icon / élément concerné / motif / gravité /
+       statut / date / actions), pagination footer.
+
+       KEY LAYOUT DECISION: the Banani source keeps a 460px detail drawer PERMANENTLY open on the
+       right (`.page { padding-right: 508px }`, `.drawer-backdrop { position: absolute }`) — a
+       frozen single-frame mockup, not a real interaction. That doesn't work below ~1400px and
+       breaks entirely on mobile/tablet, so the implementation turns it into a real click-to-open
+       drawer (AdminDrawer component) instead: closed by default, opens on a table-row click,
+       closes via backdrop/X. Row 1 (Villa de luxe – Cocody / Amadou Diallo) reproduces the exact
+       drawer content Banani specified; rows 2–6 got lightly-authored consistent detail (reporter
+       name/avatar/description) since Banani only demoed one row's drawer state — see
+       admin-support.md "Open questions".
+
+       Full markup: re-fetch via mcp__banani__banani_get_selected_designs
+       screenIds=BJKHob0JudDQ for the byte-exact source (trimmed here to keep this file small). -->
+</head>
