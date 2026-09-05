@@ -80,6 +80,16 @@ describe('POST /api/admin/access-requests/[id]/approve', () => {
         data: expect.objectContaining({ role: 'ADMIN', email: 'kofi@example.com' }),
       }),
     );
+    expect(prismaMock.adminAccessRequest.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'req-1', status: 'PENDING_REVIEW' },
+        data: expect.objectContaining({
+          status: 'APPROVED',
+          reviewedByUserId: 'super_1',
+          createdUserId: 'user-new',
+        }),
+      }),
+    );
     expect(prismaMock.adminAction.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -118,6 +128,21 @@ describe('POST /api/admin/access-requests/[id]/approve', () => {
     prismaMock.adminAccessRequest.findUnique.mockResolvedValue(null);
     const res = await POST(makePost('missing'), ctxFor('missing'));
     expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe('ACCESS_REQUEST_NOT_FOUND');
+  });
+
+  it('returns 409 REQUEST_NOT_PENDING and does NOT audit when the update loses the race', async () => {
+    prismaMock.adminAccessRequest.findUnique.mockResolvedValue(PENDING_REQUEST as never);
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.user.create.mockResolvedValue({ id: 'user-new' } as never);
+    prismaMock.adminAccessRequest.updateMany.mockResolvedValue({ count: 0 } as never);
+
+    const res = await POST(makePost('req-1'), ctxFor('req-1'));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toBe('REQUEST_NOT_PENDING');
+    expect(prismaMock.adminAction.create).not.toHaveBeenCalled();
   });
 
   it('propagates 403 from requireAdmin (ADMIN, not SUPERADMIN) without a DB hit', async () => {
