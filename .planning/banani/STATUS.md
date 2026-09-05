@@ -60,9 +60,13 @@ New optional env (defaults baked in, no `.env` change needed to run):
 `ADMIN_ACCESS_REQUEST_VERIFICATION_TTL_MIN` (15),
 `ADMIN_ACCESS_REQUEST_VERIFY_RATE_LIMIT_MAX` (5).
 
-**Verified:** `pnpm test` 1013/1013 · `pnpm typecheck` clean · `pnpm lint`
+**Verified:** `pnpm test` 1014/1014 · `pnpm typecheck` clean · `pnpm lint`
 clean · `pnpm build` compiled successfully (all 6 new routes + both pages
-in the route manifest). Emails inert locally without
+in the route manifest). A final whole-branch review flagged 3 Important
+issues (audit call now atomic-inside-transaction on approve/reject;
+approve pre-checks `User.phone` uniqueness too and maps `P2002` →
+`409 PHONE_ALREADY_REGISTERED`; review screen maps error codes → French
+instead of raw `ApiError.message`) — all fixed. Emails inert locally without
 `BREVO_API_KEY`/`UPSTASH_REDIS_REST_URL` (code logged to server console via
 `log.warn`) — acceptable dev limitation. Full interactive
 approve/reject walkthrough requires `pnpm db:make-superadmin <email>` +
