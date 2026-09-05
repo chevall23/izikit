@@ -8,6 +8,7 @@ import {
   Video,
   ShieldAlert,
   Settings2,
+  UserPlus,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -20,7 +21,8 @@ export type AdminNavKey =
   | 'finance'
   | 'vr'
   | 'support'
-  | 'settings';
+  | 'settings'
+  | 'access-requests';
 
 export interface AdminNavEntry {
   key: AdminNavKey;
@@ -61,6 +63,12 @@ export const ADMIN_NAV: AdminNavEntry[] = [
     count: 19,
   },
   { key: 'settings', label: 'Paramètres', icon: Settings2, href: '/admin/parametres' },
+  {
+    key: 'access-requests',
+    label: "Demandes d'accès admin",
+    icon: UserPlus,
+    href: '/admin/demandes-acces',
+  },
 ];
 
 export const ADMIN_COUNTRY_PILLS = ['BJ', 'TG', 'CI', 'SN'] as const;
