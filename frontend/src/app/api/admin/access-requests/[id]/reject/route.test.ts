@@ -59,6 +59,12 @@ beforeEach(() => {
   } as never);
   prismaMock.adminAccessRequest.updateMany.mockResolvedValue({ count: 1 } as never);
   prismaMock.adminAction.create.mockResolvedValue({} as never);
+  prismaMock.$transaction.mockImplementation((cb: unknown) => {
+    if (typeof cb === 'function') {
+      return (cb as (tx: typeof prismaMock) => unknown)(prismaMock) as Promise<unknown>;
+    }
+    return Promise.resolve(cb);
+  });
 });
 
 describe('POST /api/admin/access-requests/[id]/reject', () => {

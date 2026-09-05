@@ -52,29 +52,37 @@ export async function POST(
       );
     }
 
-    const updated = await prisma.adminAccessRequest.updateMany({
-      where: { id, status: 'PENDING_REVIEW' },
-      data: {
-        status: 'REJECTED',
-        reviewedByUserId: auth.admin.id,
-        reviewedAt: new Date(),
-        ...(parsed.data.reason !== undefined && { rejectionReason: parsed.data.reason }),
-      },
-    });
-    if (updated.count === 0) {
-      return NextResponse.json(
-        { error: 'REQUEST_NOT_PENDING', message: 'This request has already been decided.' },
-        { status: 409, headers: { 'x-request-id': reqCtx.requestId } },
-      );
+    try {
+      await prisma.$transaction(async (tx) => {
+        const updated = await tx.adminAccessRequest.updateMany({
+          where: { id, status: 'PENDING_REVIEW' },
+          data: {
+            status: 'REJECTED',
+            reviewedByUserId: auth.admin.id,
+            reviewedAt: new Date(),
+            ...(parsed.data.reason !== undefined && { rejectionReason: parsed.data.reason }),
+          },
+        });
+        if (updated.count === 0) {
+          throw new Error('REQUEST_RACE');
+        }
+        await logAdminAction(tx, {
+          actorId: auth.admin.id,
+          action: 'admin-access-request.reject',
+          targetType: 'AdminAccessRequest',
+          targetId: id,
+          metadata: { email: existing.email, reason: parsed.data.reason ?? null },
+        });
+      });
+    } catch (err) {
+      if (err instanceof Error && err.message === 'REQUEST_RACE') {
+        return NextResponse.json(
+          { error: 'REQUEST_NOT_PENDING', message: 'This request has already been decided.' },
+          { status: 409, headers: { 'x-request-id': reqCtx.requestId } },
+        );
+      }
+      throw err;
     }
-
-    await logAdminAction(prisma, {
-      actorId: auth.admin.id,
-      action: 'admin-access-request.reject',
-      targetType: 'AdminAccessRequest',
-      targetId: id,
-      metadata: { email: existing.email, reason: parsed.data.reason ?? null },
-    });
 
     try {
       const queue = getEmailQueue();

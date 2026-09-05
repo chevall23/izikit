@@ -17,6 +17,14 @@ const STATUS_LABEL: Record<Status, string> = {
   APPROVED: 'Approuvée',
   REJECTED: 'Rejetée',
 };
+const DECISION_ERROR_MESSAGES: Record<string, string> = {
+  REQUEST_NOT_PENDING: 'Cette demande a déjà été traitée.',
+  EMAIL_ALREADY_REGISTERED: 'Un utilisateur avec cet email existe déjà.',
+  PHONE_ALREADY_REGISTERED: 'Un utilisateur avec ce téléphone existe déjà.',
+  ACCESS_REQUEST_NOT_FOUND: 'Cette demande est introuvable.',
+  ADMIN_REQUIRED: 'Action réservée aux super-administrateurs.',
+};
+
 const STATUS_TONE: Record<Status, AdminStatusTone> = {
   PENDING_EMAIL: 'neutral',
   PENDING_REVIEW: 'warning',
@@ -66,7 +74,12 @@ export default function AdminDemandesAccesPage() {
       api<{ items: AccessRequest[] }>(`/api/admin/access-requests?status=${status}&limit=50`)
         .then((res) => setItems(res.items))
         .catch((e) =>
-          toast(e instanceof ApiError ? e.message : 'Impossible de charger les demandes.', 'error'),
+          toast(
+            e instanceof ApiError
+              ? (DECISION_ERROR_MESSAGES[e.code] ?? 'Impossible de charger les demandes.')
+              : 'Impossible de charger les demandes.',
+            'error',
+          ),
         )
         .finally(() => setLoading(false));
     },
@@ -90,7 +103,12 @@ export default function AdminDemandesAccesPage() {
       setOpenId(null);
       load(tab);
     } catch (e) {
-      toast(e instanceof ApiError ? e.message : "Impossible d'approuver cette demande.", 'error');
+      toast(
+        e instanceof ApiError
+          ? (DECISION_ERROR_MESSAGES[e.code] ?? "Impossible d'approuver cette demande.")
+          : "Impossible d'approuver cette demande.",
+        'error',
+      );
     } finally {
       setDeciding(false);
     }
@@ -107,7 +125,12 @@ export default function AdminDemandesAccesPage() {
       setOpenId(null);
       load(tab);
     } catch (e) {
-      toast(e instanceof ApiError ? e.message : 'Impossible de rejeter cette demande.', 'error');
+      toast(
+        e instanceof ApiError
+          ? (DECISION_ERROR_MESSAGES[e.code] ?? 'Impossible de rejeter cette demande.')
+          : 'Impossible de rejeter cette demande.',
+        'error',
+      );
     } finally {
       setDeciding(false);
       setRejecting(false);

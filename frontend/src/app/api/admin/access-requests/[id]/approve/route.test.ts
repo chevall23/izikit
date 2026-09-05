@@ -68,7 +68,7 @@ beforeEach(() => {
 describe('POST /api/admin/access-requests/[id]/approve', () => {
   it('creates an ADMIN user and marks the request APPROVED', async () => {
     prismaMock.adminAccessRequest.findUnique.mockResolvedValue(PENDING_REQUEST as never);
-    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.user.findFirst.mockResolvedValue(null);
     prismaMock.user.create.mockResolvedValue({ id: 'user-new' } as never);
     prismaMock.adminAccessRequest.updateMany.mockResolvedValue({ count: 1 } as never);
 
@@ -115,12 +115,29 @@ describe('POST /api/admin/access-requests/[id]/approve', () => {
 
   it('returns 409 EMAIL_ALREADY_REGISTERED when a User already has this email', async () => {
     prismaMock.adminAccessRequest.findUnique.mockResolvedValue(PENDING_REQUEST as never);
-    prismaMock.user.findUnique.mockResolvedValue({ id: 'existing-user' } as never);
+    prismaMock.user.findFirst.mockResolvedValue({
+      id: 'existing',
+      email: PENDING_REQUEST.email,
+    } as never);
 
     const res = await POST(makePost('req-1'), ctxFor('req-1'));
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.error).toBe('EMAIL_ALREADY_REGISTERED');
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 PHONE_ALREADY_REGISTERED when another User already has this phone', async () => {
+    prismaMock.adminAccessRequest.findUnique.mockResolvedValue(PENDING_REQUEST as never);
+    prismaMock.user.findFirst.mockResolvedValue({
+      id: 'u-x',
+      email: 'other@example.com',
+    } as never);
+
+    const res = await POST(makePost('req-1'), ctxFor('req-1'));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toBe('PHONE_ALREADY_REGISTERED');
     expect(prismaMock.user.create).not.toHaveBeenCalled();
   });
 
@@ -134,7 +151,7 @@ describe('POST /api/admin/access-requests/[id]/approve', () => {
 
   it('returns 409 REQUEST_NOT_PENDING and does NOT audit when the update loses the race', async () => {
     prismaMock.adminAccessRequest.findUnique.mockResolvedValue(PENDING_REQUEST as never);
-    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.user.findFirst.mockResolvedValue(null);
     prismaMock.user.create.mockResolvedValue({ id: 'user-new' } as never);
     prismaMock.adminAccessRequest.updateMany.mockResolvedValue({ count: 0 } as never);
 

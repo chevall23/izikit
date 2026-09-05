@@ -8,6 +8,7 @@ export const runtime = 'nodejs';
 
 import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { verifyCsrf } from '@/lib/server/auth';
 import { requireAdmin } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
@@ -50,20 +51,27 @@ export async function POST(
       );
     }
 
-    const emailTaken = await prisma.user.findUnique({
-      where: { email: existing.email },
-      select: { id: true },
+    const taken = await prisma.user.findFirst({
+      where: { OR: [{ email: existing.email }, { phone: existing.phone }] },
+      select: { id: true, email: true },
     });
-    if (emailTaken) {
+    if (taken) {
+      const code =
+        taken.email === existing.email ? 'EMAIL_ALREADY_REGISTERED' : 'PHONE_ALREADY_REGISTERED';
       return NextResponse.json(
-        { error: 'EMAIL_ALREADY_REGISTERED', message: 'A user with this email already exists.' },
+        {
+          error: code,
+          message:
+            code === 'EMAIL_ALREADY_REGISTERED'
+              ? 'A user with this email already exists.'
+              : 'A user with this phone number already exists.',
+        },
         { status: 409, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
 
-    let createdUserId: string;
     try {
-      createdUserId = await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx) => {
         const user = await tx.user.create({
           data: {
             email: existing.email,
@@ -87,6 +95,13 @@ export async function POST(
         if (updated.count === 0) {
           throw new Error('REQUEST_RACE');
         }
+        await logAdminAction(tx, {
+          actorId: auth.admin.id,
+          action: 'admin-access-request.approve',
+          targetType: 'AdminAccessRequest',
+          targetId: existing.id,
+          metadata: { createdUserId: user.id, email: existing.email },
+        });
         return user.id;
       });
     } catch (err) {
@@ -96,16 +111,24 @@ export async function POST(
           { status: 409, headers: { 'x-request-id': reqCtx.requestId } },
         );
       }
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const target = Array.isArray(err.meta?.target) ? (err.meta.target as string[]) : [];
+        const code = target.includes('phone')
+          ? 'PHONE_ALREADY_REGISTERED'
+          : 'EMAIL_ALREADY_REGISTERED';
+        return NextResponse.json(
+          {
+            error: code,
+            message:
+              code === 'PHONE_ALREADY_REGISTERED'
+                ? 'A user with this phone number already exists.'
+                : 'A user with this email already exists.',
+          },
+          { status: 409, headers: { 'x-request-id': reqCtx.requestId } },
+        );
+      }
       throw err;
     }
-
-    await logAdminAction(prisma, {
-      actorId: auth.admin.id,
-      action: 'admin-access-request.approve',
-      targetType: 'AdminAccessRequest',
-      targetId: existing.id,
-      metadata: { createdUserId, email: existing.email },
-    });
 
     try {
       const queue = getEmailQueue();
