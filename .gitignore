@@ -16,6 +16,7 @@ next-env.d.ts
 # Claude Code — keep .claude/skills/ + settings.json shared, ignore per-machine state
 .claude/settings.local.json
 .claude/worktrees/
+.worktrees/
 .claude/skills/ui-ux-pro-max/scripts/__pycache__/
 
 # Local cruft — not part of the kit
