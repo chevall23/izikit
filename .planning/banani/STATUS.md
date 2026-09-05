@@ -1,6 +1,75 @@
 # Banani implementation status
 
-Last updated: 2026-09-04
+Last updated: 2026-09-05
+
+## 2026-09-05 — Admin Inscription: REAL backend (first non-mockup admin screen)
+
+`/admin/inscription` is now wired to an actual request-and-review backend —
+the first screen in the admin batch with a Prisma model + Route Handlers
+behind it instead of static demo data.
+
+**Model:** new `AdminAccessRequest` in `frontend/prisma/schema.prisma`
+(migration `20260905125525_add_admin_access_request`), deliberately
+separate from `User` — no login-capable account exists until a SUPERADMIN
+approves. Status machine `PENDING_EMAIL → PENDING_REVIEW → APPROVED |
+REJECTED` as a plain `String` column (matches `User.role` etc., no Prisma
+enum).
+
+**Routes (6 new handlers):**
+- `POST /api/public/admin-access-requests` — public, enumeration-resistant
+  (identical 201 whether email is new / a `User` / another active request;
+  `dummyBcryptCompare` for timing parity), password policy reused from
+  signup, per-email rate limit (`admin-access-request`, 5/h).
+- `POST /api/public/admin-access-requests/verify-email` — TOCTOU-safe
+  `PENDING_EMAIL → PENDING_REVIEW` via `updateMany` guard, `timingSafeCompare`
+  on the 8-char code, rate limit (`admin-access-request-verify`, 5/15min),
+  best-effort SUPERADMIN notification.
+- `GET /api/admin/access-requests` — SUPERADMIN, cursor-paginated, default
+  `?status=PENDING_REVIEW`; never selects `passwordHash`.
+- `GET /api/admin/access-requests/[id]` — SUPERADMIN detail.
+- `POST /api/admin/access-requests/[id]/approve` — SUPERADMIN + CSRF; the
+  ONLY path that grants `ADMIN`. Creates the real `User` (role `ADMIN`,
+  copies stored `passwordHash`) inside a `$transaction` with the request
+  `→ APPROVED` update, race-guarded via `updateMany` count check
+  (`REQUEST_RACE → 409 REQUEST_NOT_PENDING`); `409 EMAIL_ALREADY_REGISTERED`
+  pre-check; audited via `logAdminAction` (`admin-access-request.approve`);
+  best-effort approval email. No auto-login.
+- `POST /api/admin/access-requests/[id]/reject` — SUPERADMIN + CSRF;
+  `updateMany` guard, optional `reason` (≤500), audited
+  (`admin-access-request.reject`), best-effort rejection email.
+
+**Frontend:** `frontend/src/app/admin/inscription/page.tsx` rewritten into
+a 3-step flow (`form → code → done`) calling the two public routes via
+`api()`/`ApiError` with French error-code maps. New SUPERADMIN review
+screen `frontend/src/app/admin/demandes-acces/page.tsx` (status tabs +
+table + `AdminDrawer` with Approuver/Rejeter). Nav entry `access-requests`
+(`UserPlus`, `/admin/demandes-acces`) appended after `settings` in
+`admin-nav.ts`.
+
+**Two documented deviations from the design spec:**
+1. The public create/verify routes live under `/api/public/*` (not
+   `/api/admin/*` as the spec drafted) — matches the codebase convention
+   that `/api/admin/*` is always `requireAdmin`-gated.
+2. The spec's `verificationAttempts` lockout counter was dropped — the
+   real `VerificationCode.attempts` column is never read/written anywhere;
+   brute-force protection is the per-email rate limiter only, same as
+   `/api/auth/verify-email`.
+
+New optional env (defaults baked in, no `.env` change needed to run):
+`ADMIN_ACCESS_REQUEST_RATE_LIMIT_MAX` (5),
+`ADMIN_ACCESS_REQUEST_VERIFICATION_TTL_MIN` (15),
+`ADMIN_ACCESS_REQUEST_VERIFY_RATE_LIMIT_MAX` (5).
+
+**Verified:** `pnpm test` 1013/1013 · `pnpm typecheck` clean · `pnpm lint`
+clean · `pnpm build` compiled successfully (all 6 new routes + both pages
+in the route manifest). Emails inert locally without
+`BREVO_API_KEY`/`UPSTASH_REDIS_REST_URL` (code logged to server console via
+`log.warn`) — acceptable dev limitation. Full interactive
+approve/reject walkthrough requires `pnpm db:make-superadmin <email>` +
+login at `/admin/connexion`.
+
+Plan: `docs/superpowers/plans/2026-09-05-admin-inscription-backend.md`.
+Spec: `docs/superpowers/specs/2026-09-05-admin-inscription-backend-design.md`.
 
 ## 2026-09-04 — Admin Demandes immobilières built (mockup only, no backend)
 
