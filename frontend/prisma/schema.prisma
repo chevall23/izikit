@@ -788,3 +788,30 @@ model ContactMessage {
 
   @@index([status, createdAt])
 }
+
+// ───────────────────────────────────────────────────────────────────────
+// Admin access requests — self-service request-and-review workflow for
+// /admin/inscription. Deliberately separate from `User`: no login-capable
+// account exists until a SUPERADMIN approves the request (see
+// docs/superpowers/specs/2026-09-05-admin-inscription-backend-design.md).
+// ───────────────────────────────────────────────────────────────────────
+model AdminAccessRequest {
+  id                    String    @id @default(cuid())
+  name                  String
+  email                 String
+  phone                 String
+  passwordHash          String
+  status                String    @default("PENDING_EMAIL") // PENDING_EMAIL | PENDING_REVIEW | APPROVED | REJECTED
+  emailVerifiedAt       DateTime?
+  verificationCode      String?
+  verificationExpiresAt DateTime?
+  reviewedByUserId      String?
+  reviewedAt            DateTime?
+  rejectionReason       String?
+  createdUserId         String? // set on approval — the resulting User.id
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([status])
+  @@index([email])
+}
