@@ -97,7 +97,7 @@ SMOKE_BASE_URL=https://<domaine> pnpm smoke:auth
 Puis, test manuel : signup → verify-email → login ; upload Cloudinary ; paiement test Bictorys (webhook reçu) ; un cron déclenché à la main.
 
 ## 9. Retrait de l'ancien hébergement
-⚠️ Avant de supprimer l'ancien environnement (Vercel/Neon ou autre) : **la migration ne reprend PAS les données.** Si l'ancien environnement contient des données réelles à conserver, fais un `pg_dump` et un plan de reprise **AVANT** cette étape.
+⚠️ Avant de supprimer l'ancien environnement (Vercel ou autre) : **la migration ne reprend PAS les données.** Si l'ancien environnement contient des données réelles à conserver, fais un `pg_dump` et un plan de reprise **AVANT** cette étape.
 
 Après 48 h stables : supprimer l'ancien projet et purger ses variables d'environnement.
 

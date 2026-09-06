@@ -2,7 +2,7 @@
 //
 // Why: every signup / forgot-password / payment-confirmation enqueues an
 // EmailJob row (persistent audit trail of what was sent). Without retention,
-// the table grows unbounded on Neon — multi-GB after a few months of usage.
+// the table grows unbounded — multi-GB after a few months of usage.
 //
 // What we delete: rows with `status='SENT'` AND `sentAt < cutoff`. We keep
 // `DEAD` rows so an operator can investigate / replay them, and `PENDING`

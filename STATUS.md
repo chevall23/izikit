@@ -141,7 +141,7 @@ Audit trail of these waves lives in `.planning/archive/` (SIMPLIFY-AUDIT, POST-S
 
 ### What is no longer in scope
 
-- Docker / `docker-compose` — the kit is cloud-only by design; Neon free tier replaces local Postgres in 30 seconds.
+- Docker / `docker-compose` — this project runs a local PostgreSQL cluster directly (see `.pg-local/`, port 5433) and deploys to a managed PostgreSQL on PlanetHoster N0C. No container layer.
 - Vercel CLI as a prerequisite — deploys happen via `git push` → Vercel imports the repo via UI.
 - A `frontend/Dockerfile` — removed in the simplification waves.
 
