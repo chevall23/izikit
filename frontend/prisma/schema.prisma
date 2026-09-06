@@ -90,7 +90,8 @@ model User {
   withdrawals       Withdrawal[]
   oauthAccounts     OAuthAccount[]
   adminActions      AdminAction[]
-  listings          Listing[]
+  listings          Listing[]           @relation("ListingOwner")
+  moderatedListings Listing[]           @relation("ListingModerator")
   propertyRequests  PropertyRequest[]
   alerts            Alert[]
   tokenWallet       TokenWallet?
@@ -486,7 +487,7 @@ model TokenTransaction {
 model Listing {
   id     String @id @default(cuid())
   userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation("ListingOwner", fields: [userId], references: [id], onDelete: Cascade)
 
   title           String
   city            String
@@ -495,7 +496,7 @@ model Listing {
   transactionType String @default("VENTE") // VENTE | LOCATION | SEJOUR | AUBERGE
   price           Int // smallest currency unit (FCFA = no decimals); for RENT/SHORT_RENT this is the per-month price
   currency        String @default("XOF")
-  status          String @default("PENDING") // DRAFT | PENDING | VERIFIED | SOLD
+  status          String @default("PENDING") // DRAFT | PENDING | VERIFIED | REJECTED | SOLD
 
   // "Publier une annonce" fields (frontend/src/app/listings/new/page.tsx).
   // All nullable — a DRAFT listing may have none of them filled in yet;
@@ -512,6 +513,15 @@ model Listing {
   kitchens    Int?
   amenities   Json    @default("[]") // string[] of amenity keys, e.g. ["POOL","PARKING"]
 
+  // Admin moderation metadata (set by lib/server/listings/moderation.ts).
+  // rejectionReason / rejectedAt are cleared on approval and on owner
+  // re-submission of a REJECTED listing.
+  rejectionReason String?
+  rejectedAt      DateTime?
+  moderatedById   String?
+  moderatedBy     User?     @relation("ListingModerator", fields: [moderatedById], references: [id], onDelete: SetNull)
+  moderatedAt     DateTime?
+
   photos    ListingPhoto[]
   documents ListingDocument[]
   inquiries ListingInquiry[]
@@ -525,6 +535,7 @@ model Listing {
 
   @@index([userId, createdAt])
   @@index([status])
+  @@index([status, createdAt])
 }
 
 // One row per successful public-detail-page view — written best-effort
