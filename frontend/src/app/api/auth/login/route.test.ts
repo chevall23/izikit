@@ -204,4 +204,43 @@ describe('POST /api/auth/login', () => {
     expect(__cookieStore.has('app-refresh')).toBe(false);
     expect(__cookieStore.has('app-csrf')).toBe(false);
   });
+
+  it('Test 10: remember omitted — persistent cookies (explicit maxAge)', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      email: 'a@b.com',
+      passwordHash: '$2a$12$hashhashhashhashhashhashhashhashhashhashhashhashhashhha',
+      emailVerifiedAt: new Date(),
+      tokenVersion: 0,
+    } as never);
+    vi.mocked(verifyPassword).mockResolvedValue(true);
+
+    const res = await POST(makeReq({ email: 'a@b.com', password: 'longenough' }));
+
+    expect(res.status).toBe(200);
+    expect(__cookieStore.get('app-token')?.options?.maxAge).toBe(15 * 60);
+    expect(__cookieStore.get('app-refresh')?.options?.maxAge).toBe(7 * 24 * 60 * 60);
+    expect(__cookieStore.get('app-csrf')?.options?.maxAge).toBe(7 * 24 * 60 * 60);
+  });
+
+  it('Test 11: remember=false — session cookies (no maxAge)', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      email: 'a@b.com',
+      passwordHash: '$2a$12$hashhashhashhashhashhashhashhashhashhashhashhashhashhha',
+      emailVerifiedAt: new Date(),
+      tokenVersion: 0,
+    } as never);
+    vi.mocked(verifyPassword).mockResolvedValue(true);
+
+    const res = await POST(makeReq({ email: 'a@b.com', password: 'longenough', remember: false }));
+
+    expect(res.status).toBe(200);
+    expect(__cookieStore.has('app-token')).toBe(true);
+    expect(__cookieStore.has('app-refresh')).toBe(true);
+    expect(__cookieStore.has('app-csrf')).toBe(true);
+    expect(__cookieStore.get('app-token')?.options?.maxAge).toBeUndefined();
+    expect(__cookieStore.get('app-refresh')?.options?.maxAge).toBeUndefined();
+    expect(__cookieStore.get('app-csrf')?.options?.maxAge).toBeUndefined();
+  });
 });

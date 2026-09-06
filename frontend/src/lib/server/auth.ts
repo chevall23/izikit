@@ -54,14 +54,33 @@ function cookieDomain(): string | undefined {
 // route handlers. Each helper fetches the cookie store internally.
 // ───────────────────────────────────────────────────────────────────────
 
-export async function setAuthCookies(accessToken: string, refreshToken: string): Promise<void> {
+/**
+ * Cookie-lifetime knob shared by setAuthCookies / setCsrfCookie.
+ *
+ * `persistent: true` (the default) keeps the historical behavior — the
+ * cookies carry an explicit `maxAge` so they survive a browser restart
+ * (access 15m, refresh/csrf 7d). `persistent: false` omits `maxAge`, so
+ * the browser treats them as session cookies and drops them when the
+ * window closes. The admin login screen wires this to its "keep me
+ * signed in on this device" checkbox.
+ */
+export interface CookiePersistenceOpts {
+  persistent?: boolean;
+}
+
+export async function setAuthCookies(
+  accessToken: string,
+  refreshToken: string,
+  opts: CookiePersistenceOpts = {},
+): Promise<void> {
+  const { persistent = true } = opts;
   const store = await cookies();
   const domain = cookieDomain();
   store.set(COOKIE_NAME, accessToken, {
     httpOnly: true,
     secure: isProd(),
     sameSite: 'lax',
-    maxAge: ACCESS_COOKIE_MAX_AGE,
+    ...(persistent ? { maxAge: ACCESS_COOKIE_MAX_AGE } : {}),
     path: '/',
     ...(domain ? { domain } : {}),
   });
@@ -69,7 +88,7 @@ export async function setAuthCookies(accessToken: string, refreshToken: string):
     httpOnly: true,
     secure: isProd(),
     sameSite: 'lax',
-    maxAge: REFRESH_COOKIE_MAX_AGE,
+    ...(persistent ? { maxAge: REFRESH_COOKIE_MAX_AGE } : {}),
     path: '/api/auth',
     ...(domain ? { domain } : {}),
   });
@@ -96,7 +115,8 @@ export async function clearAuthCookies(): Promise<void> {
   });
 }
 
-export async function setCsrfCookie(): Promise<string> {
+export async function setCsrfCookie(opts: CookiePersistenceOpts = {}): Promise<string> {
+  const { persistent = true } = opts;
   const store = await cookies();
   const domain = cookieDomain();
   const csrfToken = crypto.randomBytes(32).toString('hex');
@@ -104,7 +124,7 @@ export async function setCsrfCookie(): Promise<string> {
     httpOnly: false, // must be readable by JS
     secure: isProd(),
     sameSite: 'lax',
-    maxAge: CSRF_COOKIE_MAX_AGE,
+    ...(persistent ? { maxAge: CSRF_COOKIE_MAX_AGE } : {}),
     path: '/',
     ...(domain ? { domain } : {}),
   });

@@ -39,6 +39,10 @@ import { log } from '@/lib/server/observability/log';
 const LoginSchema = z.object({
   email: zEmail,
   password: z.string().min(1),
+  // "Keep me signed in on this device" — defaults to true (persistent
+  // cookies, historical behavior). false → session cookies that the
+  // browser drops on close. Wired to the admin login checkbox.
+  remember: z.boolean().optional().default(true),
 });
 
 // Module-level limiter — D-08: 10 attempts / 15 min per identifier.
@@ -74,7 +78,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 400, headers: { 'x-request-id': ctx.requestId } },
       );
     }
-    const { email, password } = parsed.data;
+    const { email, password, remember } = parsed.data;
 
     // 2. Rate limit per identifier
     const rl = await limiter.check(req, email);
@@ -174,8 +178,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       tokenVersion: user.tokenVersion,
     });
     const refreshToken = await createRefreshToken(user.id, user.tokenVersion);
-    await setAuthCookies(accessToken, refreshToken);
-    await setCsrfCookie();
+    await setAuthCookies(accessToken, refreshToken, { persistent: remember });
+    await setCsrfCookie({ persistent: remember });
 
     return NextResponse.json(
       { ok: true, user: { sub: user.id, email: user.email } },
