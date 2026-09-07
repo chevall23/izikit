@@ -98,6 +98,29 @@ In-memory CircuitBreaker remains single-instance per CLAUDE.md ("documented limi
 
 ---
 
+### Admin listings moderation (branch `feat/admin-annonces-backend`)
+
+Back-office moderation queue behind `/admin/annonces`. New routes under
+`frontend/src/app/api/admin/listings/`:
+
+| Endpoint | Method | Purpose |
+| --- | --- | --- |
+| `/api/admin/listings` | GET | filtered + cursor-paginated queue + per-status `counts` |
+| `/api/admin/listings/[id]` | GET / PATCH / DELETE | detail · admin-override edit · hard delete |
+| `/api/admin/listings/[id]/approve` | POST | → `VERIFIED` |
+| `/api/admin/listings/[id]/reject` | POST | → `REJECTED` + `rejectionReason` |
+| `/api/admin/listings/bulk` | POST | bulk approve / reject / delete |
+| `/api/admin/listings/export` | GET | CSV download (5000-row cap) |
+
+`Listing` gains `REJECTED` status + `rejectionReason` / `rejectedAt` /
+`moderatedById` / `moderatedAt` (migration `admin_listings_moderation`).
+Moderation state machine in `frontend/src/lib/server/listings/moderation.ts`;
+CSV serializer in `frontend/src/lib/server/csv.ts`. Owner publish flow now
+lands on `PENDING` (admin validation gate) instead of `VERIFIED`, and an
+owner may re-submit a `REJECTED` listing. Boost, auto-expiry and moderation
+history are out of scope (see
+`docs/superpowers/specs/2026-09-06-admin-annonces-backend-design.md`).
+
 ## 📚 Earlier scaffold work (already on master, kept here for archaeology)
 
 ### M1 — Scaffold
