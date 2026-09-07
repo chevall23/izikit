@@ -2,6 +2,7 @@
 // client, returns updated rows or throws ModerationError with a stable
 // code the admin routes map to HTTP. No Next/HTTP imports here.
 import 'server-only';
+import type { PrismaClient } from '@prisma/client';
 
 export type ModerationErrorCode =
   | 'LISTING_NOT_FOUND'
@@ -29,6 +30,15 @@ export interface ModerationClient {
     }): Promise<Record<string, unknown>>;
     delete(args: { where: { id: string } }): Promise<unknown>;
   };
+}
+
+/**
+ * Adapt a full PrismaClient to the narrow ModerationClient shape.
+ * The one unavoidable structural cast is centralized here so route
+ * call sites stay cast-free.
+ */
+export function asModerationClient(prisma: PrismaClient): ModerationClient {
+  return prisma as unknown as ModerationClient;
 }
 
 const NON_MODERATABLE = new Set(['DRAFT', 'SOLD']);

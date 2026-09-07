@@ -17,7 +17,7 @@ import { logAdminAction } from '@/lib/server/admin/audit';
 import {
   deleteListing,
   ModerationError,
-  type ModerationClient,
+  asModerationClient,
 } from '@/lib/server/listings/moderation';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
@@ -240,7 +240,7 @@ export async function DELETE(
       return jsonError('LISTING_NOT_FOUND', 'Listing not found', 404, reqCtx.requestId);
 
     try {
-      await deleteListing(prisma as unknown as ModerationClient, { id });
+      await deleteListing(asModerationClient(prisma), { id });
     } catch (err) {
       if (err instanceof ModerationError && err.code === 'LISTING_NOT_FOUND') {
         return jsonError('LISTING_NOT_FOUND', 'Listing not found', 404, reqCtx.requestId);
