@@ -7,15 +7,16 @@
 //     per-field shape/range checks. Status stays DRAFT.
 //   - `publish: true` — "Publier l'annonce": merges the incoming fields
 //     with the listing's current values, checks every field/photo required
-//     for publication is present, and only then flips status straight to
-//     VERIFIED (no manual admin review gate for listing publication).
-//     Missing requirements come back as 400 `PUBLISH_REQUIREMENTS_NOT_MET`
-//     with a `missing` array the frontend maps to inline field errors.
+//     for publication is present, and only then flips status to PENDING
+//     for admin moderation (also clearing any prior rejectionReason /
+//     rejectedAt). Missing requirements come back as 400
+//     `PUBLISH_REQUIREMENTS_NOT_MET` with a `missing` array the frontend
+//     maps to inline field errors.
 //
-// Only the owning user can edit their own DRAFT — 404 (not 403) on
+// Only the owning user can edit their own listing — 404 (not 403) on
 // mismatch/missing to avoid leaking existence, same convention as the org
-// routes. Non-DRAFT listings can't be edited through this route (409) —
-// there is no "modifier annonce" flow yet (separate future screen).
+// routes. Only DRAFT or REJECTED listings can be edited through this route
+// (a rejected listing is re-submittable); anything else is 409.
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -120,9 +121,12 @@ export async function PATCH(
         { status: 404, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
-    if (existing.status !== 'DRAFT') {
+    if (existing.status !== 'DRAFT' && existing.status !== 'REJECTED') {
       return NextResponse.json(
-        { error: 'LISTING_NOT_DRAFT', message: 'Only a draft listing can be edited here' },
+        {
+          error: 'LISTING_NOT_DRAFT',
+          message: 'Only a draft or rejected listing can be edited here',
+        },
         { status: 409, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
@@ -178,7 +182,11 @@ export async function PATCH(
         ...(fields.bathrooms !== undefined && { bathrooms: fields.bathrooms }),
         ...(fields.kitchens !== undefined && { kitchens: fields.kitchens }),
         ...(fields.amenities !== undefined && { amenities: fields.amenities }),
-        ...(publish && { status: 'VERIFIED' }),
+        ...(publish && {
+          status: 'PENDING',
+          rejectionReason: null,
+          rejectedAt: null,
+        }),
       },
       select: LISTING_SELECT,
     });

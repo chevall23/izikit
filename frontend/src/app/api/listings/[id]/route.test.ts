@@ -121,6 +121,30 @@ describe('PATCH /api/listings/[id]', () => {
     expect(body.error).toBe('LISTING_NOT_DRAFT');
   });
 
+  it('lets the owner edit a REJECTED listing and re-submit it to PENDING', async () => {
+    prismaMock.listing.findUnique.mockResolvedValueOnce(
+      makeDraft({
+        status: 'REJECTED',
+        title: 'T',
+        description: 'D',
+        price: 100,
+        city: 'C',
+        country: 'X',
+        propertyType: 'VILLA',
+        transactionType: 'VENTE',
+      }) as never,
+    );
+    prismaMock.listingPhoto.count.mockResolvedValueOnce(1 as never);
+    prismaMock.listing.update.mockResolvedValueOnce(makeDraft({ status: 'PENDING' }) as never);
+    const { req, ctx } = makePatch('l1', { publish: true });
+    const res = await PATCH(req, ctx);
+    expect(res.status).toBe(200);
+    const args = prismaMock.listing.update.mock.calls[0]?.[0];
+    expect(args?.data?.status).toBe('PENDING');
+    expect(args?.data?.rejectionReason).toBeNull();
+    expect(args?.data?.rejectedAt).toBeNull();
+  });
+
   it('saves a partial draft without requiring every field (publish: false)', async () => {
     const { req, ctx } = makePatch('l1', { title: 'Villa test' });
     const res = await PATCH(req, ctx);
@@ -188,7 +212,7 @@ describe('PATCH /api/listings/[id]', () => {
     expect(body.missing).not.toContain('surfaceM2');
   });
 
-  it('publish succeeds and flips status to VERIFIED once every requirement is met', async () => {
+  it('publish succeeds and flips status to PENDING once every requirement is met', async () => {
     prismaMock.listing.findUnique.mockResolvedValueOnce(
       makeDraft({
         title: 'Villa moderne',
@@ -208,6 +232,6 @@ describe('PATCH /api/listings/[id]', () => {
     const res = await PATCH(req, ctx);
     expect(res.status).toBe(200);
     const args = prismaMock.listing.update.mock.calls[0]?.[0];
-    expect(args?.data?.status).toBe('VERIFIED');
+    expect(args?.data?.status).toBe('PENDING');
   });
 });

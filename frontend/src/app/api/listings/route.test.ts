@@ -114,10 +114,11 @@ describe('GET /api/listings', () => {
       .mockResolvedValueOnce(24 as never) // total
       .mockResolvedValueOnce(16 as never) // verified
       .mockResolvedValueOnce(5 as never) // pending
+      .mockResolvedValueOnce(2 as never) // rejected
       .mockResolvedValueOnce(3 as never); // sold
     const res = await GET(makeGet());
     const body = await res.json();
-    expect(body.counts).toEqual({ total: 24, verified: 16, pending: 5, sold: 3 });
+    expect(body.counts).toEqual({ total: 24, verified: 16, pending: 5, rejected: 2, sold: 3 });
     for (const call of prismaMock.listing.count.mock.calls) {
       expect(call[0]?.where?.userId).toBe('user-1');
     }
