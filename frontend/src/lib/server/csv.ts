@@ -22,6 +22,6 @@ export function toCsv<T>(rows: readonly T[], columns: readonly CsvColumn<T>[]): 
     .map((row) => columns.map((c) => escapeField(c.value(row))).join(','))
     .join('\r\n');
   const lines = body.length > 0 ? `${head}\r\n${body}\r\n` : `${head}\r\n`;
-   
-  return '﻿' + lines;
+  // eslint-disable-next-line no-irregular-whitespace
+  return `﻿${lines}`;
 }
