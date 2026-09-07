@@ -9,6 +9,7 @@ import { requireAdmin } from '@/lib/server/middleware';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { NextResponse } from 'next/server';
 import { GET } from './route';
+import { encodeCursor } from '@/lib/server/pagination/paginate';
 import { seedAdmin } from '@/test-utils/admin-fixtures';
 
 const mockRequireAdmin = vi.mocked(requireAdmin);
@@ -62,6 +63,21 @@ describe('GET /api/admin/listings', () => {
       price: { gte: 1000, lte: 5000 },
     });
     expect(JSON.stringify(arg.where)).toContain('villa');
+  });
+
+  it('keeps the q OR alongside the cursor OR when both are present (AND-combined)', async () => {
+    const cursor = encodeCursor({ createdAt: new Date('2026-07-01T00:00:00Z'), id: 'l9' });
+    await GET(get(`?q=villa&cursor=${encodeURIComponent(cursor)}`));
+    const arg = prismaMock.listing.findMany.mock.calls[0]![0]!;
+    const and = (arg.where as { AND: unknown[] }).AND;
+    expect(Array.isArray(and)).toBe(true);
+    // first element carries the q → title/city contains OR
+    expect(JSON.stringify(and[0])).toContain('villa');
+    expect(JSON.stringify(and[0])).toContain('title');
+    expect(JSON.stringify(and[0])).toContain('city');
+    // second element carries the createdAt keyset cursor OR
+    expect(JSON.stringify(and[1])).toContain('createdAt');
+    expect((and[1] as { OR: unknown[] }).OR).toHaveLength(2);
   });
 
   it('maps rows to list shape with owner and thumbnail', async () => {

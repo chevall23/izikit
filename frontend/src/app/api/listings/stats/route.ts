@@ -17,7 +17,7 @@ import { makeRequestContext, withRequestContext } from '@/lib/server/observabili
 const PERIOD_DAYS: Record<string, number> = { '7j': 7, '30j': 30, '3m': 90, '1a': 365 };
 
 const DOCUMENT_TYPES = ['LAND_TITLE', 'SALE_MANDATE', 'CADASTRAL_PLAN'] as const;
-const LISTING_STATUSES = ['DRAFT', 'PENDING', 'VERIFIED', 'SOLD'] as const;
+const LISTING_STATUSES = ['DRAFT', 'PENDING', 'VERIFIED', 'REJECTED', 'SOLD'] as const;
 const WEEKDAY_LABELS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
 function trend(current: number, previous: number): { trendPct: number; up: boolean } {

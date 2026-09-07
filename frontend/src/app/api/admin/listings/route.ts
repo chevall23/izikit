@@ -36,7 +36,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const countsWhere: Prisma.ListingWhereInput = { ...filterWhere };
     delete (countsWhere as Record<string, unknown>).status;
 
-    const listWhere: Prisma.ListingWhereInput = { ...filterWhere, ...cursorWhere(cursor) };
+    // AND-combine so the cursor's OR (createdAt keyset) can't overwrite the
+    // filter's OR (q → title/city contains). Spread-merging would clobber the
+    // first `OR` and list rows that don't match `q` from page 2 onward.
+    const listWhere: Prisma.ListingWhereInput = cursor
+      ? { AND: [filterWhere, cursorWhere(cursor)] }
+      : filterWhere;
 
     const [rows, all, pending, verified, rejected, sold] = await Promise.all([
       prisma.listing.findMany({

@@ -182,16 +182,18 @@ export async function PATCH(
     const data: Record<string, unknown> = { ...fields };
     if (status) {
       data.status = status;
+      // Forcing any status is a moderation act — always attribute it.
+      data.moderatedById = auth.admin.id;
+      data.moderatedAt = new Date();
       if (status === 'REJECTED') {
         data.rejectionReason = rejectionReason;
         data.rejectedAt = new Date();
-        data.moderatedById = auth.admin.id;
-        data.moderatedAt = new Date();
-      } else if (status === 'VERIFIED') {
+      } else {
+        // PENDING / VERIFIED / SOLD: clear stale rejection metadata so the
+        // owner's GET /api/listings row doesn't surface a rejection motive
+        // on a listing that's back in the queue (or sold).
         data.rejectionReason = null;
         data.rejectedAt = null;
-        data.moderatedById = auth.admin.id;
-        data.moderatedAt = new Date();
       }
     }
 

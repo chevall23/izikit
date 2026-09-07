@@ -122,6 +122,20 @@ describe('PATCH /api/admin/listings/[id]', () => {
     );
   });
 
+  it('clears stale rejection metadata and attributes the moderator when forcing PENDING', async () => {
+    const { req, ctx } = call('PATCH', 'l1', { status: 'PENDING' });
+    const res = await PATCH(req, ctx);
+    expect(res.status).toBe(200);
+    const arg = prismaMock.listing.update.mock.calls[0]![0]! as { data: Record<string, unknown> };
+    expect(arg.data).toMatchObject({
+      status: 'PENDING',
+      rejectionReason: null,
+      rejectedAt: null,
+      moderatedById: 'admin_1',
+    });
+    expect(arg.data.moderatedAt).toBeInstanceOf(Date);
+  });
+
   it('400s when forcing status REJECTED without a reason', async () => {
     const { req, ctx } = call('PATCH', 'l1', { status: 'REJECTED' });
     expect((await PATCH(req, ctx)).status).toBe(400);
