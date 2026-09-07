@@ -37,7 +37,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const cursor = decodeCursor(url.searchParams.get('cursor'));
     const notDraft = { status: { not: 'DRAFT' } } as const;
 
-    const [rows, total, verified, pending, sold] = await Promise.all([
+    const [rows, total, verified, pending, rejected, sold] = await Promise.all([
       prisma.listing.findMany({
         where: {
           userId: auth.user.sub,
@@ -56,17 +56,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           price: true,
           currency: true,
           status: true,
+          rejectionReason: true,
           createdAt: true,
         },
       }),
       prisma.listing.count({ where: { userId: auth.user.sub, ...notDraft } }),
       prisma.listing.count({ where: { userId: auth.user.sub, status: 'VERIFIED' } }),
       prisma.listing.count({ where: { userId: auth.user.sub, status: 'PENDING' } }),
+      prisma.listing.count({ where: { userId: auth.user.sub, status: 'REJECTED' } }),
       prisma.listing.count({ where: { userId: auth.user.sub, status: 'SOLD' } }),
     ]);
 
     return NextResponse.json(
-      { ...buildPage(rows, limit), counts: { total, verified, pending, sold } },
+      { ...buildPage(rows, limit), counts: { total, verified, pending, rejected, sold } },
       { headers: { 'x-request-id': ctx.requestId } },
     );
   });

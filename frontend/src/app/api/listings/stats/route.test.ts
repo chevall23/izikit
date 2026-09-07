@@ -140,6 +140,24 @@ describe('GET /api/listings/stats', () => {
     );
   });
 
+  it('includes REJECTED in the status breakdown so percentages still sum', async () => {
+    prismaMock.listing.count.mockImplementation((async (a: { where?: { status?: unknown } }) => {
+      if (a?.where?.status === 'REJECTED') return 2 as never;
+      if (
+        a?.where?.status &&
+        typeof a.where.status === 'object' &&
+        (a.where.status as { not?: string }).not === 'DRAFT'
+      ) {
+        return 10 as never;
+      }
+      return 0 as never;
+    }) as never);
+    const res = await GET(makeGet());
+    const body = await res.json();
+    const rejected = body.statusBreakdown.find((s: { status: string }) => s.status === 'REJECTED');
+    expect(rejected).toMatchObject({ status: 'REJECTED', count: 2, pct: 20 });
+  });
+
   it('scopes upcomingVisitsCount to EN_ATTENTE/CONFIRMEE visits scheduled in the future', async () => {
     await GET(makeGet());
     expect(prismaMock.visit.count).toHaveBeenCalledWith(
