@@ -53,6 +53,31 @@ describe('POST /api/admin/listings/bulk', () => {
     expect((await POST(call({ action: 'reject', ids: ['a'] }))).status).toBe(400);
   });
 
+  it('audits the partial batch and rethrows when an unexpected error hits mid-batch', async () => {
+    prismaMock.listing.findUnique.mockImplementation(
+      (async (a: { where: { id: string } }) =>
+        ({ id: a.where.id, status: 'PENDING' }) as never) as never,
+    );
+    let calls = 0;
+    prismaMock.listing.update.mockImplementation((async (a: { where: { id: string } }) => {
+      calls += 1;
+      if (calls === 2) throw new Error('db exploded');
+      return { id: a.where.id, status: 'VERIFIED' } as never;
+    }) as never);
+    await expect(POST(call({ action: 'approve', ids: ['a', 'b', 'c'] }))).rejects.toThrow(
+      'db exploded',
+    );
+    expect(prismaMock.adminAction.create).toHaveBeenCalledTimes(1);
+    expect(prismaMock.adminAction.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: 'listing.bulk-approve',
+          metadata: expect.objectContaining({ requested: 3, ok: 1, aborted: true, skipped: [] }),
+        }),
+      }),
+    );
+  });
+
   it('approves in bulk, returns ok/skipped and logs once', async () => {
     prismaMock.listing.findUnique.mockImplementation((async (a: { where: { id: string } }) => {
       if (a.where.id === 'draft') return { id: 'draft', status: 'DRAFT' } as never;

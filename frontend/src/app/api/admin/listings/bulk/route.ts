@@ -57,6 +57,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
         );
       }
+      // Unexpected mid-batch failure: some listings were already mutated.
+      // Audit the partial batch, then let it 500 as before.
+      const partial = (err as { partial?: { ok: string[]; skipped: unknown[] } }).partial;
+      if (partial) {
+        await logAdminAction(prisma, {
+          actorId: auth.admin.id,
+          action: `listing.bulk-${parsed.data.action}`,
+          targetType: 'Listing',
+          metadata: {
+            requested: parsed.data.ids.length,
+            ok: partial.ok.length,
+            skipped: partial.skipped,
+            aborted: true,
+          },
+        });
+      }
       throw err;
     }
 

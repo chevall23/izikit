@@ -140,6 +140,26 @@ describe('bulkModerate', () => {
     expect(db.listing.findUnique).not.toHaveBeenCalled();
   });
 
+  it('attaches partial progress and rethrows on an unexpected mid-batch error', async () => {
+    db.listing.findUnique.mockResolvedValue({ id: 'x', status: 'PENDING' });
+    let calls = 0;
+    db.listing.update.mockImplementation(
+      async (args: { where: { id: string }; data: Record<string, unknown> }) => {
+        calls += 1;
+        if (calls === 2) throw new Error('db exploded');
+        return { id: args.where.id, ...args.data };
+      },
+    );
+    const err = await bulkModerate(db, {
+      action: 'approve',
+      ids: ['a', 'b', 'c'],
+      adminId: 'admin_1',
+    }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toBe('db exploded');
+    expect((err as { partial?: unknown }).partial).toEqual({ ok: ['a'], skipped: [] });
+  });
+
   it('supports bulk delete', async () => {
     db.listing.findUnique.mockResolvedValue({ id: 'x', status: 'VERIFIED' });
     const res = await bulkModerate(db, { action: 'delete', ids: ['x'], adminId: 'admin_1' });

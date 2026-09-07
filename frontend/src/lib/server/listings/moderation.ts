@@ -130,6 +130,14 @@ export async function bulkModerate(
       if (err instanceof ModerationError) {
         skipped.push({ id, code: err.code });
       } else {
+        // Unexpected error (e.g. DB failure) mid-batch: N listings were
+        // already written. Attach the progress so the route can audit the
+        // partial batch before this becomes a 500.
+        (
+          err as {
+            partial?: { ok: string[]; skipped: { id: string; code: ModerationErrorCode }[] };
+          }
+        ).partial = { ok: [...ok], skipped: [...skipped] };
         throw err;
       }
     }
