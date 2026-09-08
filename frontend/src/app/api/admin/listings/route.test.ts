@@ -54,6 +54,12 @@ describe('GET /api/admin/listings', () => {
     });
   });
 
+  it('excludes DRAFT listings when no status filter is given', async () => {
+    await GET(get());
+    const arg = prismaMock.listing.findMany.mock.calls[0]![0]!;
+    expect(arg.where).toMatchObject({ status: { not: 'DRAFT' } });
+  });
+
   it('applies q, status and price filters to the where clause', async () => {
     await GET(get('?q=villa&status=PENDING&minPrice=1000&maxPrice=5000&country=CI'));
     const arg = prismaMock.listing.findMany.mock.calls[0]![0]!;

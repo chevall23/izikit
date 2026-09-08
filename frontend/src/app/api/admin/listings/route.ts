@@ -36,12 +36,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const countsWhere: Prisma.ListingWhereInput = { ...filterWhere };
     delete (countsWhere as Record<string, unknown>).status;
 
+    // "Toutes" (no explicit ?status) means every non-DRAFT listing — same
+    // set as counts.all. A DRAFT is an owner's in-progress draft, never a
+    // submitted listing, so it has no place in the admin queue.
+    const baseWhere: Prisma.ListingWhereInput = sp.get('status')
+      ? filterWhere
+      : { ...filterWhere, status: { not: 'DRAFT' } };
+
     // AND-combine so the cursor's OR (createdAt keyset) can't overwrite the
     // filter's OR (q → title/city contains). Spread-merging would clobber the
     // first `OR` and list rows that don't match `q` from page 2 onward.
     const listWhere: Prisma.ListingWhereInput = cursor
-      ? { AND: [filterWhere, cursorWhere(cursor)] }
-      : filterWhere;
+      ? { AND: [baseWhere, cursorWhere(cursor)] }
+      : baseWhere;
 
     const [rows, all, pending, verified, rejected, sold] = await Promise.all([
       prisma.listing.findMany({
