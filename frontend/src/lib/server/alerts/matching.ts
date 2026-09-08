@@ -226,11 +226,12 @@ async function dispatchMatchNotifications(
   }
 }
 
+/** @returns true when a NEW match was recorded (and notifications fanned out), false when the pair was already matched. */
 async function recordMatchAndNotify(
   prisma: PrismaClient,
   alert: AlertForMatching,
   request: RequestForMatching,
-): Promise<void> {
+): Promise<boolean> {
   try {
     await prisma.alertMatch.create({
       data: { alertId: alert.id, propertyRequestId: request.id },
@@ -242,32 +243,47 @@ async function recordMatchAndNotify(
       'code' in err &&
       (err as { code: unknown }).code === 'P2002'
     ) {
-      return; // Already matched — never re-notify for the same pair.
+      return false; // Already matched — never re-notify for the same pair.
     }
     throw err;
   }
 
   await dispatchMatchNotifications(prisma, alert, request);
+  return true;
 }
 
-/** Called right after POST /api/alerts creates a new Alert. */
+/**
+ * Called right after POST /api/alerts creates a new Alert.
+ * @returns the number of newly-recorded matches (agents freshly notified).
+ */
 export async function runMatchingForNewAlert(
   prisma: PrismaClient,
   alert: AlertForMatching,
-): Promise<void> {
+): Promise<number> {
   const requests = await findMatchingRequestsForAlert(prisma, alert);
+  let notified = 0;
   for (const request of requests) {
-    await recordMatchAndNotify(prisma, alert, request);
+    if (await recordMatchAndNotify(prisma, alert, request)) notified++;
   }
+  return notified;
 }
 
-/** Called right after POST /api/requests creates a new PropertyRequest. */
+/**
+ * Called right after POST /api/requests creates a new PropertyRequest, and
+ * again from PATCH /api/admin/property-requests/[id] when an admin
+ * re-transmits a request ("Transmettre à un agent"). Idempotent per
+ * (alert, request) pair — a re-run only notifies alerts that started
+ * matching since the last run.
+ * @returns the number of newly-recorded matches (agents freshly notified).
+ */
 export async function runMatchingForNewRequest(
   prisma: PrismaClient,
   request: RequestForMatching,
-): Promise<void> {
+): Promise<number> {
   const alerts = await findMatchingAlertsForRequest(prisma, request);
+  let notified = 0;
   for (const alert of alerts) {
-    await recordMatchAndNotify(prisma, alert, request);
+    if (await recordMatchAndNotify(prisma, alert, request)) notified++;
   }
+  return notified;
 }
