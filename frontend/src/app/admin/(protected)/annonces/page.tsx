@@ -1,16 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Plus,
-  Globe,
-  MapPin,
   Building,
-  Tag,
-  Coins,
-  CalendarDays,
-  ChevronDown,
-  RotateCcw,
   Check,
   X,
   FileDown,
@@ -21,7 +14,7 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { AdminShell } from '@/components/admin/AdminShell';
-import { AdminStatusBadge, type AdminStatusTone } from '@/components/admin/AdminStatusBadge';
+import { AdminStatusBadge } from '@/components/admin/AdminStatusBadge';
 import { AdminBulkBar } from '@/components/admin/AdminBulkBar';
 import { AdminPagination } from '@/components/admin/AdminPagination';
 import { AdminDrawer } from '@/components/admin/AdminDrawer';
@@ -29,6 +22,16 @@ import { useToast } from '@/contexts/ToastContext';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useCursorPager } from './use-cursor-pager';
+import { AnnoncesFilterBar, EMPTY_FILTERS, filtersToQuery, type Filters } from './filter-bar';
+import {
+  STATUS_LABEL,
+  STATUS_TONE,
+  TXN_LABEL,
+  TXN_TONE,
+  PROPERTY_LABEL,
+  STANDING_LABEL,
+  labelOr,
+} from './labels';
 
 // ── API shapes (GET /api/admin/listings, /api/admin/listings/[id]) ─────────────
 
@@ -99,55 +102,8 @@ interface ListingDetail {
   reportCount: number;
 }
 
-// ── Display maps ──────────────────────────────────────────────────────────────
+// ── Formatters ───────────────────────────────────────────────────────────────
 
-const STATUS_LABEL: Record<string, string> = {
-  PENDING: 'En attente',
-  VERIFIED: 'Validée',
-  REJECTED: 'Rejetée',
-  SOLD: 'Vendue',
-  DRAFT: 'Brouillon',
-};
-const STATUS_TONE: Record<string, AdminStatusTone> = {
-  PENDING: 'warning',
-  VERIFIED: 'success',
-  REJECTED: 'danger',
-  SOLD: 'neutral',
-  DRAFT: 'neutral',
-};
-const TXN_LABEL: Record<string, string> = {
-  VENTE: 'Vente',
-  LOCATION: 'Location',
-  SEJOUR: 'Séjour',
-  AUBERGE: 'Auberge',
-};
-const TXN_TONE: Record<string, AdminStatusTone> = {
-  VENTE: 'primary',
-  LOCATION: 'violet',
-  SEJOUR: 'primary',
-  AUBERGE: 'violet',
-};
-const PROPERTY_LABEL: Record<string, string> = {
-  VILLA: 'Villa',
-  APPARTEMENT: 'Appartement',
-  PARCELLE: 'Parcelle',
-  DOMAINE: 'Domaine',
-  MAISON: 'Maison',
-  BOUTIQUE: 'Boutique',
-  BUREAU: 'Bureau',
-  SALLE_FETE: 'Salle de fête',
-  SALLE_CONFERENCE: 'Salle de conférence',
-  IMMEUBLE: 'Immeuble',
-};
-const STANDING_LABEL: Record<string, string> = {
-  BASIC: 'Standard',
-  MID: 'Bon standing',
-  HIGH: 'Haut standing',
-};
-
-function labelOr(map: Record<string, string>, key: string): string {
-  return map[key] ?? key;
-}
 function formatPrice(price: number, currency: string): string {
   const n = new Intl.NumberFormat('fr-FR').format(price);
   return currency === 'XOF' ? `${n} FCFA` : `${n} ${currency}`;
@@ -176,15 +132,6 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'SOLD', label: 'Vendues' },
 ];
 
-const FILTERS = [
-  { icon: Globe, label: 'Pays' },
-  { icon: MapPin, label: 'Ville' },
-  { icon: Building, label: 'Type de bien' },
-  { icon: Tag, label: 'Transaction' },
-  { icon: Coins, label: 'Prix' },
-  { icon: CalendarDays, label: 'Date de publication' },
-];
-
 const PER_PAGE = 20;
 const EMPTY_COUNTS: Counts = { all: 0, pending: 0, verified: 0, rejected: 0, sold: 0 };
 
@@ -202,12 +149,14 @@ export default function AdminAnnoncesPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ListingDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
 
   const statusParam = tab === 'all' ? '' : `&status=${tab}`;
+  const filterQs = useMemo(() => filtersToQuery(filters), [filters]);
 
   const fetchPage = useCallback(
     async (cursor: string | null) => {
-      const qs = `?limit=${PER_PAGE}${statusParam}${
+      const qs = `?limit=${PER_PAGE}${statusParam}${filterQs}${
         cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''
       }`;
       const res = await api<{ items: ListRow[]; nextCursor: string | null; counts: Counts }>(
@@ -216,11 +165,17 @@ export default function AdminAnnoncesPage() {
       setCounts(res.counts);
       return { items: res.items, nextCursor: res.nextCursor };
     },
-    [statusParam],
+    [statusParam, filterQs],
   );
 
   const total = countFor(counts, tab);
-  const pager = useCursorPager<ListRow>({ perPage: PER_PAGE, total, fetchPage, resetKey: tab });
+  // Any status-tab or filter change snaps back to page 1 and refetches counts.
+  const pager = useCursorPager<ListRow>({
+    perPage: PER_PAGE,
+    total,
+    fetchPage,
+    resetKey: `${tab}|${filterQs}`,
+  });
 
   useEffect(() => {
     if (pager.error) toast('Impossible de charger les annonces.', 'error');
@@ -316,27 +271,8 @@ export default function AdminAnnoncesPage() {
         ))}
       </div>
 
-      {/* Filter bar — inert (étape suivante) */}
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-black/[0.08] bg-white p-3.5 opacity-60">
-        <span className="text-[12px] font-semibold whitespace-nowrap text-gray-400">
-          Filtrer par :
-        </span>
-        {FILTERS.map(({ icon: Icon, label }) => (
-          <span
-            key={label}
-            className="flex h-10 items-center gap-2 rounded-[10px] border border-black/[0.08] px-3 text-[13px] font-medium whitespace-nowrap text-neutral-900"
-          >
-            <Icon className="h-[13px] w-[13px] text-gray-400" aria-hidden />
-            {label}
-            <ChevronDown className="h-[13px] w-[13px] text-gray-400" aria-hidden />
-          </span>
-        ))}
-        <span className="h-6 w-px bg-black/[0.08]" />
-        <span className="flex h-10 items-center gap-1.5 px-1 text-[13px] font-semibold whitespace-nowrap text-gray-400">
-          <RotateCcw className="h-[13px] w-[13px]" aria-hidden />
-          Réinitialiser
-        </span>
-      </div>
+      {/* Filter bar */}
+      <AnnoncesFilterBar value={filters} onChange={setFilters} />
 
       {/* Table */}
       <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white">
