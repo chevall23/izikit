@@ -85,6 +85,33 @@ const REQUEST_SELECT = {
   clientName: true,
 } as const;
 
+/** Minimal HTML escape for user-controlled values interpolated into email HTML. */
+function htmlEscape(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderAlertMatchEmailHtml(alertName: string, summary: string): string {
+  const appUrl = (process.env.APP_URL ?? '').replace(/\/+$/, '');
+  const cta = appUrl
+    ? `<p style="margin:16px 0 0"><a href="${appUrl}/alertes">Voir mes alertes secteurs</a></p>`
+    : '';
+  return [
+    `<p>Bonjour,</p>`,
+    `<p>Une nouvelle demande immobilière correspond à votre alerte secteur <strong>${htmlEscape(
+      alertName,
+    )}</strong> :</p>`,
+    `<p style="font-size:15px"><strong>${htmlEscape(summary)}</strong></p>`,
+    cta,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 function priceRangesOverlap(
   aMin: number | null,
   aMax: number | null,
@@ -170,8 +197,18 @@ async function dispatchMatchNotifications(
         await queue.enqueue({
           to: owner.email,
           subject: `Nouvelle correspondance pour "${alert.name}"`,
-          html: `<p>${summary}</p>`,
+          html: renderAlertMatchEmailHtml(alert.name, summary),
           text: summary,
+        });
+        // Best-effort immediate delivery: local dev has no cron, and in
+        // prod this shortens the up-to-5-min drain latency. The
+        // email-queue-drain cron stays the durable retry path — a failure
+        // here is logged and left for it to pick up.
+        void queue.drainOne().catch((err) => {
+          log.warn('alert-match: immediate email drain failed (cron will retry)', {
+            alertId: alert.id,
+            err: err instanceof Error ? err.message : String(err),
+          });
         });
       } catch (err) {
         log.warn('alert-match: email enqueue failed', {
@@ -205,22 +242,17 @@ async function dispatchMatchNotifications(
       log.warn('alert-match: WhatsApp skipped, owner has no phone', { alertId: alert.id });
     } else {
       const sender = getWhatsappSender();
-      const templateId = Number(process.env.BREVO_WHATSAPP_TEMPLATE_ID ?? '');
-      if (sender && Number.isFinite(templateId)) {
+      if (sender) {
         try {
-          await sender.send({
-            to: owner.phone,
-            templateId,
-            params: { alertName: alert.name, summary },
-          });
+          await sender.send({ to: owner.phone, params: [alert.name, summary] });
         } catch (err) {
           log.warn('alert-match: WhatsApp send failed', {
             alertId: alert.id,
             err: err instanceof Error ? err.message : String(err),
           });
         }
-      } else if (sender) {
-        log.warn('alert-match: WhatsApp skipped, BREVO_WHATSAPP_TEMPLATE_ID not configured');
+      } else {
+        log.warn('alert-match: WhatsApp skipped, no provider configured', { alertId: alert.id });
       }
     }
   }
