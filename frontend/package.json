@@ -19,7 +19,9 @@
     "db:make-superadmin": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/make-superadmin.ts",
     "seed:dev": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/seed-dev.ts",
     "seed:agents": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/seed-agents.ts",
+    "seed:test-agents": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/seed-test-agents.ts",
     "smoke:auth": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke-auth.ts",
+    "drain:emails": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/drain-emails.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

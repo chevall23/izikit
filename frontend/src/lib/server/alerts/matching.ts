@@ -85,6 +85,33 @@ const REQUEST_SELECT = {
   clientName: true,
 } as const;
 
+/** Minimal HTML escape for user-controlled values interpolated into email HTML. */
+function htmlEscape(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderAlertMatchEmailHtml(alertName: string, summary: string): string {
+  const appUrl = (process.env.APP_URL ?? '').replace(/\/+$/, '');
+  const cta = appUrl
+    ? `<p style="margin:16px 0 0"><a href="${appUrl}/alertes">Voir mes alertes secteurs</a></p>`
+    : '';
+  return [
+    `<p>Bonjour,</p>`,
+    `<p>Une nouvelle demande immobilière correspond à votre alerte secteur <strong>${htmlEscape(
+      alertName,
+    )}</strong> :</p>`,
+    `<p style="font-size:15px"><strong>${htmlEscape(summary)}</strong></p>`,
+    cta,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 function priceRangesOverlap(
   aMin: number | null,
   aMax: number | null,
@@ -170,8 +197,18 @@ async function dispatchMatchNotifications(
         await queue.enqueue({
           to: owner.email,
           subject: `Nouvelle correspondance pour "${alert.name}"`,
-          html: `<p>${summary}</p>`,
+          html: renderAlertMatchEmailHtml(alert.name, summary),
           text: summary,
+        });
+        // Best-effort immediate delivery: local dev has no cron, and in
+        // prod this shortens the up-to-5-min drain latency. The
+        // email-queue-drain cron stays the durable retry path — a failure
+        // here is logged and left for it to pick up.
+        void queue.drainOne().catch((err) => {
+          log.warn('alert-match: immediate email drain failed (cron will retry)', {
+            alertId: alert.id,
+            err: err instanceof Error ? err.message : String(err),
+          });
         });
       } catch (err) {
         log.warn('alert-match: email enqueue failed', {
@@ -205,32 +242,28 @@ async function dispatchMatchNotifications(
       log.warn('alert-match: WhatsApp skipped, owner has no phone', { alertId: alert.id });
     } else {
       const sender = getWhatsappSender();
-      const templateId = Number(process.env.BREVO_WHATSAPP_TEMPLATE_ID ?? '');
-      if (sender && Number.isFinite(templateId)) {
+      if (sender) {
         try {
-          await sender.send({
-            to: owner.phone,
-            templateId,
-            params: { alertName: alert.name, summary },
-          });
+          await sender.send({ to: owner.phone, params: [alert.name, summary] });
         } catch (err) {
           log.warn('alert-match: WhatsApp send failed', {
             alertId: alert.id,
             err: err instanceof Error ? err.message : String(err),
           });
         }
-      } else if (sender) {
-        log.warn('alert-match: WhatsApp skipped, BREVO_WHATSAPP_TEMPLATE_ID not configured');
+      } else {
+        log.warn('alert-match: WhatsApp skipped, no provider configured', { alertId: alert.id });
       }
     }
   }
 }
 
+/** @returns true when a NEW match was recorded (and notifications fanned out), false when the pair was already matched. */
 async function recordMatchAndNotify(
   prisma: PrismaClient,
   alert: AlertForMatching,
   request: RequestForMatching,
-): Promise<void> {
+): Promise<boolean> {
   try {
     await prisma.alertMatch.create({
       data: { alertId: alert.id, propertyRequestId: request.id },
@@ -242,32 +275,47 @@ async function recordMatchAndNotify(
       'code' in err &&
       (err as { code: unknown }).code === 'P2002'
     ) {
-      return; // Already matched — never re-notify for the same pair.
+      return false; // Already matched — never re-notify for the same pair.
     }
     throw err;
   }
 
   await dispatchMatchNotifications(prisma, alert, request);
+  return true;
 }
 
-/** Called right after POST /api/alerts creates a new Alert. */
+/**
+ * Called right after POST /api/alerts creates a new Alert.
+ * @returns the number of newly-recorded matches (agents freshly notified).
+ */
 export async function runMatchingForNewAlert(
   prisma: PrismaClient,
   alert: AlertForMatching,
-): Promise<void> {
+): Promise<number> {
   const requests = await findMatchingRequestsForAlert(prisma, alert);
+  let notified = 0;
   for (const request of requests) {
-    await recordMatchAndNotify(prisma, alert, request);
+    if (await recordMatchAndNotify(prisma, alert, request)) notified++;
   }
+  return notified;
 }
 
-/** Called right after POST /api/requests creates a new PropertyRequest. */
+/**
+ * Called right after POST /api/requests creates a new PropertyRequest, and
+ * again from PATCH /api/admin/property-requests/[id] when an admin
+ * re-transmits a request ("Transmettre à un agent"). Idempotent per
+ * (alert, request) pair — a re-run only notifies alerts that started
+ * matching since the last run.
+ * @returns the number of newly-recorded matches (agents freshly notified).
+ */
 export async function runMatchingForNewRequest(
   prisma: PrismaClient,
   request: RequestForMatching,
-): Promise<void> {
+): Promise<number> {
   const alerts = await findMatchingAlertsForRequest(prisma, request);
+  let notified = 0;
   for (const alert of alerts) {
-    await recordMatchAndNotify(prisma, alert, request);
+    if (await recordMatchAndNotify(prisma, alert, request)) notified++;
   }
+  return notified;
 }
