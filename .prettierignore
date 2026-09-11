@@ -6,3 +6,4 @@ coverage
 pnpm-lock.yaml
 *.md
 backend/src/generated
+.planning/banani/raw
