@@ -161,8 +161,9 @@ export default function BlogPage() {
   }
 
   const totalArticles = categories.reduce((sum, c) => sum + c.count, 0);
-  const grid = articles?.items.slice(0, 3) ?? [];
-  const list = articles?.items.slice(3) ?? [];
+  const visibleItems = (articles?.items ?? []).filter((a) => a.id !== articles?.featured?.id);
+  const grid = visibleItems.slice(0, 3);
+  const list = visibleItems.slice(3);
   const totalPages = articles?.totalPages ?? 1;
   const featured = articles?.featured ?? null;
 

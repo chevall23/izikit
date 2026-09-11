@@ -28,6 +28,20 @@ const limiter = createEmailLimiter(redis ? { redis } : {}, {
   message: 'Too many requests. Try again later.',
 });
 
+// IP-keyed limiter, checked BEFORE the per-email one. The email-keyed
+// limiter alone gives every fresh email address its own bucket, so a
+// script rotating email addresses from one IP is never rate-limited.
+// This catches bulk-volume abuse from a single source; ceiling is more
+// generous than the per-email cap since it's not meant to block normal
+// single-user retries.
+const ipLimiter = createEmailLimiter(redis ? { redis } : {}, {
+  bucket: 'newsletter-subscribe-ip',
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  code: 'TOO_MANY_REQUESTS',
+  message: 'Too many requests. Try again later.',
+});
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const ctx = makeRequestContext(req.headers);
   return withRequestContext(ctx, async () => {
@@ -39,6 +53,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
     const email = parsed.data.email.trim().toLowerCase();
+
+    const ipLimited = await ipLimiter.check(req, null);
+    if (ipLimited) return ipLimited;
 
     const limited = await limiter.check(req, email);
     if (limited) return limited;

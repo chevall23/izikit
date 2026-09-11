@@ -57,4 +57,14 @@ describe('POST /api/public/newsletter', () => {
     const res = await POST(makePost({ email }, { ip: 'shared-ip' }));
     expect(res.status).toBe(429);
   });
+
+  it('rejects a 21st request from the same IP within the window, even with distinct emails', async () => {
+    const ip = 'shared-ip-volume-abuse';
+    for (let i = 0; i < 20; i++) {
+      const res = await POST(makePost({ email: `bulk-${i}@example.com` }, { ip }));
+      expect(res.status).toBe(201);
+    }
+    const res = await POST(makePost({ email: 'bulk-20@example.com' }, { ip }));
+    expect(res.status).toBe(429);
+  });
 });
