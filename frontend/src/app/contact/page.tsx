@@ -1,17 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Building2,
-  Clock,
-  HelpCircle,
-  Loader2,
-  Mail,
-  MapPin,
-  Phone,
-  Send,
-  UserPlus,
-} from 'lucide-react';
+import { Building2, Clock, Loader2, Mail, Phone, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { PublicNavbar } from '@/components/public/PublicNavbar';
@@ -28,67 +18,6 @@ const SUBJECTS: { value: string; label: string }[] = [
 ];
 
 const COUNTRIES = Object.keys(COUNTRY_FLAG);
-
-const OFFICES: { country: string; city: string; address: string; phone: string }[] = [
-  {
-    country: 'Bénin',
-    city: 'Cotonou',
-    address: 'Quartier Haie Vive, Cotonou',
-    phone: '+229 90 00 00 00',
-  },
-  {
-    country: 'Togo',
-    city: 'Lomé',
-    address: 'Boulevard du 13 Janvier, Lomé',
-    phone: '+228 90 00 00 00',
-  },
-  {
-    country: "Côte d'Ivoire",
-    city: 'Abidjan',
-    address: 'Cocody Angré, Abidjan',
-    phone: '+225 07 00 00 00',
-  },
-  { country: 'Sénégal', city: 'Dakar', address: 'Plateau, Dakar', phone: '+221 77 00 00 00' },
-];
-
-const FAQS: { q: string; a: string }[] = [
-  {
-    q: 'Comment publier une annonce ?',
-    a: 'Créez un compte propriétaire/agent puis suivez le formulaire "Publier une annonce".',
-  },
-  {
-    q: 'Combien de temps pour une réponse ?',
-    a: 'Notre équipe répond généralement sous 24 à 48 heures ouvrées.',
-  },
-  {
-    q: 'Comment devenir agent partenaire ?',
-    a: 'Envoyez-nous un message via ce formulaire avec le sujet "Devenir agent".',
-  },
-  {
-    q: 'Les annonces sont-elles vérifiées ?',
-    a: 'Oui, chaque annonce publiée passe par une vérification avant mise en ligne.',
-  },
-];
-
-const SOCIALS = [
-  { label: 'Facebook', badge: 'f' },
-  { label: 'Instagram', badge: 'ig' },
-  { label: 'LinkedIn', badge: 'in' },
-  { label: 'X', badge: 'x' },
-  { label: 'WhatsApp', badge: 'wa' },
-];
-
-function InertSocialIcon({ label, badge }: { label: string; badge: string }) {
-  return (
-    <span
-      title="Bientôt disponible"
-      aria-label={label}
-      className="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-full bg-gray-100 text-[11px] font-bold text-gray-400 select-none"
-    >
-      {badge}
-    </span>
-  );
-}
 
 export default function ContactPage() {
   const [subject, setSubject] = useState('GENERAL');
@@ -154,9 +83,9 @@ export default function ContactPage() {
         <div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-6 px-4 py-8 sm:grid-cols-2 lg:grid-cols-4 lg:px-7">
           {[
             { icon: Mail, label: 'Email général', value: 'contact@habitat-afrik.com' },
-            { icon: Phone, label: 'Téléphone', value: '+229 90 00 00 00' },
-            { icon: Building2, label: 'Siège social', value: 'Cotonou, Bénin' },
-            { icon: Clock, label: 'Horaires', value: 'Lun–Ven · 8h–18h' },
+            { icon: Phone, label: 'Téléphone', value: '+229 0162342867' },
+            { icon: Building2, label: 'Siège social', value: 'Abomey-Calavi, Bénin' },
+            { icon: Clock, label: 'Horaires', value: '24h/24 · 7j/7' },
           ].map((item) => (
             <div key={item.label} className="flex items-start gap-3">
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-brand/10">
@@ -173,7 +102,7 @@ export default function ContactPage() {
 
       {/* MAIN */}
       <div className="mx-auto max-w-[1280px] px-4 py-9 pb-[72px] lg:px-7">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px] lg:items-start">
+        <div className="mx-auto max-w-[720px]">
           {/* FORM CARD */}
           <div className="rounded-2xl bg-white p-6 lg:p-8">
             {sent ? (
@@ -309,69 +238,6 @@ export default function ContactPage() {
               </form>
             )}
           </div>
-
-          {/* SIDEBAR */}
-          <aside className="flex flex-col gap-3.5">
-            {/* BUREAUX PAR PAYS */}
-            <div className="rounded-2xl bg-white p-6">
-              <div className="mb-4 flex items-center gap-2 text-[15px] font-bold">
-                <MapPin className="h-4 w-4 text-brand" aria-hidden />
-                Bureaux par pays
-              </div>
-              <div className="flex flex-col gap-3.5">
-                {OFFICES.map((o) => (
-                  <div key={o.country} className="rounded-xl bg-gray-50 p-3.5">
-                    <p className="mb-1 text-sm font-bold">
-                      {COUNTRY_FLAG[o.country] ?? ''} {o.country}
-                    </p>
-                    <p className="text-xs text-gray-500">{o.address}</p>
-                    <p className="mt-1 text-xs text-gray-500">{o.phone}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* RESEAUX SOCIAUX */}
-            <div className="rounded-2xl bg-white p-6">
-              <div className="mb-4 text-[15px] font-bold">Réseaux sociaux</div>
-              <div className="flex flex-wrap gap-2.5">
-                {SOCIALS.map((s) => (
-                  <InertSocialIcon key={s.label} badge={s.badge} label={s.label} />
-                ))}
-              </div>
-            </div>
-
-            {/* FAQ */}
-            <div className="rounded-2xl bg-white p-6">
-              <div className="mb-4 flex items-center gap-2 text-[15px] font-bold">
-                <HelpCircle className="h-4 w-4 text-brand" aria-hidden />
-                Questions fréquentes
-              </div>
-              <div className="flex flex-col gap-3.5">
-                {FAQS.map((f) => (
-                  <div
-                    key={f.q}
-                    className="border-b border-black/[0.06] pb-3.5 last:border-0 last:pb-0"
-                  >
-                    <p className="mb-1 text-[13px] font-semibold">{f.q}</p>
-                    <p className="text-xs text-gray-500">{f.a}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* DEVENIR AGENT PROMO */}
-            <div
-              title="Bientôt disponible"
-              className="cursor-not-allowed rounded-2xl bg-gradient-to-br from-brand to-sky-700 p-6 text-white select-none"
-            >
-              <UserPlus className="mb-2.5 h-6 w-6" aria-hidden />
-              <p className="mb-1 text-sm font-bold">Devenir agent partenaire</p>
-              <p className="text-xs text-white/80">
-                Rejoignez notre réseau d&apos;agents vérifiés et développez votre activité.
-              </p>
-            </div>
-          </aside>
         </div>
       </div>
 
