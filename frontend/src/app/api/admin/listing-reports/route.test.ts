@@ -33,6 +33,7 @@ beforeEach(() => {
   mockRequireAdmin.mockResolvedValue(adminCtx);
   mockRateLimit.mockResolvedValue(null);
   prismaMock.listingReport.findMany.mockResolvedValue([] as never);
+  prismaMock.listingReport.count.mockResolvedValue(0);
 });
 
 describe('GET /api/admin/listing-reports', () => {
@@ -43,7 +44,7 @@ describe('GET /api/admin/listing-reports', () => {
     );
   });
 
-  it('returns items + nextCursor', async () => {
+  it('returns items + nextCursor + total, with derived severity', async () => {
     prismaMock.listingReport.findMany.mockResolvedValueOnce([
       {
         id: 'r1',
@@ -52,13 +53,25 @@ describe('GET /api/admin/listing-reports', () => {
         detail: null,
         status: 'PENDING',
         createdAt: new Date('2026-08-01T00:00:00Z'),
-        listing: { id: 'l1', title: 'Villa', status: 'VERIFIED' },
+        listing: {
+          id: 'l1',
+          title: 'Villa',
+          status: 'VERIFIED',
+          city: 'Abidjan',
+          country: 'CI',
+          price: 1000,
+          currency: 'XOF',
+          photos: [],
+        },
       },
     ] as never);
+    prismaMock.listingReport.count.mockResolvedValueOnce(1);
     const res = await GET(makeGet('http://test/api/admin/listing-reports'));
     const body = await res.json();
     expect(body.items).toHaveLength(1);
+    expect(body.items[0].severity).toBe('CRITICAL');
     expect(body.nextCursor).toBeNull();
+    expect(body.total).toBe(1);
   });
 
   it('propagates 403 from requireAdmin without a DB hit', async () => {

@@ -37,6 +37,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockRequireAdmin.mockResolvedValue(adminCtx);
   mockRateLimit.mockResolvedValue(null);
+  // Detail route always fetches the target's listings (for the drawer +
+  // the conversion-rate calc) — default to none so listingIds stays empty
+  // and the conditional ListingView/Visit counts are skipped entirely.
+  prismaMock.listing.findMany.mockResolvedValue([] as never);
 });
 
 describe('/api/admin/users/[id] — detail', () => {
@@ -46,16 +50,24 @@ describe('/api/admin/users/[id] — detail', () => {
       email: 'u1@test.local',
       name: null,
       avatarUrl: null,
+      phone: null,
+      accountType: 'TENANT_BUYER',
+      country: null,
+      city: null,
       role: 'USER',
       status: 'ACTIVE',
       emailVerifiedAt: new Date('2026-01-01T00:00:00Z'),
       createdAt: new Date('2026-05-01T00:00:00Z'),
+      tokenWallet: null,
+      ownedOrganizations: [],
+      legalDocuments: [],
     } as never);
 
     const res = await GET(makeGet('http://test/api/admin/users/u1'), ctxWith('u1'));
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { user: { id: string; email: string } };
+    const body = (await res.json()) as { user: { id: string; email: string; type: string } };
     expect(body.user.id).toBe('u1');
+    expect(body.user.type).toBe('PARTICULIER');
     expect(body.user).not.toHaveProperty('passwordHash');
   });
 

@@ -33,6 +33,7 @@ beforeEach(() => {
   mockRequireAdmin.mockResolvedValue(adminCtx);
   mockRateLimit.mockResolvedValue(null);
   prismaMock.contactMessage.findMany.mockResolvedValue([] as never);
+  prismaMock.contactMessage.count.mockResolvedValue(0);
 });
 
 describe('GET /api/admin/contact-messages', () => {

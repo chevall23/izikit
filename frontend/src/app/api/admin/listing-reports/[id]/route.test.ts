@@ -1,7 +1,7 @@
 // ADMIN-LISTING-REPORTS-02 — PATCH /api/admin/listing-reports/[id] tests.
 import { prismaMock } from '@/test-utils/prisma-mock';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 vi.mock('@/lib/server/middleware', () => ({
   requireAdmin: vi.fn(),
@@ -15,7 +15,7 @@ vi.mock('@/lib/server/auth', () => ({
 
 import { requireAdmin } from '@/lib/server/middleware';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
-import { PATCH } from './route';
+import { GET, PATCH } from './route';
 import { seedAdmin } from '@/test-utils/admin-fixtures';
 
 const mockRequireAdmin = vi.mocked(requireAdmin);
@@ -36,6 +36,13 @@ function makePatch(
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
+    ctx: { params: Promise.resolve({ id }) },
+  };
+}
+
+function makeGet(id: string): { req: NextRequest; ctx: { params: Promise<{ id: string }> } } {
+  return {
+    req: new NextRequest(`http://test/api/admin/listing-reports/${id}`),
     ctx: { params: Promise.resolve({ id }) },
   };
 }
@@ -75,5 +82,71 @@ describe('PATCH /api/admin/listing-reports/[id]', () => {
         data: expect.objectContaining({ action: 'listing-report.resolve', targetId: 'r1' }),
       }),
     );
+  });
+});
+
+describe('GET /api/admin/listing-reports/[id]', () => {
+  it('404s when the report does not exist', async () => {
+    prismaMock.listingReport.findUnique.mockResolvedValueOnce(null as never);
+    const { req, ctx } = makeGet('missing');
+    const res = await GET(req, ctx);
+    expect(res.status).toBe(404);
+  });
+
+  it('returns the report with derived severity, listing owner, and a synthetic + audit-derived history', async () => {
+    prismaMock.listingReport.findUnique.mockResolvedValueOnce({
+      id: 'r1',
+      reason: 'SCAM',
+      detail: 'suspicious',
+      status: 'PENDING',
+      createdAt: new Date('2026-08-01T00:00:00Z'),
+      listing: {
+        id: 'l1',
+        title: 'Villa',
+        status: 'VERIFIED',
+        city: 'Abidjan',
+        country: 'CI',
+        price: 1000,
+        currency: 'XOF',
+        photos: [{ url: 'https://x/photo.jpg' }],
+        user: { id: 'u1', name: 'Owner', email: 'owner@t.co', phone: null },
+      },
+    } as never);
+    prismaMock.adminAction.findMany.mockResolvedValueOnce([
+      {
+        id: 'a1',
+        action: 'listing-report.note',
+        metadata: { note: 'Called the owner' },
+        createdAt: new Date('2026-08-01T01:00:00Z'),
+        actor: { name: 'Admin One', email: 'admin1@t.co' },
+      },
+    ] as never);
+
+    const { req, ctx } = makeGet('r1');
+    const res = await GET(req, ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      report: {
+        severity: string;
+        listing: { thumbnailUrl: string | null; owner: { id: string } | null };
+      };
+      history: { id: string; kind: string; actor: string | null }[];
+    };
+    expect(body.report.severity).toBe('CRITICAL');
+    expect(body.report.listing.thumbnailUrl).toBe('https://x/photo.jpg');
+    expect(body.report.listing.owner?.id).toBe('u1');
+    expect(body.history).toHaveLength(2);
+    expect(body.history[0]).toMatchObject({ id: 'received', kind: 'RECEIVED' });
+    expect(body.history[1]).toMatchObject({ id: 'a1', kind: 'NOTE', actor: 'Admin One' });
+  });
+
+  it('propagates 403 from requireAdmin without a DB hit', async () => {
+    mockRequireAdmin.mockResolvedValueOnce(
+      NextResponse.json({ error: 'ADMIN_REQUIRED' }, { status: 403 }),
+    );
+    const { req, ctx } = makeGet('r1');
+    const res = await GET(req, ctx);
+    expect(res.status).toBe(403);
+    expect(prismaMock.listingReport.findUnique).not.toHaveBeenCalled();
   });
 });
