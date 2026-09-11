@@ -1,6 +1,7 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -65,6 +66,12 @@ interface PublicListingsResponse {
 
 const LIMIT = 9;
 
+const SORT_LABEL: Record<string, string> = {
+  recent: 'Date (récent)',
+  price_asc: 'Prix croissant',
+  price_desc: 'Prix décroissant',
+};
+
 function InertPill({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <span
@@ -76,6 +83,128 @@ function InertPill({ children, className }: { children: React.ReactNode; classNa
     >
       {children}
     </span>
+  );
+}
+
+interface FilterDropdownProps {
+  id: string;
+  label: string;
+  icon?: React.ReactNode;
+  active: boolean;
+  openMenu: string | null;
+  onToggle: (id: string) => void;
+  children: React.ReactNode;
+  panelClassName?: string;
+  align?: 'left' | 'right';
+}
+
+function FilterDropdown({
+  id,
+  label,
+  icon,
+  active,
+  openMenu,
+  onToggle,
+  children,
+  panelClassName,
+  align = 'left',
+}: FilterDropdownProps) {
+  const isOpen = openMenu === id;
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [rect, setRect] = useState<{ top: number; left: number; right: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    function updateRect() {
+      const r = buttonRef.current?.getBoundingClientRect();
+      if (!r) return;
+      setRect({ top: r.bottom + 8, left: r.left, right: window.innerWidth - r.right });
+    }
+    updateRect();
+    window.addEventListener('scroll', updateRect, true);
+    window.addEventListener('resize', updateRect);
+    return () => {
+      window.removeEventListener('scroll', updateRect, true);
+      window.removeEventListener('resize', updateRect);
+    };
+  }, [isOpen]);
+
+  return (
+    <div className="flex-shrink-0">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => onToggle(id)}
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-medium whitespace-nowrap',
+          active ? 'border-brand bg-brand/[0.06] text-brand' : 'border-black/[0.08] text-gray-500',
+        )}
+      >
+        {icon}
+        {label}
+        <ChevronDown
+          className={cn('h-3.5 w-3.5 transition-transform', isOpen && 'rotate-180')}
+          aria-hidden
+        />
+      </button>
+      {isOpen &&
+        rect &&
+        createPortal(
+          <div
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: rect.top,
+              ...(align === 'right' ? { right: rect.right } : { left: rect.left }),
+            }}
+            className={cn(
+              'z-50 min-w-[200px] rounded-xl border border-black/[0.08] bg-white p-2 shadow-lg',
+              panelClassName,
+            )}
+          >
+            {children}
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
+function DropdownOption({
+  label,
+  count,
+  selected,
+  onClick,
+}: {
+  label: string;
+  count?: number;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px]',
+        selected ? 'bg-brand/[0.08] text-brand' : 'text-gray-600 hover:bg-gray-50',
+      )}
+    >
+      <span
+        className={cn(
+          'flex h-4 w-4 flex-shrink-0 items-center justify-center rounded',
+          selected ? 'bg-brand' : 'border border-black/[0.15]',
+        )}
+      >
+        {selected && <Check className="h-2.5 w-2.5 text-white" aria-hidden />}
+      </span>
+      <span className="flex-1 truncate">{label}</span>
+      {count !== undefined && (
+        <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-500">
+          {count}
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -104,10 +233,29 @@ function AnnoncesPageContent() {
   );
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
+  const [sort, setSort] = useState('recent');
   const [page, setPage] = useState(1);
 
   const [data, setData] = useState<PublicListingsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const filterBarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openMenu) return;
+    function onClickOutside(e: MouseEvent) {
+      if (filterBarRef.current && !filterBarRef.current.contains(e.target as Node)) {
+        setOpenMenu(null);
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [openMenu]);
+
+  function toggleMenu(id: string) {
+    setOpenMenu((current) => (current === id ? null : id));
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -119,6 +267,7 @@ function AnnoncesPageContent() {
     if (transactionType) params.set('transactionType', transactionType);
     if (priceMin) params.set('priceMin', priceMin);
     if (priceMax) params.set('priceMax', priceMax);
+    if (sort !== 'recent') params.set('sort', sort);
     params.set('page', String(page));
     params.set('limit', String(LIMIT));
 
@@ -137,7 +286,7 @@ function AnnoncesPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [country, city, propertyType, transactionType, priceMin, priceMax, page]);
+  }, [country, city, propertyType, transactionType, priceMin, priceMax, sort, page]);
 
   function resetFilters() {
     setCountry('');
@@ -146,6 +295,7 @@ function AnnoncesPageContent() {
     setTransactionType('');
     setPriceMin('');
     setPriceMax('');
+    setSort('recent');
     setPage(1);
   }
 
@@ -226,13 +376,41 @@ function AnnoncesPageContent() {
 
       {/* FILTER BAR */}
       <div className="sticky top-0 z-10 border-b border-black/[0.06] bg-white/95 backdrop-blur-sm">
-        <div className="mx-auto max-w-[1280px] overflow-x-auto px-4 py-3.5 lg:px-7">
+        <div
+          ref={filterBarRef}
+          className="mx-auto max-w-[1280px] overflow-x-auto px-4 py-3.5 lg:px-7"
+        >
           <div className="flex items-center gap-2.5">
-            <InertPill className="border-brand bg-brand/[0.06] text-brand">
-              <MapPin className="h-3.5 w-3.5" aria-hidden />
-              Tous les pays
-              <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-            </InertPill>
+            <FilterDropdown
+              id="country"
+              label={country ? `${COUNTRY_FLAG[country] ?? ''} ${country}` : 'Tous les pays'}
+              icon={<MapPin className="h-3.5 w-3.5" aria-hidden />}
+              active={country !== ''}
+              openMenu={openMenu}
+              onToggle={toggleMenu}
+            >
+              <DropdownOption
+                label="Tous les pays"
+                selected={country === ''}
+                onClick={() => {
+                  setCountryFiltered('');
+                  setOpenMenu(null);
+                }}
+              />
+              {countries.map((f) => (
+                <DropdownOption
+                  key={f.value}
+                  label={`${COUNTRY_FLAG[f.value] ?? ''} ${f.value}`}
+                  count={f.count}
+                  selected={country === f.value}
+                  onClick={() => {
+                    setCountryFiltered(f.value);
+                    setOpenMenu(null);
+                  }}
+                />
+              ))}
+            </FilterDropdown>
+
             <div className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border border-black/[0.08] px-3.5 py-2 text-[13px] font-medium text-gray-500">
               <MapPin className="h-3.5 w-3.5" aria-hidden />
               <input
@@ -242,29 +420,144 @@ function AnnoncesPageContent() {
                 className="w-[120px] bg-transparent text-neutral-900 outline-none placeholder:text-gray-500"
               />
             </div>
-            <InertPill>
-              Type de bien
-              <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-            </InertPill>
-            <InertPill>
-              Transaction
-              <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-            </InertPill>
-            <InertPill>
-              Prix
-              <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-            </InertPill>
+
+            <FilterDropdown
+              id="propertyType"
+              label={
+                propertyType ? (PROPERTY_TYPE_LABEL[propertyType] ?? propertyType) : 'Type de bien'
+              }
+              active={propertyType !== ''}
+              openMenu={openMenu}
+              onToggle={toggleMenu}
+            >
+              <DropdownOption
+                label="Tous les types"
+                selected={propertyType === ''}
+                onClick={() => {
+                  setPropertyTypeFiltered('');
+                  setOpenMenu(null);
+                }}
+              />
+              {propertyTypes.map((f) => (
+                <DropdownOption
+                  key={f.value}
+                  label={PROPERTY_TYPE_LABEL[f.value] ?? f.value}
+                  count={f.count}
+                  selected={propertyType === f.value}
+                  onClick={() => {
+                    setPropertyTypeFiltered(f.value);
+                    setOpenMenu(null);
+                  }}
+                />
+              ))}
+            </FilterDropdown>
+
+            <FilterDropdown
+              id="transactionType"
+              label={
+                transactionType
+                  ? (TRANSACTION_TYPE_LABEL[transactionType] ?? transactionType)
+                  : 'Transaction'
+              }
+              active={transactionType !== ''}
+              openMenu={openMenu}
+              onToggle={toggleMenu}
+            >
+              <DropdownOption
+                label="Toutes les transactions"
+                selected={transactionType === ''}
+                onClick={() => {
+                  setTransactionTypeFiltered('');
+                  setOpenMenu(null);
+                }}
+              />
+              {transactionTypes.map((f) => (
+                <DropdownOption
+                  key={f.value}
+                  label={TRANSACTION_TYPE_LABEL[f.value] ?? f.value}
+                  count={f.count}
+                  selected={transactionType === f.value}
+                  onClick={() => {
+                    setTransactionTypeFiltered(f.value);
+                    setOpenMenu(null);
+                  }}
+                />
+              ))}
+            </FilterDropdown>
+
+            <FilterDropdown
+              id="price"
+              label={priceMin || priceMax ? 'Prix ✓' : 'Prix'}
+              active={priceMin !== '' || priceMax !== ''}
+              openMenu={openMenu}
+              onToggle={toggleMenu}
+              panelClassName="w-[220px] p-3.5"
+            >
+              <p className="mb-2.5 text-[11px] font-semibold tracking-[0.08em] text-gray-400 uppercase">
+                Fourchette de prix (FCFA)
+              </p>
+              <div className="mb-2.5 grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Min"
+                  value={priceMin}
+                  onChange={(e) => {
+                    setPriceMin(e.target.value.replace(/\D/g, ''));
+                    setPage(1);
+                  }}
+                  className="rounded-lg border border-black/[0.08] bg-gray-50 px-2.5 py-2 text-xs text-neutral-900 focus:border-brand focus:outline-none"
+                />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Max"
+                  value={priceMax}
+                  onChange={(e) => {
+                    setPriceMax(e.target.value.replace(/\D/g, ''));
+                    setPage(1);
+                  }}
+                  className="rounded-lg border border-black/[0.08] bg-gray-50 px-2.5 py-2 text-xs text-neutral-900 focus:border-brand focus:outline-none"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpenMenu(null)}
+                className="w-full rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white"
+              >
+                Appliquer
+              </button>
+            </FilterDropdown>
+
             <span className="h-7 w-px flex-shrink-0 bg-black/[0.08]" />
             <InertPill>
               <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
               Plus de filtres
             </InertPill>
+
             <div className="ml-auto flex flex-shrink-0 items-center gap-2">
               <span className="text-[13px] whitespace-nowrap text-gray-500">Trier par :</span>
-              <InertPill>
-                Date (récent)
-                <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-              </InertPill>
+              <FilterDropdown
+                id="sort"
+                label={SORT_LABEL[sort] ?? SORT_LABEL['recent']!}
+                active={false}
+                openMenu={openMenu}
+                onToggle={toggleMenu}
+                align="right"
+              >
+                {Object.entries(SORT_LABEL).map(([value, label]) => (
+                  <DropdownOption
+                    key={value}
+                    label={label}
+                    selected={sort === value}
+                    onClick={() => {
+                      setSort(value);
+                      setPage(1);
+                      setOpenMenu(null);
+                    }}
+                  />
+                ))}
+              </FilterDropdown>
             </div>
           </div>
         </div>

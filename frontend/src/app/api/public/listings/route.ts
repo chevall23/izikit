@@ -36,6 +36,16 @@ function parsePositiveInt(raw: string | null): number | undefined {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
+const SORT_ORDER_BY: Record<string, Prisma.ListingOrderByWithRelationInput[]> = {
+  recent: [{ createdAt: 'desc' }, { id: 'desc' }],
+  price_asc: [{ price: 'asc' }, { id: 'desc' }],
+  price_desc: [{ price: 'desc' }, { id: 'desc' }],
+};
+
+function parseSort(raw: string | null): Prisma.ListingOrderByWithRelationInput[] {
+  return SORT_ORDER_BY[raw ?? ''] ?? SORT_ORDER_BY['recent']!;
+}
+
 const LISTING_SELECT = {
   id: true,
   title: true,
@@ -71,6 +81,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const priceMax = parsePositiveInt(params.get('priceMax'));
     const page = parsePage(params.get('page'));
     const limit = parseLimit(params.get('limit'));
+    const orderBy = parseSort(params.get('sort'));
 
     // Builds the Prisma `where` clause. `omit` drops one filter dimension
     // from the clause — used so each facet's own counts aren't collapsed by
@@ -98,7 +109,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const [rows, total, countryFacet, propertyTypeFacet, transactionTypeFacet] = await Promise.all([
       prisma.listing.findMany({
         where: baseWhere,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
         select: LISTING_SELECT,

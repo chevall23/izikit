@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -75,8 +76,9 @@ function categoryClasses(colorKey: string): string {
 const PAGE_LIMIT = 7;
 
 export default function BlogPage() {
+  const searchParams = useSearchParams();
   const [categories, setCategories] = useState<Category[]>([]);
-  const [categorySlug, setCategorySlug] = useState('');
+  const [categorySlug, setCategorySlug] = useState(() => searchParams.get('category') ?? '');
   const [searchInput, setSearchInput] = useState('');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
