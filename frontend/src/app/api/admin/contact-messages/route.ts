@@ -4,8 +4,9 @@
 // endpoint at /api/public/contact). Cursor pagination mirrors GET
 // /api/admin/listing-reports's shared helpers. `status` filter is
 // optional (omit to see every status); pass `?status=NEW` for the
-// actionable queue. No admin frontend consumes this in this plan — API
-// only.
+// actionable queue. Consumed by /admin/support ("Support client" tab) —
+// adds a `q` search + a `total` count for the numbered pagination + tab
+// badge.
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -30,6 +31,8 @@ const CONTACT_MESSAGE_SELECT = {
   createdAt: true,
 } as const satisfies Prisma.ContactMessageSelect;
 
+const Q_MAX = 200;
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const ctx = makeRequestContext(req.headers);
   return withRequestContext(ctx, async () => {
@@ -42,22 +45,38 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const url = req.nextUrl;
     const limit = clampLimit(url.searchParams.get('limit'));
     const status = url.searchParams.get('status');
+    const q = (url.searchParams.get('q') ?? '').slice(0, Q_MAX).trim();
     const cursor = decodeCursor(url.searchParams.get('cursor'));
 
-    const where: Prisma.ContactMessageWhereInput = {
+    const filterWhere: Prisma.ContactMessageWhereInput = {
       ...(status ? { status } : {}),
-      ...cursorWhere(cursor),
+      ...(q
+        ? {
+            OR: [
+              { firstName: { contains: q, mode: 'insensitive' } },
+              { lastName: { contains: q, mode: 'insensitive' } },
+              { email: { contains: q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
     };
+    // AND-combine so the cursor's OR (createdAt keyset) can't overwrite the
+    // filter's own `q` OR — see admin/listings' GET for the same pitfall.
+    const where: Prisma.ContactMessageWhereInput = cursor
+      ? { AND: [filterWhere, cursorWhere(cursor)] }
+      : filterWhere;
 
-    const rows = await prisma.contactMessage.findMany({
-      where,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: limit + 1,
-      select: CONTACT_MESSAGE_SELECT,
-    });
+    const [rows, total] = await Promise.all([
+      prisma.contactMessage.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: limit + 1,
+        select: CONTACT_MESSAGE_SELECT,
+      }),
+      prisma.contactMessage.count({ where: filterWhere }),
+    ]);
 
-    return NextResponse.json(buildPage(rows, limit), {
-      headers: { 'x-request-id': ctx.requestId },
-    });
+    const page = buildPage(rows, limit);
+    return NextResponse.json({ ...page, total }, { headers: { 'x-request-id': ctx.requestId } });
   });
 }

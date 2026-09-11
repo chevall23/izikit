@@ -147,6 +147,8 @@ export default function AnnonceDetailPage() {
   const [saved, setSaved] = useState(false);
   const [shared, setShared] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
+  const [heroIdx, setHeroIdx] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const [inquiryType, setInquiryType] = useState<'MESSAGE' | 'VR_VISIT'>('MESSAGE');
   const [name, setName] = useState('');
@@ -169,6 +171,7 @@ export default function AnnonceDetailPage() {
       .then((res) => {
         if (cancelled) return;
         setListing(res);
+        setHeroIdx(0);
       })
       .catch(() => {
         if (cancelled) return;
@@ -181,6 +184,19 @@ export default function AnnonceDetailPage() {
       cancelled = true;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightboxOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [lightboxOpen]);
 
   async function submitInquiry(e: React.FormEvent) {
     e.preventDefault();
@@ -286,8 +302,10 @@ export default function AnnonceDetailPage() {
       : []),
   ];
 
-  const primaryPhoto = listing.photos.find((p) => p.isPrimary) ?? listing.photos[0];
-  const otherPhotos = listing.photos.filter((p) => p !== primaryPhoto).slice(0, 2);
+  const photos = listing.photos;
+  const heroPhoto = photos[heroIdx] ?? photos[0];
+  const stripThumbs = photos.slice(0, 4);
+  const extraCount = photos.length - stripThumbs.length;
 
   return (
     <div className="bg-[#F5F6F8] text-[#1A1A1A]">
@@ -308,29 +326,26 @@ export default function AnnonceDetailPage() {
         </div>
       </div>
 
-      {/* HERO GALLERY */}
-      <div className="bg-[#0F172A]">
-        <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-[3px] lg:h-[420px] lg:grid-cols-[1.45fr_1fr]">
-          <div className="relative h-[260px] overflow-hidden lg:h-full">
-            {primaryPhoto ? (
+      {/* GALLERY */}
+      <div className="mx-auto max-w-[1280px] px-4 pt-6 lg:px-7">
+        <div className="rounded-2xl bg-white p-2.5 ring-1 ring-black/[0.05]">
+          {/* HERO */}
+          <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl bg-gray-100">
+            {heroPhoto ? (
               <img
-                src={cloudinaryOptimize(primaryPhoto.url, 1200)}
+                src={cloudinaryOptimize(heroPhoto.url, 1400)}
                 alt={listing.title}
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-slate-800">
-                <ImageIcon className="h-10 w-10 text-slate-500" aria-hidden />
+              <div className="flex h-full w-full items-center justify-center bg-slate-100">
+                <ImageIcon className="h-10 w-10 text-slate-300" aria-hidden />
               </div>
             )}
-            <div className="absolute top-4 left-4 z-[2] flex gap-2">
-              <span className="rounded-full bg-emerald-500 px-3.5 py-[5px] text-xs font-bold whitespace-nowrap text-white">
-                {TRANSACTION_TYPE_LABEL[listing.transactionType] ?? listing.transactionType}
-              </span>
-              <span className="rounded-full bg-black/75 px-3.5 py-[5px] text-xs font-bold whitespace-nowrap text-white">
-                {PROPERTY_TYPE_LABEL[listing.propertyType] ?? listing.propertyType}
-              </span>
-            </div>
+            <span className="absolute top-4 left-4 z-[2] inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3.5 py-[6px] text-xs font-bold whitespace-nowrap text-white shadow-sm">
+              <BadgeCheck className="h-[13px] w-[13px]" aria-hidden />
+              Vérifié
+            </span>
             <div className="absolute top-4 right-4 z-[2] flex gap-2">
               <button
                 type="button"
@@ -355,35 +370,54 @@ export default function AnnonceDetailPage() {
                 {shared ? 'Lien copié !' : 'Partager'}
               </button>
             </div>
-            {listing.photos.length > 0 && (
-              <span className="absolute right-3.5 bottom-3.5 z-[2] flex items-center gap-1.5 rounded-full bg-black/75 px-3 py-[5px] text-xs font-semibold whitespace-nowrap text-white">
+            {photos.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(true)}
+                className="absolute right-3.5 bottom-3.5 z-[2] inline-flex items-center gap-1.5 rounded-full bg-black/75 px-3 py-[6px] text-xs font-semibold whitespace-nowrap text-white"
+              >
                 <ImageIcon className="h-[13px] w-[13px]" aria-hidden />
-                {listing.photos.length} photo{listing.photos.length === 1 ? '' : 's'}
-              </span>
+                {photos.length} photos
+              </button>
             )}
           </div>
-          <div className="grid grid-rows-2 gap-[3px]">
-            {otherPhotos.length > 0 ? (
-              otherPhotos.map((p) => (
-                <div key={p.url} className="h-[130px] overflow-hidden lg:h-full">
-                  <img
-                    src={cloudinaryOptimize(p.url, 700)}
-                    alt={listing.title}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              ))
-            ) : (
-              <>
-                <div className="flex h-[130px] items-center justify-center bg-slate-800 lg:h-full">
-                  <ImageIcon className="h-8 w-8 text-slate-600" aria-hidden />
-                </div>
-                <div className="flex h-[130px] items-center justify-center bg-slate-800 lg:h-full">
-                  <ImageIcon className="h-8 w-8 text-slate-600" aria-hidden />
-                </div>
-              </>
-            )}
-          </div>
+
+          {/* THUMBNAIL STRIP */}
+          {photos.length > 1 && (
+            <div className="mt-2.5 grid grid-cols-4 gap-2.5">
+              {stripThumbs.map((p, i) => {
+                const showOverlay = i === stripThumbs.length - 1 && extraCount > 0;
+                const isActive = !showOverlay && i === heroIdx;
+                return (
+                  <button
+                    key={`${p.url}-${i}`}
+                    type="button"
+                    onClick={() => (showOverlay ? setLightboxOpen(true) : setHeroIdx(i))}
+                    aria-label={
+                      showOverlay
+                        ? `Voir les ${photos.length} photos`
+                        : `Afficher la photo ${i + 1}`
+                    }
+                    className={cn(
+                      'relative aspect-[4/3] overflow-hidden rounded-lg ring-1 ring-black/[0.06] transition',
+                      isActive && 'ring-2 ring-brand',
+                    )}
+                  >
+                    <img
+                      src={cloudinaryOptimize(p.url, 400)}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                    {showOverlay && (
+                      <span className="absolute inset-0 grid place-items-center bg-black/55 text-lg font-extrabold text-white">
+                        +{extraCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -811,6 +845,45 @@ export default function AnnonceDetailPage() {
           </aside>
         </div>
       </div>
+
+      {/* GALLERY LIGHTBOX */}
+      {lightboxOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex flex-col bg-black/92"
+          onClick={() => setLightboxOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Galerie — ${listing.title}`}
+        >
+          <div className="flex items-center justify-between px-4 py-3 text-white sm:px-6">
+            <span className="text-sm font-semibold">
+              {listing.title} · {photos.length} photos
+            </span>
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(false)}
+              className="rounded-full bg-white/10 px-3.5 py-1.5 text-sm font-semibold hover:bg-white/20"
+            >
+              Fermer
+            </button>
+          </div>
+          <div
+            className="flex-1 overflow-y-auto px-4 pb-10 sm:px-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto grid max-w-[1100px] grid-cols-1 gap-3 sm:grid-cols-2">
+              {photos.map((p, i) => (
+                <img
+                  key={`${p.url}-${i}`}
+                  src={cloudinaryOptimize(p.url, 1200)}
+                  alt={`${listing.title} — photo ${i + 1}`}
+                  className="w-full rounded-lg bg-white/5 object-cover"
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <PublicFooter />
     </div>

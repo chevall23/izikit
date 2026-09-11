@@ -72,10 +72,16 @@ interface UserListRow {
   email: string;
   name: string | null;
   avatarUrl: string | null;
+  phone: string | null;
+  accountType: string;
+  country: string | null;
+  city: string | null;
   role: string;
   status: string;
   emailVerifiedAt: Date | null;
   createdAt: Date;
+  _count: { listings: number; ownedOrganizations: number };
+  tokenWallet: { balance: number } | null;
 }
 
 function userRow(overrides: Partial<UserListRow> = {}): UserListRow {
@@ -85,10 +91,16 @@ function userRow(overrides: Partial<UserListRow> = {}): UserListRow {
     email: overrides.email ?? `${id}@test.local`,
     name: overrides.name ?? null,
     avatarUrl: overrides.avatarUrl ?? null,
+    phone: overrides.phone ?? null,
+    accountType: overrides.accountType ?? 'TENANT_BUYER',
+    country: overrides.country ?? null,
+    city: overrides.city ?? null,
     role: overrides.role ?? 'USER',
     status: overrides.status ?? 'ACTIVE',
     emailVerifiedAt: overrides.emailVerifiedAt ?? new Date('2026-01-01T00:00:00Z'),
     createdAt: overrides.createdAt ?? new Date('2026-05-01T00:00:00Z'),
+    _count: overrides._count ?? { listings: 0, ownedOrganizations: 0 },
+    tokenWallet: overrides.tokenWallet ?? null,
   };
 }
 
@@ -143,10 +155,10 @@ describe('/api/admin/users [Wave 1] — list', () => {
     prismaMock.user.findMany.mockResolvedValueOnce([] as never);
     const res = await GET(makeGet('http://test/api/admin/users'));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ items: [], nextCursor: null });
+    expect(await res.json()).toMatchObject({ items: [], nextCursor: null });
   });
 
-  it('GET applies q search case-insensitive on email + name', async () => {
+  it('GET applies q search case-insensitive on email + name + phone', async () => {
     prismaMock.user.findMany.mockResolvedValueOnce([] as never);
     await GET(makeGet('http://test/api/admin/users?q=Foo'));
     const args = prismaMock.user.findMany.mock.calls[0]?.[0];
@@ -154,6 +166,7 @@ describe('/api/admin/users [Wave 1] — list', () => {
     expect(where?.['OR']).toEqual([
       { email: { contains: 'Foo', mode: 'insensitive' } },
       { name: { contains: 'Foo', mode: 'insensitive' } },
+      { phone: { contains: 'Foo', mode: 'insensitive' } },
     ]);
   });
 
@@ -198,8 +211,10 @@ describe('/api/admin/users [Wave 1] — list', () => {
     ] as never);
     await GET(makeGet(`http://test/api/admin/users?cursor=${encodeURIComponent(cursorVal)}`));
     const args = prismaMock.user.findMany.mock.calls[0]?.[0];
-    const where = args?.where as Record<string, unknown> | undefined;
-    expect(where?.['OR']).toBeDefined();
+    const where = args?.where as { AND?: [unknown, Record<string, unknown>] } | undefined;
+    // AND-combined with the filter where (not spread) so a `q` OR fragment
+    // can't be clobbered by the cursor's own OR — see route.ts comment.
+    expect(where?.AND?.[1]?.['OR']).toBeDefined();
   });
 
   it('rate limits admin per-userId after 100/min — propagates 429 from helper', async () => {

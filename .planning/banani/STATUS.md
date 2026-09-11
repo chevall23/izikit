@@ -1,6 +1,48 @@
 # Banani implementation status
 
-Last updated: 2026-09-05
+Last updated: 2026-09-11
+
+## 2026-09-11 — Article Detail (blog, real backend) rebuilt from Banani
+
+Route: `frontend/src/app/blog/[slug]/page.tsx` (already real-backend since
+the blog-backend session; this pass matches it to the Banani screen).
+
+Source: flow `HABITATAFRIK EQUIPE` (`DRXBZMH20_G8`), screen "Article
+Detail" (`FvkpPvHYHh_q`).
+
+Scope: **REUSE** `PublicNavbar`/`PublicFooter`/`cn`/`api`/`ApiError`/
+`formatDate`/`cloudinaryOptimize`, existing `categoryClasses` map. **NEW**:
+breadcrumb (Accueil/Blog/category/title, category link now real — see nav
+fix below), meta row incl. real `viewCount` (fr-FR formatted), excerpt
+styled as a left-bordered lead, share row (Facebook/X/LinkedIn open real
+share-intent URLs, "copier le lien" uses the clipboard API with a 2s
+confirmation — brand icons rendered as letter badges since `lucide-react`
+v1 has none, same fallback as `contact-page.md`), dynamic "Sommaire" TOC
+(built client-side from the sanitized content's real `<h2>` elements,
+ids assigned via DOM not by touching `contentHtml`/the sanitizer,
+`IntersectionObserver` active-section highlight, card omitted entirely
+when an article has no `<h2>`), "Articles similaires" (client-fetched via
+the existing public articles endpoint filtered by category, no new
+backend route), sidebar Newsletter/Populaires cards reused verbatim from
+`/blog`'s sidebar.
+
+**Not implemented, disclosed**: the Banani mock's `.article-stat-row` /
+`.article-callout` blocks are hand-authored content specific to that one
+demo article, not a data-model feature — no such block type exists in the
+sanitizer whitelist or the blog-backend design spec. Regular prose
+(h2/h3/p/ul/strong) covers every real article.
+
+**Side fix**: `/blog/page.tsx` didn't read `?category=` from the URL, so
+links into it from the detail page's breadcrumb had nothing to filter on
+— added `useSearchParams` to seed `categorySlug` on mount.
+
+Verified: `pnpm exec tsc --noEmit` clean, `pnpm exec eslint` clean on both
+files, dev-server `curl` smoke test 200 on `/blog`,
+`/blog/test-article-demo`, `/blog/financer-achat-immobilier-diaspora`.
+375/768/1280 live browser check not done (no headless-browser tool in
+this environment) — flagged, not silently skipped.
+
+Plan file: `.planning/banani/article-detail.md`.
 
 ## 2026-09-05 — Admin Inscription: REAL backend (first non-mockup admin screen)
 

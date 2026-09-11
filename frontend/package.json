@@ -39,6 +39,7 @@
     "next": "^16.2.6",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "sanitize-html": "^2.17.7",
     "server-only": "^0.0.1",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3"
@@ -50,6 +51,7 @@
     "@types/node": "^20.17.10",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@types/sanitize-html": "^2.16.1",
     "autoprefixer": "^10.4.20",
     "eslint-config-next": "^16.2.6",
     "fast-glob": "^3.3.3",

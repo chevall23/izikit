@@ -118,6 +118,32 @@ describe('GET /api/public/listings', () => {
     expect(prismaMock.listing.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 24 }));
   });
 
+  it('defaults to sort=recent (createdAt desc)', async () => {
+    await GET(makeGet());
+    expect(prismaMock.listing.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] }),
+    );
+  });
+
+  it('applies sort=price_asc / price_desc', async () => {
+    await GET(makeGet('?sort=price_asc'));
+    expect(prismaMock.listing.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ price: 'asc' }, { id: 'desc' }] }),
+    );
+
+    await GET(makeGet('?sort=price_desc'));
+    expect(prismaMock.listing.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ price: 'desc' }, { id: 'desc' }] }),
+    );
+  });
+
+  it('falls back to sort=recent for an unknown sort value', async () => {
+    await GET(makeGet('?sort=bogus'));
+    expect(prismaMock.listing.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] }),
+    );
+  });
+
   it('maps rows to the flat DTO shape, never including agent email', async () => {
     const res = await GET(makeGet());
     const body = await res.json();

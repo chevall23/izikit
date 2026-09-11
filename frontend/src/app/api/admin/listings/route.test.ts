@@ -54,6 +54,12 @@ describe('GET /api/admin/listings', () => {
     });
   });
 
+  it('excludes DRAFT listings when no status filter is given', async () => {
+    await GET(get());
+    const arg = prismaMock.listing.findMany.mock.calls[0]![0]!;
+    expect(arg.where).toMatchObject({ status: { not: 'DRAFT' } });
+  });
+
   it('applies q, status and price filters to the where clause', async () => {
     await GET(get('?q=villa&status=PENDING&minPrice=1000&maxPrice=5000&country=CI'));
     const arg = prismaMock.listing.findMany.mock.calls[0]![0]!;
@@ -63,6 +69,15 @@ describe('GET /api/admin/listings', () => {
       price: { gte: 1000, lte: 5000 },
     });
     expect(JSON.stringify(arg.where)).toContain('villa');
+  });
+
+  it('passes propertyType, transactionType and the date range into the where clause', async () => {
+    await GET(get('?propertyType=VILLA&transactionType=LOCATION&from=2026-01-01&to=2026-06-01'));
+    const arg = prismaMock.listing.findMany.mock.calls[0]![0]!;
+    expect(arg.where).toMatchObject({ propertyType: 'VILLA', transactionType: 'LOCATION' });
+    const where = arg.where as { createdAt: { gte: Date; lte: Date } };
+    expect(where.createdAt.gte).toBeInstanceOf(Date);
+    expect(where.createdAt.lte).toBeInstanceOf(Date);
   });
 
   it('keeps the q OR alongside the cursor OR when both are present (AND-combined)', async () => {

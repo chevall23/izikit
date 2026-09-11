@@ -90,8 +90,8 @@ model User {
   withdrawals       Withdrawal[]
   oauthAccounts     OAuthAccount[]
   adminActions      AdminAction[]
-  listings          Listing[]           @relation("ListingOwner")
-  moderatedListings Listing[]           @relation("ListingModerator")
+  listings          Listing[]                @relation("ListingOwner")
+  moderatedListings Listing[]                @relation("ListingModerator")
   propertyRequests  PropertyRequest[]
   alerts            Alert[]
   tokenWallet       TokenWallet?
@@ -825,4 +825,76 @@ model AdminAccessRequest {
 
   @@index([status])
   @@index([email])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Blog — public "/blog" page backend. Categories are admin-managed;
+// articles are authored by admins only (no separate editorial role) with
+// a free-text byline (authorName/Role/AvatarUrl are NOT a User relation —
+// an article may be signed by an external expert with no login account).
+// contentHtml is sanitized server-side at write time (see
+// lib/server/blog/sanitize.ts) — never re-sanitized on read.
+// ───────────────────────────────────────────────────────────────────────
+model BlogCategory {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  label     String
+  colorKey  String   @default("brand") // brand | green | amber | violet | red
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  articles BlogArticle[]
+
+  @@index([position])
+}
+
+model BlogArticle {
+  id          String @id @default(cuid())
+  slug        String @unique
+  title       String
+  excerpt     String
+  contentHtml String
+
+  coverImageUrl String?
+
+  categoryId String
+  category   BlogCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  tags Json @default("[]") // string[]
+
+  // Editorial byline — free text, not a User relation (see header comment).
+  authorName      String
+  authorRole      String?
+  authorAvatarUrl String?
+
+  status     String  @default("DRAFT") // DRAFT | PUBLISHED | ARCHIVED
+  isFeatured Boolean @default(false)
+
+  // Computed server-side from contentHtml word count (~200 wpm), min 1.
+  readTimeMinutes Int @default(1)
+  viewCount       Int @default(0)
+
+  // Posed the first time status transitions to PUBLISHED; never reset by
+  // later edits (preserves the original publish date).
+  publishedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([categoryId])
+  @@index([isFeatured])
+}
+
+// Public "/blog" sidebar newsletter form. Standalone — no relation to
+// User (subscription is by email, not tied to an account).
+model NewsletterSubscriber {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  status         String    @default("ACTIVE") // ACTIVE | UNSUBSCRIBED
+  createdAt      DateTime  @default(now())
+  unsubscribedAt DateTime?
+
+  @@index([status])
 }
