@@ -31,7 +31,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${sora.variable}`}>
-      <body className={inter.className}>
+      {/* suppressHydrationWarning: browser extensions (ColorZilla, Grammarly, …)
+          inject attributes like cz-shortcut-listen onto <body> before React
+          hydrates — a harmless mismatch outside our control, not a real bug. */}
+      <body className={inter.className} suppressHydrationWarning>
         <ToastProvider>
           <AuthProvider>{children}</AuthProvider>
         </ToastProvider>
