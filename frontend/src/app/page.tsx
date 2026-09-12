@@ -39,8 +39,8 @@ const HOW_IT_WORKS = [
   {
     icon: ShieldCheck,
     number: '03',
-    title: 'Concluez en confiance',
-    text: 'Tous les documents essentiels sont vérifiés pour vous aider à avancer plus sereinement.',
+    title: "Évaluez l'agent",
+    text: 'Une fois la visite ou la transaction conclue, partagez votre avis pour aider les futurs clients à choisir un agent de confiance.',
   },
 ];
 

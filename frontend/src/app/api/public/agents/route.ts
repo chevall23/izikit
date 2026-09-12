@@ -31,6 +31,12 @@ function parseLimit(raw: string | null): number {
   return Math.min(MAX_LIMIT, Math.max(1, parsed));
 }
 
+function parsePositiveFloat(raw: string | null): number | undefined {
+  if (!raw) return undefined;
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
 const AGENT_SELECT = {
   id: true,
   name: true,
@@ -53,8 +59,26 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // the real Listing.transactionType enum (VENTE|LOCATION|SEJOUR|AUBERGE)
     // has no "terrain" value; "terrain" is really propertyType=PARCELLE.
     const propertyType = params.get('propertyType')?.trim() || undefined;
+    const minRating = parsePositiveFloat(params.get('minRating'));
     const page = parsePage(params.get('page'));
     const limit = parseLimit(params.get('limit'));
+
+    // Rating average isn't a column — it's derived from AgentReview, so a
+    // minRating filter can't live in the Prisma `where` directly. Compute
+    // every agent's average once and turn the threshold into an `id: { in }`
+    // clause instead. Fine at this project's scale (starter directory, not
+    // a high-volume marketplace) — same acceptable-tradeoff posture as the
+    // unfiltered hero stats below.
+    let qualifyingIds: string[] | null = null;
+    if (minRating !== undefined) {
+      const allRatings = await prisma.agentReview.groupBy({
+        by: ['agentId'],
+        _avg: { rating: true },
+      });
+      qualifyingIds = allRatings
+        .filter((r) => (r._avg.rating ?? 0) >= minRating)
+        .map((r) => r.agentId);
+    }
 
     function buildWhere(omitCountry = false): Prisma.UserWhereInput {
       const where: Prisma.UserWhereInput = { accountType: 'OWNER_AGENT' };
@@ -75,6 +99,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           },
         };
       }
+      if (qualifyingIds) where.id = { in: qualifyingIds };
       return where;
     }
 
@@ -104,7 +129,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const agentIds = rows.map((r) => r.id);
 
-    const [listingCounts, docCounts] = await Promise.all([
+    const [listingCounts, docCounts, ratingGroups] = await Promise.all([
       agentIds.length
         ? prisma.listing.groupBy({
             by: ['userId'],
@@ -119,10 +144,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             _count: { _all: true },
           })
         : Promise.resolve([]),
+      agentIds.length
+        ? prisma.agentReview.groupBy({
+            by: ['agentId'],
+            where: { agentId: { in: agentIds } },
+            _avg: { rating: true },
+            _count: { _all: true },
+          })
+        : Promise.resolve([]),
     ]);
 
     const listingCountByUser = new Map(listingCounts.map((r) => [r.userId, r._count._all]));
     const docCountByUser = new Map(docCounts.map((r) => [r.userId, r._count._all]));
+    const ratingByAgent = new Map(
+      ratingGroups.map((r) => [r.agentId, { avg: r._avg.rating, count: r._count._all }]),
+    );
 
     // Directory-wide banner stats — deliberately unfiltered by the current
     // search/country/transactionType so the hero numbers stay stable while
@@ -158,6 +194,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       listingCount: listingCountByUser.get(r.id) ?? 0,
       verifiedDocCount: docCountByUser.get(r.id) ?? 0,
       verifiedDocTotal: LEGAL_DOCUMENT_TYPE_COUNT,
+      ratingAvg: ratingByAgent.get(r.id)?.avg ?? null,
+      reviewCount: ratingByAgent.get(r.id)?.count ?? 0,
     }));
 
     const countries = countryFacet

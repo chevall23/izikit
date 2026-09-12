@@ -26,6 +26,7 @@ const mockUserCount = vi.mocked(prismaMock.user.count);
 const mockUserGroupBy = vi.mocked(prismaMock.user.groupBy);
 const mockListingGroupBy = vi.mocked(prismaMock.listing.groupBy);
 const mockLegalDocGroupBy = vi.mocked(prismaMock.legalDocument.groupBy);
+const mockAgentReviewGroupBy = vi.mocked(prismaMock.agentReview.groupBy);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -41,6 +42,7 @@ beforeEach(() => {
   mockUserGroupBy.mockResolvedValue([] as never);
   mockListingGroupBy.mockResolvedValue([] as never);
   mockLegalDocGroupBy.mockResolvedValue([] as never);
+  mockAgentReviewGroupBy.mockResolvedValue([] as never);
 });
 
 describe('GET /api/public/agents', () => {
@@ -97,9 +99,35 @@ describe('GET /api/public/agents', () => {
         listingCount: 3,
         verifiedDocCount: 2,
         verifiedDocTotal: 6,
+        ratingAvg: null,
+        reviewCount: 0,
       },
     ]);
     expect(JSON.stringify(body)).not.toContain('email');
+  });
+
+  it('includes ratingAvg/reviewCount from AgentReview when present', async () => {
+    mockAgentReviewGroupBy.mockResolvedValueOnce([
+      { agentId: 'agent-1', _avg: { rating: 4.5 }, _count: { _all: 2 } },
+    ] as never);
+
+    const res = await GET(makeGet());
+    const body = await res.json();
+    expect(body.items[0]).toMatchObject({ ratingAvg: 4.5, reviewCount: 2 });
+  });
+
+  it('filters agents by minRating using a qualifying id list', async () => {
+    mockAgentReviewGroupBy.mockResolvedValueOnce([
+      { agentId: 'agent-1', _avg: { rating: 4.8 } },
+      { agentId: 'agent-2', _avg: { rating: 3.0 } },
+    ] as never);
+
+    await GET(makeGet('?minRating=4.5'));
+    expect(mockUserFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: { in: ['agent-1'] } }),
+      }),
+    );
   });
 
   it('computes stats.fullyVerifiedPercent from agents with all 6 docs verified', async () => {

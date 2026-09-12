@@ -14,13 +14,14 @@ import {
   MessageCircle,
   Navigation,
   Phone,
-  Send,
   ShieldCheck,
   Star,
+  Trash2,
   UserCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
 import { InitialsAvatar } from '@/components/dashboard/InitialsAvatar';
@@ -57,10 +58,38 @@ interface AgentDetail {
     soldListings: number;
     verifiedDocCount: number;
     verifiedDocTotal: number;
+    reviewCount: number;
+    ratingAvg: number | null;
   };
   specialties: { propertyTypes: string[]; transactionTypes: string[] };
   listings: AgentListing[];
 }
+
+interface AgentReview {
+  id: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
+  author: { id: string; name: string | null; avatarUrl: string | null };
+}
+
+interface RatingBreakdown {
+  '5': number;
+  '4': number;
+  '3': number;
+  '2': number;
+  '1': number;
+}
+
+interface AgentReviewsResponse {
+  items: AgentReview[];
+  total: number;
+  avgRating: number | null;
+  ratingBreakdown: RatingBreakdown;
+}
+
+const EMPTY_BREAKDOWN: RatingBreakdown = { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 };
 
 function InertLink({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
@@ -74,13 +103,49 @@ function memberSinceLabel(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
 }
 
+function buildWhatsappLink(phone: string, agentName: string): string {
+  const digits = phone.replace(/[^\d]/g, '');
+  const text = encodeURIComponent(
+    `Bonjour ${agentName}, je vous contacte depuis votre profil Habitat-Afrik.`,
+  );
+  return `https://wa.me/${digits}?text=${text}`;
+}
+
 export default function AgentProfilePage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
+  const { user } = useAuth();
 
   const [agent, setAgent] = useState<AgentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  const [reviews, setReviews] = useState<AgentReview[]>([]);
+  const [reviewsTotal, setReviewsTotal] = useState(0);
+  const [avgRating, setAvgRating] = useState<number | null>(null);
+  const [ratingBreakdown, setRatingBreakdown] = useState<RatingBreakdown>(EMPTY_BREAKDOWN);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+
+  const [ratingInput, setRatingInput] = useState(0);
+  const [ratingHover, setRatingHover] = useState(0);
+  const [commentInput, setCommentInput] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+
+  const loadReviews = () => {
+    setReviewsLoading(true);
+    api<AgentReviewsResponse>(`/api/public/agents/${id}/reviews?limit=20`)
+      .then((res) => {
+        setReviews(res.items);
+        setReviewsTotal(res.total);
+        setAvgRating(res.avgRating);
+        setRatingBreakdown(res.ratingBreakdown);
+      })
+      .catch(() => {
+        setReviews([]);
+      })
+      .finally(() => setReviewsLoading(false));
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +168,56 @@ export default function AgentProfilePage() {
       cancelled = true;
     };
   }, [id]);
+
+  useEffect(() => {
+    loadReviews();
+  }, [id]);
+
+  const myReview = user ? (reviews.find((r) => r.author.id === user.id) ?? null) : null;
+
+  useEffect(() => {
+    if (myReview) {
+      setRatingInput(myReview.rating);
+      setCommentInput(myReview.comment);
+    }
+  }, [myReview]);
+
+  async function handleSubmitReview() {
+    if (!id || ratingInput < 1 || !commentInput.trim()) return;
+    setSubmitting(true);
+    setReviewError(null);
+    try {
+      await api(`/api/agents/${id}/reviews`, {
+        method: 'POST',
+        body: { rating: ratingInput, comment: commentInput.trim() },
+      });
+      if (!myReview) {
+        setRatingInput(0);
+        setCommentInput('');
+      }
+      loadReviews();
+    } catch (err) {
+      setReviewError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDeleteReview() {
+    if (!id) return;
+    setSubmitting(true);
+    setReviewError(null);
+    try {
+      await api(`/api/agents/${id}/reviews`, { method: 'DELETE' });
+      setRatingInput(0);
+      setCommentInput('');
+      loadReviews();
+    } catch (err) {
+      setReviewError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -140,8 +255,11 @@ export default function AgentProfilePage() {
     { value: `${agent.stats.activeListings}`, label: 'Annonces actives' },
     { value: `${agent.stats.soldListings}`, label: 'Transactions conclues' },
     { value: '—', label: "D'expérience" },
-    { value: '—', label: 'Avis clients' },
-    { value: '—', label: 'Note globale' },
+    { value: `${agent.stats.reviewCount}`, label: 'Avis clients' },
+    {
+      value: agent.stats.ratingAvg != null ? agent.stats.ratingAvg.toFixed(1) : '—',
+      label: 'Note globale',
+    },
     {
       value: `${agent.stats.verifiedDocCount}/${agent.stats.verifiedDocTotal}`,
       label: 'Docs vérifiés',
@@ -244,10 +362,22 @@ export default function AgentProfilePage() {
                   Appeler maintenant
                 </InertLink>
               )}
-              <InertLink className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white/[0.14] px-[22px] py-3.5 text-sm font-semibold whitespace-nowrap text-white lg:w-auto">
-                <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
-                Envoyer un message
-              </InertLink>
+              {agent.phone ? (
+                <a
+                  href={buildWhatsappLink(agent.phone, agent.name ?? 'agent')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white/[0.14] px-[22px] py-3.5 text-sm font-semibold whitespace-nowrap text-white lg:w-auto"
+                >
+                  <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
+                  Envoyer un message
+                </a>
+              ) : (
+                <InertLink className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white/[0.14] px-[22px] py-3.5 text-sm font-semibold whitespace-nowrap text-white lg:w-auto">
+                  <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
+                  Envoyer un message
+                </InertLink>
+              )}
             </div>
           </div>
 
@@ -380,13 +510,139 @@ export default function AgentProfilePage() {
 
             {/* AVIS */}
             <div className="rounded-2xl border border-black/[0.08] p-6 lg:p-7">
-              <div className="mb-4.5 flex items-center gap-2.5 text-base font-bold">
-                <Star className="h-[18px] w-[18px] text-gray-300" aria-hidden />
-                Avis clients
+              <div className="mb-4.5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2.5 text-base font-bold">
+                  <Star className="h-[18px] w-[18px] fill-amber-400 text-amber-400" aria-hidden />
+                  Avis clients
+                </div>
+                {reviewsTotal > 0 && (
+                  <div className="flex items-center gap-1.5 text-sm font-semibold whitespace-nowrap">
+                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden />
+                    {avgRating != null ? avgRating.toFixed(1) : '—'}
+                    <span className="font-normal text-gray-500">({reviewsTotal} avis)</span>
+                  </div>
+                )}
               </div>
-              <p className="text-sm text-gray-500">
-                Les avis clients ne sont pas encore disponibles sur Habitat-Afrik.
-              </p>
+
+              {/* FORM */}
+              {user ? (
+                user.id === agent.id ? null : (
+                  <div className="mb-5 rounded-xl border border-black/[0.08] bg-gray-50 p-4">
+                    <p className="mb-2.5 text-[13px] font-semibold">
+                      {myReview ? 'Modifier mon avis' : 'Laisser un avis'}
+                    </p>
+                    <div className="mb-3 flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setRatingInput(n)}
+                          onMouseEnter={() => setRatingHover(n)}
+                          onMouseLeave={() => setRatingHover(0)}
+                          aria-label={`${n} étoile${n > 1 ? 's' : ''}`}
+                          className="p-0.5"
+                        >
+                          <Star
+                            className={cn(
+                              'h-6 w-6',
+                              (ratingHover || ratingInput) >= n
+                                ? 'fill-amber-400 text-amber-400'
+                                : 'text-gray-300',
+                            )}
+                            aria-hidden
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      value={commentInput}
+                      onChange={(e) => setCommentInput(e.target.value)}
+                      maxLength={1000}
+                      rows={3}
+                      placeholder="Partagez votre expérience avec cet agent…"
+                      className="mb-3 w-full rounded-lg border border-black/[0.08] bg-white px-3.5 py-2.5 text-sm outline-none focus:border-brand"
+                    />
+                    {reviewError && <p className="mb-2 text-xs text-red-600">{reviewError}</p>}
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={handleSubmitReview}
+                        disabled={submitting || ratingInput < 1 || !commentInput.trim()}
+                        className="rounded-full bg-brand px-4.5 py-2.5 text-[13px] font-bold whitespace-nowrap text-white disabled:opacity-50"
+                      >
+                        {myReview ? 'Mettre à jour' : 'Publier mon avis'}
+                      </button>
+                      {myReview && (
+                        <button
+                          type="button"
+                          onClick={handleDeleteReview}
+                          disabled={submitting}
+                          className="flex items-center gap-1.5 rounded-full border border-black/[0.08] px-4 py-2.5 text-[13px] font-semibold whitespace-nowrap text-red-600 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                          Supprimer
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              ) : (
+                <p className="mb-5 text-sm text-gray-500">
+                  <Link href="/login" className="font-semibold text-brand">
+                    Connectez-vous
+                  </Link>{' '}
+                  pour laisser un avis sur cet agent.
+                </p>
+              )}
+
+              {/* LIST */}
+              {reviewsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  Chargement des avis…
+                </div>
+              ) : reviews.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  Aucun avis pour l&apos;instant. Soyez le premier à en laisser un.
+                </p>
+              ) : (
+                <div className="flex flex-col divide-y divide-black/[0.06]">
+                  {reviews.map((r) => (
+                    <div key={r.id} className="flex gap-3 py-4 first:pt-0 last:pb-0">
+                      <InitialsAvatar
+                        name={r.author.name}
+                        email=""
+                        seed={r.author.id}
+                        avatarUrl={r.author.avatarUrl}
+                        size={36}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-bold">
+                            {r.author.name ?? 'Utilisateur Habitat-Afrik'}
+                          </span>
+                          <div className="flex items-center gap-0.5">
+                            {[1, 2, 3, 4, 5].map((n) => (
+                              <Star
+                                key={n}
+                                className={cn(
+                                  'h-3.5 w-3.5',
+                                  r.rating >= n ? 'fill-amber-400 text-amber-400' : 'text-gray-200',
+                                )}
+                                aria-hidden
+                              />
+                            ))}
+                          </div>
+                          <span className="text-xs whitespace-nowrap text-gray-400">
+                            {formatDate(r.createdAt)}
+                          </span>
+                        </div>
+                        <p className="text-sm leading-relaxed text-neutral-900">{r.comment}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -425,14 +681,38 @@ export default function AgentProfilePage() {
                     Appeler maintenant
                   </InertLink>
                 )}
-                <InertLink className="flex items-center justify-center gap-2 rounded-full bg-gray-50 px-4.5 py-3.5 text-sm font-bold whitespace-nowrap">
-                  <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
-                  Envoyer un message
-                </InertLink>
-                <InertLink className="flex items-center justify-center gap-2 rounded-full bg-[#1877F2] px-4.5 py-3.5 text-sm font-bold whitespace-nowrap text-white">
-                  <Send className="h-[15px] w-[15px]" aria-hidden />
-                  Facebook Messenger
-                </InertLink>
+                {agent.phone ? (
+                  <a
+                    href={buildWhatsappLink(agent.phone, agent.name ?? 'agent')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 rounded-full bg-gray-50 px-4.5 py-3.5 text-sm font-bold whitespace-nowrap"
+                  >
+                    <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
+                    Envoyer un message
+                  </a>
+                ) : (
+                  <InertLink className="flex items-center justify-center gap-2 rounded-full bg-gray-50 px-4.5 py-3.5 text-sm font-bold whitespace-nowrap">
+                    <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
+                    Envoyer un message
+                  </InertLink>
+                )}
+                {agent.phone ? (
+                  <a
+                    href={buildWhatsappLink(agent.phone, agent.name ?? 'agent')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 rounded-full bg-[#25D366] px-4.5 py-3.5 text-sm font-bold whitespace-nowrap text-white"
+                  >
+                    <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
+                    WhatsApp
+                  </a>
+                ) : (
+                  <InertLink className="flex items-center justify-center gap-2 rounded-full bg-[#25D366]/40 px-4.5 py-3.5 text-sm font-bold whitespace-nowrap text-white">
+                    <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
+                    WhatsApp
+                  </InertLink>
+                )}
               </div>
             </div>
 
@@ -484,23 +764,88 @@ export default function AgentProfilePage() {
               </div>
             </div>
 
+            {/* RATING SUMMARY CARD */}
+            {reviewsTotal > 0 && (
+              <div className="rounded-2xl border border-black/[0.08] p-5">
+                <div className="mb-3.5 text-[13px] font-bold tracking-[0.1em] uppercase">
+                  Synthèse des avis
+                </div>
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <span className="font-sora text-[34px] leading-none font-extrabold tracking-[-0.03em]">
+                    {(avgRating ?? 0).toFixed(1).replace('.', ',')}
+                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <Star
+                          key={n}
+                          className={cn(
+                            'h-4 w-4',
+                            (avgRating ?? 0) >= n - 0.5
+                              ? 'fill-amber-400 text-amber-400'
+                              : 'text-gray-200',
+                          )}
+                          aria-hidden
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs whitespace-nowrap text-gray-500">
+                      {reviewsTotal} avis vérifiés
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {([5, 4, 3, 2, 1] as const).map((n) => {
+                    const count = ratingBreakdown[String(n) as keyof RatingBreakdown];
+                    const pct = reviewsTotal > 0 ? Math.round((count / reviewsTotal) * 100) : 0;
+                    return (
+                      <div key={n} className="flex items-center gap-2.5">
+                        <span className="w-2.5 flex-shrink-0 text-[12px] font-medium text-gray-500">
+                          {n}
+                        </span>
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                          <div
+                            className="h-full rounded-full bg-amber-400"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="w-6 flex-shrink-0 text-right text-[12px] text-gray-400">
+                          {count}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* MAP CARD */}
             {(agent.city || agent.country) && (
               <div className="overflow-hidden rounded-2xl border border-black/[0.08]">
-                <div className="flex h-40 flex-col items-center justify-center gap-2 bg-sky-100">
-                  <MapPin className="h-7 w-7 text-brand" aria-hidden />
-                  <span className="text-[13px] text-gray-500">
-                    Zone d&apos;activité : {agent.city ?? agent.country}
-                  </span>
-                </div>
+                <iframe
+                  title="Zone d'activité"
+                  className="h-40 w-full border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  src={`https://www.google.com/maps?q=${encodeURIComponent(
+                    [agent.city, agent.country].filter(Boolean).join(', '),
+                  )}&z=11&output=embed`}
+                />
                 <div className="flex items-center justify-between gap-3 p-4">
                   <span className="flex items-center gap-2 text-[13px] font-semibold whitespace-nowrap">
                     <Navigation className="h-3.5 w-3.5 text-brand" aria-hidden />
                     {[agent.city, agent.country].filter(Boolean).join(', ')}
                   </span>
-                  <InertLink className="text-[13px] font-semibold whitespace-nowrap text-brand">
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                      [agent.city, agent.country].filter(Boolean).join(', '),
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[13px] font-semibold whitespace-nowrap text-brand"
+                  >
                     Voir sur la carte →
-                  </InertLink>
+                  </a>
                 </div>
               </div>
             )}

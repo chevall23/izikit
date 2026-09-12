@@ -564,7 +564,9 @@ export default function AnnonceDetailPage() {
                   <iframe
                     title="Localisation"
                     className="h-[280px] w-full border-0"
-                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${listing.location.lon - 0.05},${listing.location.lat - 0.05},${listing.location.lon + 0.05},${listing.location.lat + 0.05}&marker=${listing.location.lat},${listing.location.lon}&layer=mapnik`}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    src={`https://www.google.com/maps?q=${listing.location.lat},${listing.location.lon}&z=14&output=embed`}
                   />
                 </div>
                 <div className="mt-3 flex items-start gap-1.5 text-[13px] text-gray-500">

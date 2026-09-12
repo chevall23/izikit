@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Home } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Logo } from '@/components/Logo';
 
 function InertFooterLink({ children }: { children: React.ReactNode }) {
   return (
@@ -18,6 +18,7 @@ function InertFooterLink({ children }: { children: React.ReactNode }) {
 const PLATFORM_LINKS: { label: string; href: string | null }[] = [
   { label: 'Parcourir les annonces', href: '/annonces' },
   { label: 'Publier une annonce', href: '/listings/new' },
+  { label: 'Blog', href: '/blog' },
   { label: 'Devenir agent', href: null },
   { label: 'Nos services', href: null },
 ];
@@ -35,13 +36,8 @@ export function PublicFooter() {
       <div className="mx-auto max-w-[1280px]">
         <div className="mb-6 grid grid-cols-1 gap-9 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
           <div className="max-w-[320px]">
-            <Link href="/" className="flex items-center gap-3 text-white">
-              <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-brand">
-                <Home className="h-[14px] w-[14px] text-white" aria-hidden />
-              </div>
-              <span className="font-sora text-[21px] font-bold tracking-[-0.03em]">
-                HABITAT-AFRIK
-              </span>
+            <Link href="/" className="flex items-center">
+              <Logo height={32} chip />
             </Link>
             <p className="mt-3 text-sm text-white/58">
               La plateforme immobilière de référence en Afrique de l&apos;Ouest pour acheter, louer

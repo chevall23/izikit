@@ -271,6 +271,11 @@ export default function NouvelleDemandePage() {
   const showSurfaceField = isLandType;
   const showCapacityField = isHallType;
 
+  function handlePropertyTypeChange(value: PropertyType) {
+    setPropertyType(value);
+    if (LAND_PROPERTY_TYPES.has(value)) setEquipements([]);
+  }
+
   function handleCountryChange(value: string) {
     setPays(value);
     const cities = COUNTRIES.find((c) => c.name === value)?.cities ?? [];
@@ -463,7 +468,7 @@ export default function NouvelleDemandePage() {
                           <Pill
                             key={t.key}
                             selected={propertyType === t.key}
-                            onClick={() => setPropertyType(t.key)}
+                            onClick={() => handlePropertyTypeChange(t.key)}
                             icon={t.icon}
                           >
                             {PROPERTY_TYPE_LABEL[t.key]}
@@ -555,22 +560,26 @@ export default function NouvelleDemandePage() {
                       </div>
                     )}
 
-                    <hr className="my-7 border-black/[0.06]" />
+                    {!isLandType && (
+                      <>
+                        <hr className="my-7 border-black/[0.06]" />
 
-                    <div className="mb-6">
-                      <FieldLabel>Équipements souhaités</FieldLabel>
-                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-                        {Object.entries(AMENITY_LABEL).map(([key, label]) => (
-                          <CheckOption
-                            key={key}
-                            checked={equipements.includes(key)}
-                            onClick={() => toggleFrom(equipements, setEquipements, key)}
-                          >
-                            {label}
-                          </CheckOption>
-                        ))}
-                      </div>
-                    </div>
+                        <div className="mb-6">
+                          <FieldLabel>Équipements souhaités</FieldLabel>
+                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                            {Object.entries(AMENITY_LABEL).map(([key, label]) => (
+                              <CheckOption
+                                key={key}
+                                checked={equipements.includes(key)}
+                                onClick={() => toggleFrom(equipements, setEquipements, key)}
+                              >
+                                {label}
+                              </CheckOption>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
 
                     <hr className="my-7 border-black/[0.06]" />
 

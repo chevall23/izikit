@@ -61,28 +61,38 @@ export async function GET(
       );
     }
 
-    const [listings, activeCount, soldCount, verifiedDocCount, propertyTypes, transactionTypes] =
-      await Promise.all([
-        prisma.listing.findMany({
-          where: { userId: id, status: 'VERIFIED' },
-          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-          take: RECENT_LISTINGS_LIMIT,
-          select: LISTING_SELECT,
-        }),
-        prisma.listing.count({ where: { userId: id, status: 'VERIFIED' } }),
-        prisma.listing.count({ where: { userId: id, status: 'SOLD' } }),
-        prisma.legalDocument.count({ where: { userId: id, status: 'VERIFIED' } }),
-        prisma.listing.groupBy({
-          by: ['propertyType'],
-          where: { userId: id, status: { in: ['VERIFIED', 'SOLD'] } },
-          _count: { _all: true },
-        }),
-        prisma.listing.groupBy({
-          by: ['transactionType'],
-          where: { userId: id, status: { in: ['VERIFIED', 'SOLD'] } },
-          _count: { _all: true },
-        }),
-      ]);
+    const [
+      listings,
+      activeCount,
+      soldCount,
+      verifiedDocCount,
+      propertyTypes,
+      transactionTypes,
+      reviewCount,
+      reviewAggregate,
+    ] = await Promise.all([
+      prisma.listing.findMany({
+        where: { userId: id, status: 'VERIFIED' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: RECENT_LISTINGS_LIMIT,
+        select: LISTING_SELECT,
+      }),
+      prisma.listing.count({ where: { userId: id, status: 'VERIFIED' } }),
+      prisma.listing.count({ where: { userId: id, status: 'SOLD' } }),
+      prisma.legalDocument.count({ where: { userId: id, status: 'VERIFIED' } }),
+      prisma.listing.groupBy({
+        by: ['propertyType'],
+        where: { userId: id, status: { in: ['VERIFIED', 'SOLD'] } },
+        _count: { _all: true },
+      }),
+      prisma.listing.groupBy({
+        by: ['transactionType'],
+        where: { userId: id, status: { in: ['VERIFIED', 'SOLD'] } },
+        _count: { _all: true },
+      }),
+      prisma.agentReview.count({ where: { agentId: id } }),
+      prisma.agentReview.aggregate({ where: { agentId: id }, _avg: { rating: true } }),
+    ]);
 
     return NextResponse.json(
       {
@@ -99,6 +109,8 @@ export async function GET(
           soldListings: soldCount,
           verifiedDocCount,
           verifiedDocTotal: LEGAL_DOCUMENT_TYPE_COUNT,
+          reviewCount,
+          ratingAvg: reviewAggregate._avg.rating,
         },
         specialties: {
           propertyTypes: propertyTypes.map((r) => r.propertyType),

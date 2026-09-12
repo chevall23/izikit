@@ -1,12 +1,17 @@
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Habitat-Afrik — Admin Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
+    rel="stylesheet"
+  />
   <script src="https://cdn.jsdelivr.net/npm/iconify-icon@2.1.0/dist/iconify-icon.min.js"></script>
 
   <style id="base-styles">
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
     body {
       margin: 0;
       min-height: 812px;
@@ -194,7 +199,9 @@
       background: var(--card);
       color: var(--primary);
     }
-    .sidebar-spacer { flex: 1; }
+    .sidebar-spacer {
+      flex: 1;
+    }
     .logout-item {
       background: var(--destructive);
     }
@@ -537,7 +544,23 @@
     .plot-area {
       position: relative;
       border-radius: var(--radius-lg);
-      background: linear-gradient(to bottom, transparent 0%, transparent 24%, var(--muted) 24%, var(--muted) 25%, transparent 25%, transparent 49%, var(--muted) 49%, var(--muted) 50%, transparent 50%, transparent 74%, var(--muted) 74%, var(--muted) 75%, transparent 75%, transparent 100%);
+      background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        transparent 24%,
+        var(--muted) 24%,
+        var(--muted) 25%,
+        transparent 25%,
+        transparent 49%,
+        var(--muted) 49%,
+        var(--muted) 50%,
+        transparent 50%,
+        transparent 74%,
+        var(--muted) 74%,
+        var(--muted) 75%,
+        transparent 75%,
+        transparent 100%
+      );
       padding: 8px 12px 24px 12px;
       overflow: hidden;
     }
@@ -557,7 +580,9 @@
       font-size: 11px;
       color: var(--muted-foreground);
     }
-    .x-axis span { white-space: nowrap; }
+    .x-axis span {
+      white-space: nowrap;
+    }
   </style>
 
   <style id="bar-chart-styles">
@@ -691,7 +716,10 @@
   </style>
 
   <style id="table-styles">
-    .table-card { padding: 0; overflow: hidden; }
+    .table-card {
+      padding: 0;
+      overflow: hidden;
+    }
     .table-toolbar {
       padding: 16px 18px;
       border-bottom: 1px solid var(--border);
@@ -850,13 +878,17 @@
       line-height: 1.5;
     }
   </style>
-</head><body>
+</head>
+<body>
   <div class="app" id="admin-dashboard">
     <aside class="sidebar" id="sidebar">
       <div class="brand-block" id="brand-block">
         <div class="brand-mark">
           <div class="icon-wrap lg">
-            <iconify-icon icon="lucide:building-2" style="font-size:20px;color:var(--primary);"></iconify-icon>
+            <iconify-icon
+              icon="lucide:building-2"
+              style="font-size: 20px; color: var(--primary)"
+            ></iconify-icon>
           </div>
         </div>
         <div class="brand-texts">
@@ -874,7 +906,10 @@
           </div>
         </div>
         <div class="icon-wrap sm">
-          <iconify-icon icon="lucide:chevron-down" style="font-size:16px;color:var(--muted-foreground);"></iconify-icon>
+          <iconify-icon
+            icon="lucide:chevron-down"
+            style="font-size: 16px; color: var(--muted-foreground)"
+          ></iconify-icon>
         </div>
       </div>
 
@@ -893,45 +928,80 @@
         <div class="nav-list">
           <a class="nav-item active" id="nav-dashboard" href="#" data-media-type="banani-button">
             <div class="nav-item-left">
-              <div class="icon-wrap"><iconify-icon icon="lucide:layout-dashboard" style="font-size:18px;color:var(--primary);"></iconify-icon></div>
+              <div class="icon-wrap">
+                <iconify-icon
+                  icon="lucide:layout-dashboard"
+                  style="font-size: 18px; color: var(--primary)"
+                ></iconify-icon>
+              </div>
               <span class="nav-item-label">Tableau de bord</span>
             </div>
             <span class="nav-count">4</span>
           </a>
           <a class="nav-item" id="nav-annonces" href="#" data-media-type="banani-button">
             <div class="nav-item-left">
-              <div class="icon-wrap"><iconify-icon icon="lucide:clipboard-list" style="font-size:18px;color:var(--muted-foreground);"></iconify-icon></div>
+              <div class="icon-wrap">
+                <iconify-icon
+                  icon="lucide:clipboard-list"
+                  style="font-size: 18px; color: var(--muted-foreground)"
+                ></iconify-icon>
+              </div>
               <span class="nav-item-label">Gestion des annonces</span>
             </div>
           </a>
           <a class="nav-item" id="nav-users" href="#" data-media-type="banani-button">
             <div class="nav-item-left">
-              <div class="icon-wrap"><iconify-icon icon="lucide:users" style="font-size:18px;color:var(--muted-foreground);"></iconify-icon></div>
+              <div class="icon-wrap">
+                <iconify-icon
+                  icon="lucide:users"
+                  style="font-size: 18px; color: var(--muted-foreground)"
+                ></iconify-icon>
+              </div>
               <span class="nav-item-label">Utilisateurs</span>
             </div>
           </a>
           <a class="nav-item" id="nav-finance" href="#" data-media-type="banani-button">
             <div class="nav-item-left">
-              <div class="icon-wrap"><iconify-icon icon="lucide:wallet" style="font-size:18px;color:var(--muted-foreground);"></iconify-icon></div>
+              <div class="icon-wrap">
+                <iconify-icon
+                  icon="lucide:wallet"
+                  style="font-size: 18px; color: var(--muted-foreground)"
+                ></iconify-icon>
+              </div>
               <span class="nav-item-label">Finances &amp; jetons</span>
             </div>
           </a>
           <a class="nav-item" id="nav-vr" href="#" data-media-type="banani-button">
             <div class="nav-item-left">
-              <div class="icon-wrap"><iconify-icon icon="lucide:video" style="font-size:18px;color:var(--muted-foreground);"></iconify-icon></div>
+              <div class="icon-wrap">
+                <iconify-icon
+                  icon="lucide:video"
+                  style="font-size: 18px; color: var(--muted-foreground)"
+                ></iconify-icon>
+              </div>
               <span class="nav-item-label">Visites virtuelles</span>
             </div>
           </a>
           <a class="nav-item" id="nav-support" href="#" data-media-type="banani-button">
             <div class="nav-item-left">
-              <div class="icon-wrap"><iconify-icon icon="lucide:shield-alert" style="font-size:18px;color:var(--muted-foreground);"></iconify-icon></div>
+              <div class="icon-wrap">
+                <iconify-icon
+                  icon="lucide:shield-alert"
+                  style="font-size: 18px; color: var(--muted-foreground)"
+                ></iconify-icon>
+              </div>
               <span class="nav-item-label">Modération &amp; support</span>
             </div>
             <span class="nav-count">19</span>
           </a>
           <a class="nav-item" id="nav-settings" href="#" data-media-type="banani-button">
             <div class="nav-item-left">
-              <div class="icon-wrap"><iconify-icon icon="lucide:settings-2" style="font-size:18px;color:var(--muted-foreground);"></iconify-icon></div>
+              <div class="icon-wrap">
+                <iconify-icon
+                  icon="lucide:settings-2"
+                  style="font-size: 18px; color: var(--muted-foreground)"
+                ></iconify-icon>
+              </div>
               <span class="nav-item-label">Paramètres</span>
             </div>
           </a>
@@ -942,7 +1012,12 @@
 
       <a class="nav-item logout-item" id="nav-logout" href="#" data-media-type="banani-button">
         <div class="nav-item-left">
-          <div class="icon-wrap"><iconify-icon icon="lucide:log-out" style="font-size:18px;color:var(--destructive-foreground);"></iconify-icon></div>
+          <div class="icon-wrap">
+            <iconify-icon
+              icon="lucide:log-out"
+              style="font-size: 18px; color: var(--destructive-foreground)"
+            ></iconify-icon>
+          </div>
           <span class="nav-item-label">Déconnexion</span>
         </div>
       </a>
@@ -951,21 +1026,40 @@
     <main class="main" id="main-content">
       <div class="topbar" id="topbar">
         <div class="searchbar" id="global-search" data-media-type="banani-button">
-          <div class="icon-wrap"><iconify-icon icon="lucide:search" style="font-size:16px;color:var(--muted-foreground);"></iconify-icon></div>
-          <span class="searchbar-text">Rechercher une annonce, un utilisateur, un paiement ou un ticket support</span>
+          <div class="icon-wrap">
+            <iconify-icon
+              icon="lucide:search"
+              style="font-size: 16px; color: var(--muted-foreground)"
+            ></iconify-icon>
+          </div>
+          <span class="searchbar-text"
+            >Rechercher une annonce, un utilisateur, un paiement ou un ticket support</span
+          >
         </div>
         <div class="topbar-right">
           <div class="icon-btn" id="notif-button" data-media-type="banani-button">
-            <iconify-icon icon="lucide:bell" style="font-size:18px;color:var(--foreground);"></iconify-icon>
+            <iconify-icon
+              icon="lucide:bell"
+              style="font-size: 18px; color: var(--foreground)"
+            ></iconify-icon>
             <span class="notif-dot"></span>
           </div>
           <div class="admin-pill" id="admin-pill" data-media-type="banani-button">
-            <img src="https://storage.googleapis.com/banani-avatars/avatar%2Fmale%2F35-50%2FAfrican%2F3" alt="Admin" class="admin-avatar">
+            <img
+              src="https://storage.googleapis.com/banani-avatars/avatar%2Fmale%2F35-50%2FAfrican%2F3"
+              alt="Admin"
+              class="admin-avatar"
+            />
             <div class="admin-meta">
               <span class="admin-name">Kofi Mensah</span>
               <span class="admin-role">Admin plateforme</span>
             </div>
-            <div class="icon-wrap sm"><iconify-icon icon="lucide:chevrons-up-down" style="font-size:14px;color:var(--muted-foreground);"></iconify-icon></div>
+            <div class="icon-wrap sm">
+              <iconify-icon
+                icon="lucide:chevrons-up-down"
+                style="font-size: 14px; color: var(--muted-foreground)"
+              ></iconify-icon>
+            </div>
           </div>
         </div>
       </div>
@@ -975,15 +1069,29 @@
           <div class="page-title-block">
             <div class="page-eyebrow">Vue globale · Multi-pays agrégée</div>
             <h1 class="page-title">Tableau de bord admin</h1>
-            <div class="page-subtitle">Suivi consolidé des annonces, revenus, modération et croissance pour le Bénin, le Togo, la Côte d'Ivoire et le Sénégal. Mise en page aérée, premium et pensée pour une lecture rapide.</div>
+            <div class="page-subtitle">
+              Suivi consolidé des annonces, revenus, modération et croissance pour le Bénin, le
+              Togo, la Côte d'Ivoire et le Sénégal. Mise en page aérée, premium et pensée pour une
+              lecture rapide.
+            </div>
           </div>
           <div class="page-actions">
             <div class="button secondary" id="btn-export" data-media-type="banani-button">
-              <div class="icon-wrap sm"><iconify-icon icon="lucide:download" style="font-size:14px;color:var(--foreground);"></iconify-icon></div>
+              <div class="icon-wrap sm">
+                <iconify-icon
+                  icon="lucide:download"
+                  style="font-size: 14px; color: var(--foreground)"
+                ></iconify-icon>
+              </div>
               Exporter
             </div>
             <div class="button primary" id="btn-report" data-media-type="banani-button">
-              <div class="icon-wrap sm"><iconify-icon icon="lucide:file-text" style="font-size:14px;color:var(--primary-foreground);"></iconify-icon></div>
+              <div class="icon-wrap sm">
+                <iconify-icon
+                  icon="lucide:file-text"
+                  style="font-size: 14px; color: var(--primary-foreground)"
+                ></iconify-icon>
+              </div>
               Rapport mensuel
             </div>
           </div>
@@ -992,7 +1100,12 @@
         <section class="kpi-grid" id="kpi-grid">
           <div class="kpi-card" id="kpi-active-listings" data-media-type="banani-button">
             <div class="kpi-top">
-              <div class="kpi-icon"><iconify-icon icon="lucide:building" style="font-size:18px;color:var(--primary);"></iconify-icon></div>
+              <div class="kpi-icon">
+                <iconify-icon
+                  icon="lucide:building"
+                  style="font-size: 18px; color: var(--primary)"
+                ></iconify-icon>
+              </div>
               <span class="delta up">+8,2%</span>
             </div>
             <div class="kpi-value">12 480</div>
@@ -1002,17 +1115,29 @@
 
           <div class="kpi-card" id="kpi-signups" data-media-type="banani-button">
             <div class="kpi-top">
-              <div class="kpi-icon"><iconify-icon icon="lucide:user-plus" style="font-size:18px;color:var(--primary);"></iconify-icon></div>
+              <div class="kpi-icon">
+                <iconify-icon
+                  icon="lucide:user-plus"
+                  style="font-size: 18px; color: var(--primary)"
+                ></iconify-icon>
+              </div>
               <span class="delta up">+14,6%</span>
             </div>
             <div class="kpi-value">986</div>
             <div class="kpi-label">Nouvelles inscriptions · 7j</div>
-            <div class="kpi-foot"><span>Agences, particuliers, démarcheurs</span><span>7 jours</span></div>
+            <div class="kpi-foot">
+              <span>Agences, particuliers, démarcheurs</span><span>7 jours</span>
+            </div>
           </div>
 
           <div class="kpi-card" id="kpi-revenue" data-media-type="banani-button">
             <div class="kpi-top">
-              <div class="kpi-icon"><iconify-icon icon="lucide:wallet-cards" style="font-size:18px;color:var(--primary);"></iconify-icon></div>
+              <div class="kpi-icon">
+                <iconify-icon
+                  icon="lucide:wallet-cards"
+                  style="font-size: 18px; color: var(--primary)"
+                ></iconify-icon>
+              </div>
               <span class="delta up">+11,1%</span>
             </div>
             <div class="kpi-value">84,7 M FCFA</div>
@@ -1022,7 +1147,12 @@
 
           <div class="kpi-card" id="kpi-conversion" data-media-type="banani-button">
             <div class="kpi-top">
-              <div class="kpi-icon"><iconify-icon icon="lucide:badge-percent" style="font-size:18px;color:var(--primary);"></iconify-icon></div>
+              <div class="kpi-icon">
+                <iconify-icon
+                  icon="lucide:badge-percent"
+                  style="font-size: 18px; color: var(--primary)"
+                ></iconify-icon>
+              </div>
               <span class="delta warn">+1,9 pt</span>
             </div>
             <div class="kpi-value">18,4%</div>
@@ -1037,19 +1167,32 @@
               <div class="card-header">
                 <div class="card-title-wrap">
                   <h2 class="card-title">Évolution des annonces publiées par pays</h2>
-                  <div class="card-subtitle">Comparatif sur 30 jours avec focus sur la dynamique régionale.</div>
+                  <div class="card-subtitle">
+                    Comparatif sur 30 jours avec focus sur la dynamique régionale.
+                  </div>
                 </div>
                 <div class="mini-filter" data-media-type="banani-button">
                   30 derniers jours
-                  <iconify-icon icon="lucide:chevron-down" style="font-size:14px;color:var(--muted-foreground);"></iconify-icon>
+                  <iconify-icon
+                    icon="lucide:chevron-down"
+                    style="font-size: 14px; color: var(--muted-foreground)"
+                  ></iconify-icon>
                 </div>
               </div>
 
               <div class="line-legend">
-                <div class="legend-chip"><span class="legend-dot" style="background:var(--primary);"></span>Bénin</div>
-                <div class="legend-chip"><span class="legend-dot" style="background:var(--foreground);"></span>Togo</div>
-                <div class="legend-chip"><span class="legend-dot" style="background:var(--warning);"></span>Côte d'Ivoire</div>
-                <div class="legend-chip"><span class="legend-dot" style="background:var(--success);"></span>Sénégal</div>
+                <div class="legend-chip">
+                  <span class="legend-dot" style="background: var(--primary)"></span>Bénin
+                </div>
+                <div class="legend-chip">
+                  <span class="legend-dot" style="background: var(--foreground)"></span>Togo
+                </div>
+                <div class="legend-chip">
+                  <span class="legend-dot" style="background: var(--warning)"></span>Côte d'Ivoire
+                </div>
+                <div class="legend-chip">
+                  <span class="legend-dot" style="background: var(--success)"></span>Sénégal
+                </div>
               </div>
 
               <div class="line-chart">
@@ -1062,10 +1205,38 @@
                 </div>
                 <div class="plot-area">
                   <svg class="plot-svg" viewBox="0 0 760 220" preserveAspectRatio="none">
-                    <polyline points="0,168 150,154 305,136 455,116 610,102 760,78" fill="none" stroke="var(--primary)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></polyline>
-                    <polyline points="0,182 150,174 305,166 455,144 610,130 760,124" fill="none" stroke="var(--foreground)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
-                    <polyline points="0,158 150,148 305,122 455,96 610,88 760,70" fill="none" stroke="var(--warning)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
-                    <polyline points="0,192 150,180 305,170 455,164 610,142 760,132" fill="none" stroke="var(--success)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                    <polyline
+                      points="0,168 150,154 305,136 455,116 610,102 760,78"
+                      fill="none"
+                      stroke="var(--primary)"
+                      stroke-width="4"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                    <polyline
+                      points="0,182 150,174 305,166 455,144 610,130 760,124"
+                      fill="none"
+                      stroke="var(--foreground)"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                    <polyline
+                      points="0,158 150,148 305,122 455,96 610,88 760,70"
+                      fill="none"
+                      stroke="var(--warning)"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                    <polyline
+                      points="0,192 150,180 305,170 455,164 610,142 760,132"
+                      fill="none"
+                      stroke="var(--success)"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
                     <circle cx="760" cy="78" r="5" fill="var(--primary)"></circle>
                     <circle cx="760" cy="124" r="5" fill="var(--foreground)"></circle>
                     <circle cx="760" cy="70" r="5" fill="var(--warning)"></circle>
@@ -1087,42 +1258,47 @@
               <div class="card-header">
                 <div class="card-title-wrap">
                   <h2 class="card-title">Répartition des annonces par type</h2>
-                  <div class="card-subtitle">Volume et poids relatif des catégories les plus publiées.</div>
+                  <div class="card-subtitle">
+                    Volume et poids relatif des catégories les plus publiées.
+                  </div>
                 </div>
                 <div class="mini-filter" data-media-type="banani-button">
                   Toutes catégories
-                  <iconify-icon icon="lucide:chevron-down" style="font-size:14px;color:var(--muted-foreground);"></iconify-icon>
+                  <iconify-icon
+                    icon="lucide:chevron-down"
+                    style="font-size: 14px; color: var(--muted-foreground)"
+                  ></iconify-icon>
                 </div>
               </div>
               <div class="bar-wrap">
                 <div class="bar-group">
                   <div class="bar-stack">
-                    <div class="bar light" style="height:118px;"></div>
-                    <div class="bar" style="height:152px;"></div>
+                    <div class="bar light" style="height: 118px"></div>
+                    <div class="bar" style="height: 152px"></div>
                   </div>
                   <div class="bar-label">Villa</div>
                   <div class="bar-meta">2 940 annonces</div>
                 </div>
                 <div class="bar-group">
                   <div class="bar-stack">
-                    <div class="bar light" style="height:102px;"></div>
-                    <div class="bar" style="height:166px;"></div>
+                    <div class="bar light" style="height: 102px"></div>
+                    <div class="bar" style="height: 166px"></div>
                   </div>
                   <div class="bar-label">Appartement</div>
                   <div class="bar-meta">3 184 annonces</div>
                 </div>
                 <div class="bar-group">
                   <div class="bar-stack">
-                    <div class="bar light" style="height:92px;"></div>
-                    <div class="bar" style="height:130px;"></div>
+                    <div class="bar light" style="height: 92px"></div>
+                    <div class="bar" style="height: 130px"></div>
                   </div>
                   <div class="bar-label">Terrain</div>
                   <div class="bar-meta">2 215 annonces</div>
                 </div>
                 <div class="bar-group">
                   <div class="bar-stack">
-                    <div class="bar light" style="height:76px;"></div>
-                    <div class="bar" style="height:104px;"></div>
+                    <div class="bar light" style="height: 76px"></div>
+                    <div class="bar" style="height: 104px"></div>
                   </div>
                   <div class="bar-label">Bureau</div>
                   <div class="bar-meta">1 420 annonces</div>
@@ -1148,11 +1324,17 @@
                 <div>Prix</div>
                 <div>Type</div>
                 <div>Statut</div>
-                <div style="text-align:right;">Actions</div>
+                <div style="text-align: right">Actions</div>
               </div>
               <div class="table-row alt" data-media-type="banani-button">
                 <div class="table-annonce">
-                  <img class="thumb" data-aspect-ratio="1:1" data-query="luxury villa west africa blue sky premium real estate exterior white facade pool" alt="Villa" src="https://storage.googleapis.com/banani-generated-images/generated-images/94b1683e-a38b-4f0a-9596-198785fc75af.jpg">
+                  <img
+                    class="thumb"
+                    data-aspect-ratio="1:1"
+                    data-query="luxury villa west africa blue sky premium real estate exterior white facade pool"
+                    alt="Villa"
+                    src="https://storage.googleapis.com/banani-generated-images/generated-images/94b1683e-a38b-4f0a-9596-198785fc75af.jpg"
+                  />
                   <div class="annonce-texts">
                     <div class="annonce-name">Villa premium avec piscine</div>
                     <div class="annonce-meta">Réf. HA-8941</div>
@@ -1163,13 +1345,29 @@
                 <div>Vente</div>
                 <div><span class="status-badge warning">En attente</span></div>
                 <div class="table-actions">
-                  <div class="action-mini" data-media-type="banani-button"><iconify-icon icon="lucide:eye" style="font-size:15px;color:var(--foreground);"></iconify-icon></div>
-                  <div class="action-mini" data-media-type="banani-button"><iconify-icon icon="lucide:check" style="font-size:15px;color:var(--success);"></iconify-icon></div>
+                  <div class="action-mini" data-media-type="banani-button">
+                    <iconify-icon
+                      icon="lucide:eye"
+                      style="font-size: 15px; color: var(--foreground)"
+                    ></iconify-icon>
+                  </div>
+                  <div class="action-mini" data-media-type="banani-button">
+                    <iconify-icon
+                      icon="lucide:check"
+                      style="font-size: 15px; color: var(--success)"
+                    ></iconify-icon>
+                  </div>
                 </div>
               </div>
               <div class="table-row" data-media-type="banani-button">
                 <div class="table-annonce">
-                  <img class="thumb" data-aspect-ratio="1:1" data-query="apartment building west africa urban residential premium listing exterior modern" alt="Appartement" src="https://storage.googleapis.com/banani-generated-images/generated-images/caba0b3a-e0b3-4862-824e-5e4ac1b9888c.jpg">
+                  <img
+                    class="thumb"
+                    data-aspect-ratio="1:1"
+                    data-query="apartment building west africa urban residential premium listing exterior modern"
+                    alt="Appartement"
+                    src="https://storage.googleapis.com/banani-generated-images/generated-images/caba0b3a-e0b3-4862-824e-5e4ac1b9888c.jpg"
+                  />
                   <div class="annonce-texts">
                     <div class="annonce-name">Appartement T4 centre-ville</div>
                     <div class="annonce-meta">Réf. HA-8912</div>
@@ -1180,13 +1378,29 @@
                 <div>Vente</div>
                 <div><span class="status-badge success">Validée</span></div>
                 <div class="table-actions">
-                  <div class="action-mini" data-media-type="banani-button"><iconify-icon icon="lucide:pencil" style="font-size:15px;color:var(--foreground);"></iconify-icon></div>
-                  <div class="action-mini" data-media-type="banani-button"><iconify-icon icon="lucide:arrow-up-right" style="font-size:15px;color:var(--primary);"></iconify-icon></div>
+                  <div class="action-mini" data-media-type="banani-button">
+                    <iconify-icon
+                      icon="lucide:pencil"
+                      style="font-size: 15px; color: var(--foreground)"
+                    ></iconify-icon>
+                  </div>
+                  <div class="action-mini" data-media-type="banani-button">
+                    <iconify-icon
+                      icon="lucide:arrow-up-right"
+                      style="font-size: 15px; color: var(--primary)"
+                    ></iconify-icon>
+                  </div>
                 </div>
               </div>
               <div class="table-row alt" data-media-type="banani-button">
                 <div class="table-annonce">
-                  <img class="thumb" data-aspect-ratio="1:1" data-query="land plot west africa development site aerial real estate investment" alt="Terrain" src="https://storage.googleapis.com/banani-generated-images/generated-images/05725849-8cd3-4bfd-b818-fd767b0ef4ac.jpg">
+                  <img
+                    class="thumb"
+                    data-aspect-ratio="1:1"
+                    data-query="land plot west africa development site aerial real estate investment"
+                    alt="Terrain"
+                    src="https://storage.googleapis.com/banani-generated-images/generated-images/05725849-8cd3-4bfd-b818-fd767b0ef4ac.jpg"
+                  />
                   <div class="annonce-texts">
                     <div class="annonce-name">Terrain de 800 m² en périphérie</div>
                     <div class="annonce-meta">Réf. HA-8864</div>
@@ -1197,13 +1411,29 @@
                 <div>Vente</div>
                 <div><span class="status-badge danger">Rejetée</span></div>
                 <div class="table-actions">
-                  <div class="action-mini" data-media-type="banani-button"><iconify-icon icon="lucide:file-warning" style="font-size:15px;color:var(--warning);"></iconify-icon></div>
-                  <div class="action-mini" data-media-type="banani-button"><iconify-icon icon="lucide:trash-2" style="font-size:15px;color:var(--destructive);"></iconify-icon></div>
+                  <div class="action-mini" data-media-type="banani-button">
+                    <iconify-icon
+                      icon="lucide:file-warning"
+                      style="font-size: 15px; color: var(--warning)"
+                    ></iconify-icon>
+                  </div>
+                  <div class="action-mini" data-media-type="banani-button">
+                    <iconify-icon
+                      icon="lucide:trash-2"
+                      style="font-size: 15px; color: var(--destructive)"
+                    ></iconify-icon>
+                  </div>
                 </div>
               </div>
               <div class="table-row" data-media-type="banani-button">
                 <div class="table-annonce">
-                  <img class="thumb" data-aspect-ratio="1:1" data-query="modern office building west africa business district commercial property" alt="Bureau" src="https://storage.googleapis.com/banani-generated-images/generated-images/6d7fc71b-cdfc-40e3-b22a-e01a1744d201.jpg">
+                  <img
+                    class="thumb"
+                    data-aspect-ratio="1:1"
+                    data-query="modern office building west africa business district commercial property"
+                    alt="Bureau"
+                    src="https://storage.googleapis.com/banani-generated-images/generated-images/6d7fc71b-cdfc-40e3-b22a-e01a1744d201.jpg"
+                  />
                   <div class="annonce-texts">
                     <div class="annonce-name">Plateau bureaux quartier affaires</div>
                     <div class="annonce-meta">Réf. HA-8807</div>
@@ -1214,8 +1444,18 @@
                 <div>Location</div>
                 <div><span class="status-badge primary">Boostée</span></div>
                 <div class="table-actions">
-                  <div class="action-mini" data-media-type="banani-button"><iconify-icon icon="lucide:rocket" style="font-size:15px;color:var(--primary);"></iconify-icon></div>
-                  <div class="action-mini" data-media-type="banani-button"><iconify-icon icon="lucide:more-horizontal" style="font-size:15px;color:var(--muted-foreground);"></iconify-icon></div>
+                  <div class="action-mini" data-media-type="banani-button">
+                    <iconify-icon
+                      icon="lucide:rocket"
+                      style="font-size: 15px; color: var(--primary)"
+                    ></iconify-icon>
+                  </div>
+                  <div class="action-mini" data-media-type="banani-button">
+                    <iconify-icon
+                      icon="lucide:more-horizontal"
+                      style="font-size: 15px; color: var(--muted-foreground)"
+                    ></iconify-icon>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1226,21 +1466,35 @@
               <div class="card-header">
                 <div class="card-title-wrap">
                   <h2 class="card-title">Activité récente</h2>
-                  <div class="card-subtitle">Dernières annonces, signalements et paiements observés sur la plateforme.</div>
+                  <div class="card-subtitle">
+                    Dernières annonces, signalements et paiements observés sur la plateforme.
+                  </div>
                 </div>
                 <div class="mini-filter" data-media-type="banani-button">En direct</div>
               </div>
               <div class="activity-list">
                 <div class="activity-row" data-media-type="banani-button">
-                  <div class="activity-icon"><iconify-icon icon="lucide:building-2" style="font-size:16px;color:var(--primary);"></iconify-icon></div>
+                  <div class="activity-icon">
+                    <iconify-icon
+                      icon="lucide:building-2"
+                      style="font-size: 16px; color: var(--primary)"
+                    ></iconify-icon>
+                  </div>
                   <div class="activity-main">
-                    <div class="activity-title">Nouvelle annonce postée · Villa duplex à Cocody</div>
+                    <div class="activity-title">
+                      Nouvelle annonce postée · Villa duplex à Cocody
+                    </div>
                     <div class="activity-sub">Agence Babi Prestige · Abidjan, Côte d'Ivoire</div>
                   </div>
                   <div class="activity-time">Il y a 8 min</div>
                 </div>
                 <div class="activity-row" data-media-type="banani-button">
-                  <div class="activity-icon"><iconify-icon icon="lucide:shield-alert" style="font-size:16px;color:var(--warning);"></iconify-icon></div>
+                  <div class="activity-icon">
+                    <iconify-icon
+                      icon="lucide:shield-alert"
+                      style="font-size: 16px; color: var(--warning)"
+                    ></iconify-icon>
+                  </div>
                   <div class="activity-main">
                     <div class="activity-title">Signalement reçu sur une annonce terrain</div>
                     <div class="activity-sub">Motif: coordonnées invalides · Cotonou, Bénin</div>
@@ -1248,7 +1502,12 @@
                   <div class="activity-time">Il y a 21 min</div>
                 </div>
                 <div class="activity-row" data-media-type="banani-button">
-                  <div class="activity-icon"><iconify-icon icon="lucide:credit-card" style="font-size:16px;color:var(--success);"></iconify-icon></div>
+                  <div class="activity-icon">
+                    <iconify-icon
+                      icon="lucide:credit-card"
+                      style="font-size: 16px; color: var(--success)"
+                    ></iconify-icon>
+                  </div>
                   <div class="activity-main">
                     <div class="activity-title">Paiement jetons confirmé · 420 000 FCFA</div>
                     <div class="activity-sub">Agence Horizon Immo · Mobile Money · Sénégal</div>
@@ -1256,7 +1515,12 @@
                   <div class="activity-time">Il y a 34 min</div>
                 </div>
                 <div class="activity-row" data-media-type="banani-button">
-                  <div class="activity-icon"><iconify-icon icon="lucide:user-round-x" style="font-size:16px;color:var(--destructive);"></iconify-icon></div>
+                  <div class="activity-icon">
+                    <iconify-icon
+                      icon="lucide:user-round-x"
+                      style="font-size: 16px; color: var(--destructive)"
+                    ></iconify-icon>
+                  </div>
                   <div class="activity-main">
                     <div class="activity-title">Compte agence suspendu temporairement</div>
                     <div class="activity-sub">3 annonces en doublon détectées · Lomé, Togo</div>
@@ -1270,23 +1534,41 @@
               <div class="card-header">
                 <div class="card-title-wrap">
                   <h2 class="card-title">Alertes opérationnelles</h2>
-                  <div class="card-subtitle">Zones à traiter en priorité côté modération et sécurité.</div>
+                  <div class="card-subtitle">
+                    Zones à traiter en priorité côté modération et sécurité.
+                  </div>
                 </div>
               </div>
               <div class="alert-list">
                 <div class="alert-card warning" data-media-type="banani-button">
-                  <div class="icon-wrap lg"><iconify-icon icon="lucide:clock-3" style="font-size:18px;color:var(--warning);"></iconify-icon></div>
+                  <div class="icon-wrap lg">
+                    <iconify-icon
+                      icon="lucide:clock-3"
+                      style="font-size: 18px; color: var(--warning)"
+                    ></iconify-icon>
+                  </div>
                   <div class="alert-texts">
                     <div class="alert-title">Annonces en attente de modération</div>
-                    <div class="alert-sub">Backlog à répartir entre l'équipe conformité pour maintenir un délai moyen inférieur à 2 h.</div>
+                    <div class="alert-sub">
+                      Backlog à répartir entre l'équipe conformité pour maintenir un délai moyen
+                      inférieur à 2 h.
+                    </div>
                     <div class="alert-metric">126</div>
                   </div>
                 </div>
                 <div class="alert-card danger" data-media-type="banani-button">
-                  <div class="icon-wrap lg"><iconify-icon icon="lucide:siren" style="font-size:18px;color:var(--destructive);"></iconify-icon></div>
+                  <div class="icon-wrap lg">
+                    <iconify-icon
+                      icon="lucide:siren"
+                      style="font-size: 18px; color: var(--destructive)"
+                    ></iconify-icon>
+                  </div>
                   <div class="alert-texts">
                     <div class="alert-title">Comptes suspects</div>
-                    <div class="alert-sub">Profils avec activité anormale, paiements incohérents ou annonces répétitives détectées.</div>
+                    <div class="alert-sub">
+                      Profils avec activité anormale, paiements incohérents ou annonces répétitives
+                      détectées.
+                    </div>
                     <div class="alert-metric">18</div>
                   </div>
                 </div>
@@ -1302,7 +1584,12 @@
               </div>
               <div class="activity-list">
                 <div class="activity-row">
-                  <div class="activity-icon"><iconify-icon icon="lucide:coins" style="font-size:16px;color:var(--primary);"></iconify-icon></div>
+                  <div class="activity-icon">
+                    <iconify-icon
+                      icon="lucide:coins"
+                      style="font-size: 16px; color: var(--primary)"
+                    ></iconify-icon>
+                  </div>
                   <div class="activity-main">
                     <div class="activity-title">Vente de jetons</div>
                     <div class="activity-sub">42,3 M FCFA · 4 812 packs vendus</div>
@@ -1310,7 +1597,12 @@
                   <div class="activity-time">50%</div>
                 </div>
                 <div class="activity-row">
-                  <div class="activity-icon"><iconify-icon icon="lucide:landmark" style="font-size:16px;color:var(--success);"></iconify-icon></div>
+                  <div class="activity-icon">
+                    <iconify-icon
+                      icon="lucide:landmark"
+                      style="font-size: 16px; color: var(--success)"
+                    ></iconify-icon>
+                  </div>
                   <div class="activity-main">
                     <div class="activity-title">Commissions</div>
                     <div class="activity-sub">31,9 M FCFA · ventes confirmées</div>
@@ -1318,7 +1610,12 @@
                   <div class="activity-time">38%</div>
                 </div>
                 <div class="activity-row">
-                  <div class="activity-icon"><iconify-icon icon="lucide:video" style="font-size:16px;color:var(--warning);"></iconify-icon></div>
+                  <div class="activity-icon">
+                    <iconify-icon
+                      icon="lucide:video"
+                      style="font-size: 16px; color: var(--warning)"
+                    ></iconify-icon>
+                  </div>
                   <div class="activity-main">
                     <div class="activity-title">Visites virtuelles</div>
                     <div class="activity-sub">10,5 M FCFA · prestations VR</div>
@@ -1331,10 +1628,19 @@
         </section>
 
         <section class="tablet-note" id="tablet-note">
-          <div class="icon-wrap lg"><iconify-icon icon="lucide:tablet-smartphone" style="font-size:18px;color:var(--primary);"></iconify-icon></div>
+          <div class="icon-wrap lg">
+            <iconify-icon
+              icon="lucide:tablet-smartphone"
+              style="font-size: 18px; color: var(--primary)"
+            ></iconify-icon>
+          </div>
           <div>
             <div class="tablet-note-title">Mode tablette simplifié prévu</div>
-            <div class="tablet-note-sub">Sur tablette, la structure peut passer en une seule colonne, avec sidebar condensée en tiroir, KPI en grille 2×2 et tableaux résumés en cartes compactes pour conserver la lisibilité.</div>
+            <div class="tablet-note-sub">
+              Sur tablette, la structure peut passer en une seule colonne, avec sidebar condensée en
+              tiroir, KPI en grille 2×2 et tableaux résumés en cartes compactes pour conserver la
+              lisibilité.
+            </div>
           </div>
         </section>
       </div>

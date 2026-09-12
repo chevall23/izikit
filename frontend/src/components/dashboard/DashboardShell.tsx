@@ -2,9 +2,10 @@
 
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Home, Search, LogOut, Bell, ChevronDown } from 'lucide-react';
+import { Search, LogOut, Bell, ChevronDown } from 'lucide-react';
 import { useUser, useAuth } from '@/contexts/AuthContext';
 import { useApi } from '@/lib/useApi';
+import { Logo } from '@/components/Logo';
 import { InitialsAvatar } from './InitialsAvatar';
 import { MobileTopbar } from './MobileTopbar';
 import { MobileNavDrawer } from './MobileNavDrawer';
@@ -89,14 +90,9 @@ export function DashboardShell({
       <aside className="hidden w-[248px] flex-shrink-0 flex-col border-r border-black/[0.06] bg-white lg:flex">
         <Link
           href="/dashboard"
-          className="flex h-[74px] items-center gap-2.5 border-b border-black/[0.06] px-5"
+          className="flex h-[74px] items-center border-b border-black/[0.06] px-5"
         >
-          <div className="flex h-[34px] w-[34px] items-center justify-center rounded-md bg-brand">
-            <Home className="h-[18px] w-[18px] text-white" aria-hidden />
-          </div>
-          <span className="font-sora text-[15px] font-semibold tracking-[0.3px] text-neutral-900">
-            HABITAT-AFRIK
-          </span>
+          <Logo height={30} />
         </Link>
 
         <div className="mx-3.5 mt-3.5 mb-2 flex items-center gap-2 rounded-lg border border-black/[0.06] bg-gray-50 px-3 py-2">

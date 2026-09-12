@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Building2,
@@ -21,6 +21,7 @@ import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
 import { InitialsAvatar } from '@/components/dashboard/InitialsAvatar';
 import { COUNTRY_FLAG } from '@/lib/alerts';
+import { PROPERTY_TYPE_LABEL } from '@/lib/listings';
 
 interface PublicAgentItem {
   id: string;
@@ -33,7 +34,12 @@ interface PublicAgentItem {
   listingCount: number;
   verifiedDocCount: number;
   verifiedDocTotal: number;
+  ratingAvg: number | null;
+  reviewCount: number;
 }
+
+const MIN_RATING_OPTIONS = [4.5, 4.0, 3.5] as const;
+const SPECIALTY_OPTIONS = Object.entries(PROPERTY_TYPE_LABEL) as [string, string][];
 
 interface Facet {
   value: string;
@@ -61,23 +67,36 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'terrain', label: 'Terrain' },
 ];
 
-function InertRow({ children }: { children: React.ReactNode }) {
-  return (
-    <div title="Bientôt disponible" className="cursor-not-allowed select-none">
-      {children}
-    </div>
-  );
-}
-
 export default function AgentsPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [country, setCountry] = useState('');
   const [tab, setTab] = useState<TabKey>('tous');
+  const [minRating, setMinRating] = useState<number | null>(null);
+  const [specialty, setSpecialty] = useState('');
+  const [ratingMenuOpen, setRatingMenuOpen] = useState(false);
+  const [specialtyMenuOpen, setSpecialtyMenuOpen] = useState(false);
   const [page, setPage] = useState(1);
 
   const [data, setData] = useState<PublicAgentsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const ratingMenuRef = useRef<HTMLDivElement>(null);
+  const specialtyMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!ratingMenuOpen && !specialtyMenuOpen) return;
+    function onOutsideClick(e: MouseEvent) {
+      if (ratingMenuOpen && !ratingMenuRef.current?.contains(e.target as Node)) {
+        setRatingMenuOpen(false);
+      }
+      if (specialtyMenuOpen && !specialtyMenuRef.current?.contains(e.target as Node)) {
+        setSpecialtyMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onOutsideClick);
+    return () => document.removeEventListener('mousedown', onOutsideClick);
+  }, [ratingMenuOpen, specialtyMenuOpen]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -93,6 +112,8 @@ export default function AgentsPage() {
     if (tab === 'vente') params.set('transactionType', 'VENTE');
     if (tab === 'location') params.set('transactionType', 'LOCATION');
     if (tab === 'terrain') params.set('propertyType', 'PARCELLE');
+    else if (specialty) params.set('propertyType', specialty);
+    if (minRating !== null) params.set('minRating', String(minRating));
     params.set('page', String(page));
     params.set('limit', String(LIMIT));
 
@@ -111,7 +132,7 @@ export default function AgentsPage() {
     return () => {
       cancelled = true;
     };
-  }, [debouncedSearch, country, tab, page]);
+  }, [debouncedSearch, country, tab, specialty, minRating, page]);
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
@@ -126,6 +147,18 @@ export default function AgentsPage() {
 
   function selectTab(value: TabKey) {
     setTab(value);
+    setPage(1);
+  }
+
+  function selectMinRating(value: number | null) {
+    setMinRating(value);
+    setRatingMenuOpen(false);
+    setPage(1);
+  }
+
+  function selectSpecialty(value: string) {
+    setSpecialty(value);
+    setSpecialtyMenuOpen(false);
     setPage(1);
   }
 
@@ -208,20 +241,99 @@ export default function AgentsPage() {
             />
           </div>
           <div className="h-6 w-px bg-black/[0.08]" />
-          <InertRow>
-            <span className="inline-flex items-center gap-2 rounded-full border border-black/[0.1] px-3.5 py-2.5 text-[13px] font-medium whitespace-nowrap text-gray-500">
+          <div ref={ratingMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setRatingMenuOpen((o) => !o);
+                setSpecialtyMenuOpen(false);
+              }}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full border px-3.5 py-2.5 text-[13px] font-medium whitespace-nowrap',
+                minRating !== null
+                  ? 'border-brand bg-brand/5 text-brand'
+                  : 'border-black/[0.1] text-gray-500',
+              )}
+            >
               <Star className="h-3.5 w-3.5" aria-hidden />
-              Note minimale
+              {minRating !== null ? `${minRating.toFixed(1).replace('.', ',')}+` : 'Note minimale'}
               <ChevronDown className="h-[13px] w-[13px]" aria-hidden />
-            </span>
-          </InertRow>
-          <InertRow>
-            <span className="hidden items-center gap-2 rounded-full border border-black/[0.1] px-3.5 py-2.5 text-[13px] font-medium whitespace-nowrap text-gray-500 sm:inline-flex">
+            </button>
+            {ratingMenuOpen && (
+              <div className="absolute top-[calc(100%+8px)] left-0 z-20 w-48 rounded-xl border border-black/[0.08] bg-white p-1.5 shadow-lg">
+                <button
+                  type="button"
+                  onClick={() => selectMinRating(null)}
+                  className={cn(
+                    'flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] font-medium',
+                    minRating === null ? 'text-brand' : 'text-neutral-900 hover:bg-gray-50',
+                  )}
+                >
+                  Toutes les notes
+                </button>
+                {MIN_RATING_OPTIONS.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => selectMinRating(r)}
+                    className={cn(
+                      'flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium',
+                      minRating === r ? 'text-brand' : 'text-neutral-900 hover:bg-gray-50',
+                    )}
+                  >
+                    <Star className="h-3.5 w-3.5 text-amber-500" aria-hidden />
+                    {r.toFixed(1).replace('.', ',')}+ et plus
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div ref={specialtyMenuRef} className="relative hidden sm:block">
+            <button
+              type="button"
+              onClick={() => {
+                setSpecialtyMenuOpen((o) => !o);
+                setRatingMenuOpen(false);
+              }}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full border px-3.5 py-2.5 text-[13px] font-medium whitespace-nowrap',
+                specialty
+                  ? 'border-brand bg-brand/5 text-brand'
+                  : 'border-black/[0.1] text-gray-500',
+              )}
+            >
               <Building2 className="h-3.5 w-3.5" aria-hidden />
-              Spécialité
+              {specialty ? (PROPERTY_TYPE_LABEL[specialty] ?? specialty) : 'Spécialité'}
               <ChevronDown className="h-[13px] w-[13px]" aria-hidden />
-            </span>
-          </InertRow>
+            </button>
+            {specialtyMenuOpen && (
+              <div className="absolute top-[calc(100%+8px)] left-0 z-20 max-h-72 w-56 overflow-y-auto rounded-xl border border-black/[0.08] bg-white p-1.5 shadow-lg">
+                <button
+                  type="button"
+                  onClick={() => selectSpecialty('')}
+                  className={cn(
+                    'flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] font-medium',
+                    specialty === '' ? 'text-brand' : 'text-neutral-900 hover:bg-gray-50',
+                  )}
+                >
+                  Toutes les spécialités
+                </button>
+                {SPECIALTY_OPTIONS.map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => selectSpecialty(value)}
+                    className={cn(
+                      'flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] font-medium',
+                      specialty === value ? 'text-brand' : 'text-neutral-900 hover:bg-gray-50',
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="ml-auto flex items-center gap-1.5">
             {TABS.map((t) => (
               <button
@@ -322,26 +434,43 @@ export default function AgentsPage() {
                 Note minimale
               </p>
               <div className="flex flex-col gap-1.5">
-                {['4,5+ ★★★★★', '4,0+ ★★★★☆', '3,5+ ★★★☆☆'].map((s) => (
-                  <InertRow key={s}>
-                    <span className="flex items-center gap-2.5 rounded-[10px] px-3 py-2.5">
-                      <Star className="h-3.5 w-3.5 text-amber-500" aria-hidden />
-                      <span className="text-sm font-medium">{s}</span>
+                <button
+                  type="button"
+                  onClick={() => selectMinRating(null)}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-left',
+                    minRating === null && 'bg-brand/10',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'text-sm font-medium',
+                      minRating === null ? 'font-semibold text-brand' : 'text-neutral-900',
+                    )}
+                  >
+                    Toutes les notes
+                  </span>
+                </button>
+                {MIN_RATING_OPTIONS.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => selectMinRating(r)}
+                    className={cn(
+                      'flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-left',
+                      minRating === r && 'bg-brand/10',
+                    )}
+                  >
+                    <Star className="h-3.5 w-3.5 text-amber-500" aria-hidden />
+                    <span
+                      className={cn(
+                        'text-sm font-medium',
+                        minRating === r ? 'font-semibold text-brand' : 'text-neutral-900',
+                      )}
+                    >
+                      {r.toFixed(1).replace('.', ',')}+ et plus
                     </span>
-                  </InertRow>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="mb-3 text-xs font-bold tracking-[0.12em] text-gray-500 uppercase">
-                Disponibilité
-              </p>
-              <div className="flex flex-col gap-1.5">
-                {['Disponible maintenant', 'Répond en < 1h'].map((s) => (
-                  <InertRow key={s}>
-                    <span className="rounded-[10px] px-3 py-2.5 text-sm font-medium">{s}</span>
-                  </InertRow>
+                  </button>
                 ))}
               </div>
             </div>
@@ -415,11 +544,16 @@ export default function AgentsPage() {
                           </span>
                         </div>
                         <div className="rounded-[10px] bg-gray-50 px-2 py-2.5 text-center">
-                          <strong className="block text-[16px] font-extrabold tracking-[-0.03em] text-gray-300">
-                            —
+                          <strong
+                            className={cn(
+                              'block text-[16px] font-extrabold tracking-[-0.03em]',
+                              a.ratingAvg == null && 'text-gray-300',
+                            )}
+                          >
+                            {a.ratingAvg != null ? a.ratingAvg.toFixed(1).replace('.', ',') : '—'}
                           </strong>
                           <span className="block truncate text-[11px] whitespace-nowrap text-gray-500">
-                            Note
+                            {a.reviewCount > 0 ? `Note (${a.reviewCount})` : 'Note'}
                           </span>
                         </div>
                       </div>

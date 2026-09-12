@@ -2,9 +2,10 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
-import { Home, LogOut, X } from 'lucide-react';
+import { LogOut, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { Logo } from '@/components/Logo';
 import { NAV_GROUPS, type NavEntry, type NavKey } from './nav-config';
 
 function DrawerNavItem({
@@ -94,13 +95,8 @@ export function MobileNavDrawer({
         )}
       >
         <div className="flex h-[64px] flex-shrink-0 items-center justify-between border-b border-black/[0.06] px-4">
-          <Link href="/dashboard" className="flex items-center gap-2.5" onClick={onClose}>
-            <div className="flex h-[30px] w-[30px] items-center justify-center rounded-md bg-brand">
-              <Home className="h-[15px] w-[15px] text-white" aria-hidden />
-            </div>
-            <span className="font-sora text-[14px] font-semibold tracking-[0.3px] text-neutral-900">
-              HABITAT-AFRIK
-            </span>
+          <Link href="/dashboard" className="flex items-center" onClick={onClose}>
+            <Logo height={26} />
           </Link>
           <button
             type="button"

@@ -103,10 +103,38 @@ model User {
   ownedOrganizations Organization[]       @relation("OrgOwner")
   memberships        OrganizationMember[] @relation("OrgMembership")
 
+  // Public "/agents/[id]" profile reviews. An agent receives reviews from
+  // other users; a user authors at most one review per agent (enforced by
+  // the @@unique below) — resubmitting updates their existing review.
+  reviewsReceived AgentReview[] @relation("AgentReviewsReceived")
+  reviewsAuthored AgentReview[] @relation("AgentReviewsAuthored")
+
   @@index([email])
   @@index([phone])
   @@index([role])
   @@index([status])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Agent reviews — "Avis clients" section on the public "/agents/[id]"
+// profile page. Any authenticated user may review an OWNER_AGENT user;
+// the @@unique keeps it to one review per (agent, author) pair, so a
+// resubmission is an update (upsert) rather than a new row. Published
+// immediately — no moderation queue in v1.
+// ───────────────────────────────────────────────────────────────────────
+model AgentReview {
+  id        String   @id @default(cuid())
+  agentId   String
+  agent     User     @relation("AgentReviewsReceived", fields: [agentId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("AgentReviewsAuthored", fields: [authorId], references: [id], onDelete: Cascade)
+  rating    Int // 1-5, validated at the API layer
+  comment   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([agentId, authorId])
+  @@index([agentId])
 }
 
 // ───────────────────────────────────────────────────────────────────────

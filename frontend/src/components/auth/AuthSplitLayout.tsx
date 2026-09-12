@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 import Link from 'next/link';
-import { Home } from 'lucide-react';
+import { Logo } from '@/components/Logo';
 
 interface AuthSplitLayoutProps {
   heroImageSrc: string;
@@ -41,13 +41,8 @@ export function AuthSplitLayout({
         <div className="absolute inset-0 bg-gradient-to-t from-[#081223]/88 via-[#081223]/38 to-[#081223]/10" />
 
         <div className="relative z-10">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-[38px] w-[38px] items-center justify-center rounded-md bg-brand">
-              <Home className="h-5 w-5 text-white" aria-hidden />
-            </div>
-            <span className="font-sora text-lg font-semibold tracking-[0.3px] text-white">
-              HABITAT-AFRIK
-            </span>
+          <Link href="/" className="flex items-center">
+            <Logo height={36} chip />
           </Link>
         </div>
 

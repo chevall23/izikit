@@ -2,8 +2,11 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
-import { Home, X } from 'lucide-react';
+import { LayoutDashboard, LogOut, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { InitialsAvatar } from '@/components/dashboard/InitialsAvatar';
+import { Logo } from '@/components/Logo';
 import { NAV_LINKS, type PublicNavKey } from './PublicNavbar';
 
 function DrawerLink({
@@ -51,6 +54,8 @@ export function PublicMobileDrawer({
   onClose: () => void;
   active: PublicNavKey;
 }) {
+  const { user, logout } = useAuth();
+
   useEffect(() => {
     if (!open) return;
     document.body.style.overflow = 'hidden';
@@ -84,13 +89,8 @@ export function PublicMobileDrawer({
         )}
       >
         <div className="flex h-[64px] flex-shrink-0 items-center justify-between border-b border-black/[0.06] px-4">
-          <Link href="/" className="flex items-center gap-2.5" onClick={onClose}>
-            <div className="flex h-[30px] w-[30px] items-center justify-center rounded-md bg-brand">
-              <Home className="h-[15px] w-[15px] text-white" aria-hidden />
-            </div>
-            <span className="font-sora text-[14px] font-semibold tracking-[0.3px] text-neutral-900">
-              HABITAT-AFRIK
-            </span>
+          <Link href="/" className="flex items-center" onClick={onClose}>
+            <Logo height={26} />
           </Link>
           <button
             type="button"
@@ -115,13 +115,48 @@ export function PublicMobileDrawer({
         </nav>
 
         <div className="flex flex-col gap-2 border-t border-black/[0.06] p-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
-          <Link
-            href="/login"
-            onClick={onClose}
-            className="flex items-center justify-center rounded-full border border-black/[0.08] px-4 py-3 text-sm font-semibold text-brand"
-          >
-            Connexion
-          </Link>
+          {user ? (
+            <>
+              <div className="mb-1 flex items-center gap-2.5 px-1.5">
+                <InitialsAvatar
+                  name={user.name}
+                  email={user.email}
+                  avatarUrl={user.avatarUrl}
+                  size={34}
+                />
+                <span className="truncate text-sm font-semibold text-neutral-900">
+                  {user.name ?? user.email}
+                </span>
+              </div>
+              <Link
+                href="/dashboard"
+                onClick={onClose}
+                className="flex items-center justify-center gap-2 rounded-full border border-black/[0.08] px-4 py-3 text-sm font-semibold text-neutral-700"
+              >
+                <LayoutDashboard className="h-4 w-4" aria-hidden />
+                Tableau de bord
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  void logout();
+                }}
+                className="flex items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-red-600"
+              >
+                <LogOut className="h-4 w-4" aria-hidden />
+                Déconnexion
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              onClick={onClose}
+              className="flex items-center justify-center rounded-full border border-black/[0.08] px-4 py-3 text-sm font-semibold text-brand"
+            >
+              Connexion
+            </Link>
+          )}
           <Link
             href="/listings/new"
             onClick={onClose}

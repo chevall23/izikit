@@ -269,6 +269,11 @@ export default function NouvelleDemandePage() {
   const showSurfaceField = isLandType;
   const showCapacityField = isHallType;
 
+  function handlePropertyTypeChange(value: PropertyType) {
+    setPropertyType(value);
+    if (LAND_PROPERTY_TYPES.has(value)) setAmenities([]);
+  }
+
   async function onCreate() {
     if (!country || !city) {
       toast('Renseignez le pays et la ville avant de créer la demande.', 'error');
@@ -430,7 +435,7 @@ export default function NouvelleDemandePage() {
                         label={PROPERTY_TYPE_LABEL[t.key]!}
                         icon={t.icon}
                         selected={propertyType === t.key}
-                        onClick={() => setPropertyType(t.key)}
+                        onClick={() => handlePropertyTypeChange(t.key)}
                       />
                     ))}
                   </div>
@@ -593,34 +598,38 @@ export default function NouvelleDemandePage() {
                   </div>
                 )}
 
-                <div className="mb-4.5 h-px bg-black/[0.06]" />
+                {!isLandType && (
+                  <>
+                    <div className="mb-4.5 h-px bg-black/[0.06]" />
 
-                <div className="mb-4.5">
-                  <label className="mb-2 block text-[12.5px] font-semibold text-neutral-700">
-                    Équipements souhaités
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(AMENITY_LABEL).map(([key, label]) => {
-                      const selected = amenities.includes(key);
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => toggleAmenity(key)}
-                          className={cn(
-                            'inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3 py-1.5 text-xs font-medium',
-                            selected
-                              ? 'border-brand bg-brand/10 text-brand'
-                              : 'border-black/[0.08] bg-white text-neutral-700',
-                          )}
-                        >
-                          {selected && <Check className="h-2.5 w-2.5" aria-hidden />}
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                    <div className="mb-4.5">
+                      <label className="mb-2 block text-[12.5px] font-semibold text-neutral-700">
+                        Équipements souhaités
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(AMENITY_LABEL).map(([key, label]) => {
+                          const selected = amenities.includes(key);
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => toggleAmenity(key)}
+                              className={cn(
+                                'inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3 py-1.5 text-xs font-medium',
+                                selected
+                                  ? 'border-brand bg-brand/10 text-brand'
+                                  : 'border-black/[0.08] bg-white text-neutral-700',
+                              )}
+                            >
+                              {selected && <Check className="h-2.5 w-2.5" aria-hidden />}
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <div className="mb-4.5">
                   <label className="mb-2 block text-[12.5px] font-semibold text-neutral-700">

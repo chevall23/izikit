@@ -778,7 +778,10 @@ function AnnoncesPageContent() {
                     key={listing.id}
                     className="overflow-hidden rounded-2xl border border-black/[0.06]"
                   >
-                    <div className="relative h-[200px] bg-gray-100">
+                    <Link
+                      href={`/annonces/${listing.id}`}
+                      className="relative block h-[200px] bg-gray-100"
+                    >
                       {listing.primaryPhotoUrl ? (
                         <img
                           src={cloudinaryOptimize(listing.primaryPhotoUrl, 700)}
@@ -799,7 +802,7 @@ function AnnoncesPageContent() {
                             listing.transactionType}
                         </span>
                       </div>
-                    </div>
+                    </Link>
                     <div className="flex-1 p-4">
                       <p className="mb-1.5 text-[15px] leading-snug font-bold">{listing.title}</p>
                       <p className="mb-2 flex items-center gap-1 text-xs text-gray-500">
@@ -844,7 +847,10 @@ function AnnoncesPageContent() {
                     key={listing.id}
                     className="flex flex-col overflow-hidden rounded-2xl border border-black/[0.06] sm:flex-row"
                   >
-                    <div className="relative h-[200px] flex-shrink-0 bg-gray-100 sm:h-auto sm:w-[220px]">
+                    <Link
+                      href={`/annonces/${listing.id}`}
+                      className="relative block h-[200px] flex-shrink-0 bg-gray-100 sm:h-auto sm:w-[220px]"
+                    >
                       {listing.primaryPhotoUrl ? (
                         <img
                           src={cloudinaryOptimize(listing.primaryPhotoUrl, 440)}
@@ -869,7 +875,7 @@ function AnnoncesPageContent() {
                         <ImageIcon className="h-[11px] w-[11px]" aria-hidden />
                         {listing.photoCount}
                       </span>
-                    </div>
+                    </Link>
                     <div className="flex flex-1 flex-col justify-between gap-3 p-[18px] sm:p-5">
                       <div>
                         <div className="mb-2 flex items-start justify-between gap-4">

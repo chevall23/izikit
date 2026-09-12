@@ -38,6 +38,8 @@ beforeEach(() => {
   prismaMock.listing.count.mockResolvedValue(0 as never);
   prismaMock.legalDocument.count.mockResolvedValue(0 as never);
   vi.mocked(prismaMock.listing.groupBy).mockResolvedValue([] as never);
+  prismaMock.agentReview.count.mockResolvedValue(0 as never);
+  prismaMock.agentReview.aggregate.mockResolvedValue({ _avg: { rating: null } } as never);
 });
 
 describe('GET /api/public/agents/[id]', () => {
@@ -69,6 +71,8 @@ describe('GET /api/public/agents/[id]', () => {
   it('returns the flat DTO shape with real stats, never leaking email', async () => {
     prismaMock.listing.count.mockResolvedValueOnce(4).mockResolvedValueOnce(2);
     prismaMock.legalDocument.count.mockResolvedValueOnce(6);
+    prismaMock.agentReview.count.mockResolvedValueOnce(3);
+    prismaMock.agentReview.aggregate.mockResolvedValueOnce({ _avg: { rating: 4.5 } } as never);
     prismaMock.listing.findMany.mockResolvedValueOnce([
       {
         id: 'listing-1',
@@ -98,6 +102,8 @@ describe('GET /api/public/agents/[id]', () => {
       soldListings: 2,
       verifiedDocCount: 6,
       verifiedDocTotal: 6,
+      reviewCount: 3,
+      ratingAvg: 4.5,
     });
     expect(body.listings).toEqual([
       {

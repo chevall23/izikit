@@ -1,19 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Home, Menu } from 'lucide-react';
+import { ChevronDown, LayoutDashboard, LogOut, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { InitialsAvatar } from '@/components/dashboard/InitialsAvatar';
+import { Logo } from '@/components/Logo';
 import { PublicMobileDrawer } from './PublicMobileDrawer';
 
 export type PublicNavKey = 'accueil' | 'annonces' | 'agents' | 'demande' | 'blog' | 'contact';
 
 export const NAV_LINKS: { key: PublicNavKey; label: string; href: string | null }[] = [
   { key: 'accueil', label: 'Accueil', href: '/' },
-  { key: 'annonces', label: 'Annonces', href: '/annonces' },
-  { key: 'demande', label: 'Demande', href: '/demande-immobiliere' },
-  { key: 'agents', label: 'Agents', href: '/agents' },
-  { key: 'blog', label: 'Blog', href: '/blog' },
+  { key: 'annonces', label: 'Annonce immobilière', href: '/annonces' },
+  { key: 'demande', label: 'Demande immobilière', href: '/demande-immobiliere' },
+  { key: 'agents', label: 'Agent immobilier', href: '/agents' },
   { key: 'contact', label: 'Contact', href: '/contact' },
 ];
 
@@ -25,17 +27,72 @@ function InertNavLink({ children, className }: { children: React.ReactNode; clas
   );
 }
 
+function AccountMenu() {
+  const { user, logout } = useAuth();
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onOutsideClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onOutsideClick);
+    return () => document.removeEventListener('mousedown', onOutsideClick);
+  }, [open]);
+
+  if (!user) {
+    return (
+      <Link href="/login" className="hidden text-sm font-medium text-brand lg:inline">
+        Connexion
+      </Link>
+    );
+  }
+
+  return (
+    <div ref={menuRef} className="relative hidden lg:block">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="flex items-center gap-2">
+        <InitialsAvatar name={user.name} email={user.email} avatarUrl={user.avatarUrl} size={30} />
+        <span className="max-w-[140px] truncate text-sm font-medium text-neutral-900">
+          {user.name ?? user.email}
+        </span>
+        <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" aria-hidden />
+      </button>
+      {open && (
+        <div className="absolute top-[calc(100%+10px)] right-0 z-50 w-56 rounded-xl border border-black/[0.08] bg-white p-2 shadow-lg">
+          <Link
+            href="/dashboard"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-gray-50"
+          >
+            <LayoutDashboard className="h-4 w-4" aria-hidden />
+            Tableau de bord
+          </Link>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              void logout();
+            }}
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
+          >
+            <LogOut className="h-4 w-4" aria-hidden />
+            Déconnexion
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PublicNavbar({ active }: { active: PublicNavKey }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
     <div className="border-b border-black/[0.06]">
       <div className="mx-auto flex h-[72px] max-w-[1280px] items-center justify-between gap-6 px-4 lg:px-7">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-brand">
-            <Home className="h-[14px] w-[14px] text-white" aria-hidden />
-          </div>
-          <span className="font-sora text-[21px] font-bold tracking-[-0.03em]">HABITAT-AFRIK</span>
+        <Link href="/" className="flex items-center">
+          <Logo height={34} />
         </Link>
         <div className="hidden items-center gap-7 lg:flex">
           {NAV_LINKS.map((link) =>
@@ -64,9 +121,7 @@ export function PublicNavbar({ active }: { active: PublicNavKey }) {
           )}
         </div>
         <div className="flex items-center gap-3.5">
-          <Link href="/login" className="hidden text-sm font-medium text-brand lg:inline">
-            Connexion
-          </Link>
+          <AccountMenu />
           <Link
             href="/listings/new"
             className="hidden rounded-full bg-brand px-[18px] py-[11px] text-sm font-semibold text-white lg:inline-flex"
