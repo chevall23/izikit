@@ -111,7 +111,7 @@ jobs:
           N0C_SSH_PORT: ${{ vars.N0C_SSH_PORT || '5022' }}
         run: |
           rsync -az --delete \
-            --exclude='.env' --exclude='/tmp/' --exclude='/.htaccess' --exclude='/frontend/public/' \
+            --exclude='.env' --exclude='/tmp/' --exclude='/.htaccess' --exclude='/public/' \
             -e "ssh -i ~/.ssh/id_deploy -p $N0C_SSH_PORT" \
             deploy/ \
             "${{ secrets.N0C_SSH_USER }}@${{ secrets.N0C_SSH_HOST }}:${{ secrets.N0C_APP_PATH }}/"
