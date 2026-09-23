@@ -89,7 +89,7 @@ export function PublicNavbar({ active }: { active: PublicNavKey }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
-    <div className="border-b border-black/[0.06]">
+    <div className="sticky top-0 z-40 border-b border-black/[0.06] bg-white">
       <div className="mx-auto flex h-[72px] max-w-[1280px] items-center justify-between gap-6 px-4 lg:px-7">
         <Link href="/" className="flex items-center">
           <Logo height={34} />
