@@ -4,22 +4,21 @@
 // revoke, real notification toggles, real danger zone via anonymization).
 //
 // The Banani mockup ships a persistent settings sub-nav (`.settings-sidenav`:
-// Compte / Agence / Préférences groups) alongside the content. "Compte"
-// entries (Profil/Sécurité/Notifications), "Mon agence" and "Documents
-// légaux" are real tabs — only the selected section renders, per the user's
-// explicit ask. Danger zone lives under Sécurité (thematically
-// account-security, confirmed with the user rather than assumed). "Mon
-// agence" itself ships identity + zones for real this pass (logo upload +
-// team invites are phase 2 — see .planning/banani/mon-agence.md). "Documents
-// légaux" ships real upload + status for real this pass (admin verification
-// is phase 2 — see .planning/banani/documents-legaux.md). "Abonnement &
-// paiement" ships a real plan + real one-time-charge plan change via the
-// existing Order/Bictorys pipeline (jetons VR/moyens de paiement/historique
-// stay illustrative — see .planning/banani/abonnement-paiement.md). "Langue
-// & région" and "Apparence" both ship real, persisted preferences —
-// dormant until an i18n library / dark-mode CSS is wired, respectively (see
-// .planning/banani/langue-region.md and apparence-settings.md). Every
-// SettingsSideNav entry is now a real tab — none render inert anymore.
+// Compte / Agence groups — the Préférences group [Langue & région,
+// Apparence] was removed on request). "Compte" entries
+// (Profil/Sécurité/Notifications), "Mon agence" and "Documents légaux" are
+// real tabs — only the selected section renders, per the user's explicit
+// ask. Danger zone lives under Sécurité (thematically account-security,
+// confirmed with the user rather than assumed). "Mon agence" itself ships
+// identity + zones for real this pass (logo upload + team invites are
+// phase 2 — see .planning/banani/mon-agence.md). "Documents légaux" ships
+// real upload + status for real this pass (admin verification is phase 2 —
+// see .planning/banani/documents-legaux.md). "Abonnement & paiement" ships
+// a real plan + real one-time-charge plan change via the existing
+// Order/Bictorys pipeline, a real jetons balance/usage widget, and a real
+// payment history (GET /api/orders) — only "Méthodes de paiement" stays
+// illustrative (no card/Mobile Money tokenization built yet) — see
+// .planning/banani/abonnement-paiement.md.
 'use client';
 
 import { useState } from 'react';
@@ -38,8 +37,6 @@ import { SubscriptionCard } from '@/components/settings/SubscriptionCard';
 import { TokensCard } from '@/components/settings/TokensCard';
 import { PaymentMethodsCard } from '@/components/settings/PaymentMethodsCard';
 import { PaymentHistoryCard } from '@/components/settings/PaymentHistoryCard';
-import { LanguageRegionCard } from '@/components/settings/LanguageRegionCard';
-import { AppearanceCard } from '@/components/settings/AppearanceCard';
 
 export default function SettingsPage() {
   const user = useUser();
@@ -83,8 +80,6 @@ export default function SettingsPage() {
               <PaymentHistoryCard />
             </>
           )}
-          {tab === 'langue' && <LanguageRegionCard />}
-          {tab === 'apparence' && <AppearanceCard />}
         </div>
       </div>
     </DashboardShell>

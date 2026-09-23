@@ -28,6 +28,15 @@ import type { OutboxEvent } from './types';
 
 const logger = createLogger();
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const MAX_ATTEMPTS = 5;
 const BACKOFF_MS: readonly number[] = [
   30_000, // 30s
@@ -164,6 +173,17 @@ async function dispatchEvent(deps: OutboxDispatcherDeps, event: OutboxEvent): Pr
       const { to, code, expiresAt } = event.payload;
       const tpl = resetPasswordEmail({ code, email: to, expiresAt });
       await deps.emailQueue.enqueue({ to, subject: tpl.subject, html: tpl.html });
+      return;
+    }
+    case 'email.legal_documents_submitted': {
+      if (!deps.emailQueue) throw new Error('email queue not configured');
+      const { to, userEmail, types } = event.payload;
+      const items = types.map((t) => `<li>${escapeHtml(t)}</li>`).join('');
+      await deps.emailQueue.enqueue({
+        to,
+        subject: 'Nouveaux documents légaux soumis pour vérification',
+        html: `<p>L'agent <strong>${escapeHtml(userEmail)}</strong> a soumis ${types.length} document(s) légal(aux) pour vérification :</p><ul>${items}</ul>`,
+      });
       return;
     }
     default: {

@@ -98,7 +98,7 @@ describe('GET /api/public/agents', () => {
         createdAt: '2026-01-01T00:00:00.000Z',
         listingCount: 3,
         verifiedDocCount: 2,
-        verifiedDocTotal: 6,
+        verifiedDocTotal: 3,
         ratingAvg: null,
         reviewCount: 0,
       },
@@ -130,10 +130,10 @@ describe('GET /api/public/agents', () => {
     );
   });
 
-  it('computes stats.fullyVerifiedPercent from agents with all 6 docs verified', async () => {
+  it('computes stats.fullyVerifiedPercent from agents with all 3 docs verified', async () => {
     mockLegalDocGroupBy
       .mockResolvedValueOnce([] as never) // docCounts (page)
-      .mockResolvedValueOnce([{ userId: 'agent-1', _count: { _all: 6 } }] as never); // allDocCounts
+      .mockResolvedValueOnce([{ userId: 'agent-1', _count: { _all: 3 } }] as never); // allDocCounts
 
     const res = await GET(makeGet());
     const body = await res.json();

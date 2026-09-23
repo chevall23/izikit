@@ -6,8 +6,8 @@
  *
  * POST is a multipart upload (fields: `type`, `file`, optional `expiresAt`)
  * that upserts by `(userId, type)`. Mirrors the /api/upload trust boundary
- * (CSRF → auth → Cloudinary probe → size/MIME gates → magic-byte sniff →
- * Cloudinary) but restricts MIME to pdf/jpeg/png regardless of
+ * (CSRF → auth → R2 probe → size/MIME gates → magic-byte sniff →
+ * R2) but restricts MIME to pdf/jpeg/png regardless of
  * UPLOAD_ALLOWED_MIME (legal docs are scans/photos/PDFs only) and always
  * resets `status` to PENDING — there is no self-verification path. Admin
  * verification (PENDING → VERIFIED/REJECTED) is phase 2, see
@@ -25,18 +25,11 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { prisma } from '@/lib/server/prisma';
-import { StorageNotConfiguredError, uploadBuffer } from '@/lib/server/upload/cloudinary-client';
+import { StorageNotConfiguredError, uploadBuffer } from '@/lib/server/upload/storage-client';
 import { sanitizeFilename } from '@/lib/server/upload/sanitize-filename';
 import { verifyMagicBytes } from '@/lib/server/upload/sniff';
 
-export const LEGAL_DOCUMENT_TYPES = [
-  'ID_CARD',
-  'PRO_CARD',
-  'RCCM',
-  'TAX_CERTIFICATE',
-  'MANAGEMENT_MANDATE',
-  'LIABILITY_INSURANCE',
-] as const;
+export const LEGAL_DOCUMENT_TYPES = ['RCCM', 'TAX_CERTIFICATE', 'ID_CARD'] as const;
 
 export type LegalDocumentType = (typeof LEGAL_DOCUMENT_TYPES)[number];
 
@@ -103,9 +96,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     if (
-      !process.env.CLOUDINARY_CLOUD_NAME ||
-      !process.env.CLOUDINARY_API_KEY ||
-      !process.env.CLOUDINARY_API_SECRET
+      !process.env.R2_ACCOUNT_ID ||
+      !process.env.R2_ACCESS_KEY_ID ||
+      !process.env.R2_SECRET_ACCESS_KEY ||
+      !process.env.R2_BUCKET_NAME ||
+      !process.env.R2_PUBLIC_URL
     ) {
       return NextResponse.json(
         { code: 'STORAGE_NOT_CONFIGURED', message: 'Storage not configured' },

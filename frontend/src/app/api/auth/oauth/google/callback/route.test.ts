@@ -280,6 +280,45 @@ describe('GET /api/auth/oauth/google/callback', () => {
     );
   });
 
+  it('applies app-oauth-accountType to the new-user create data', async () => {
+    await seedCookie('app-oauth-state', STATE);
+    await seedCookie('app-oauth-pkce', PKCE);
+    await seedCookie('app-oauth-accountType', 'OWNER_AGENT');
+
+    prismaMock.oAuthAccount.findUnique.mockResolvedValue(null);
+    prismaMock.user.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'u-new', email: 'a@b.com', tokenVersion: 0 } as never);
+    prismaMock.user.create.mockResolvedValue({ id: 'u-new' } as never);
+    prismaMock.oAuthAccount.create.mockResolvedValue({ id: 'oa-2' } as never);
+
+    await GET(makeReq({ code: 'c', state: STATE }));
+
+    const userArg = prismaMock.user.create.mock.calls[0]?.[0];
+    expect(userArg?.data).toEqual(expect.objectContaining({ accountType: 'OWNER_AGENT' }));
+  });
+
+  it('D-01 link path does NOT touch accountType on an existing user, even with app-oauth-accountType set', async () => {
+    await seedCookie('app-oauth-state', STATE);
+    await seedCookie('app-oauth-pkce', PKCE);
+    await seedCookie('app-oauth-accountType', 'OWNER_AGENT');
+
+    prismaMock.oAuthAccount.findUnique.mockResolvedValue(null);
+    prismaMock.user.findUnique
+      .mockResolvedValueOnce({ id: 'u-existing' } as never) // by email — links
+      .mockResolvedValueOnce({
+        id: 'u-existing',
+        email: 'a@b.com',
+        tokenVersion: 0,
+      } as never);
+    prismaMock.oAuthAccount.create.mockResolvedValue({ id: 'oa-3' } as never);
+
+    await GET(makeReq({ code: 'c', state: STATE }));
+
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
   it('existing OAuth user (provider lookup hits): no User update, no welcome, just 3 cookies', async () => {
     await seedCookie('app-oauth-state', STATE);
     await seedCookie('app-oauth-pkce', PKCE);
@@ -340,10 +379,11 @@ describe('GET /api/auth/oauth/google/callback', () => {
     expect(res.headers.get('location')).toBe('https://app.example.test/dashboard');
   });
 
-  it('clears all 3 ephemeral cookies on every exit branch (success path)', async () => {
+  it('clears all 4 ephemeral cookies on every exit branch (success path)', async () => {
     await seedCookie('app-oauth-state', STATE);
     await seedCookie('app-oauth-pkce', PKCE);
     await seedCookie('app-oauth-next', 'https://app.example.test/x');
+    await seedCookie('app-oauth-accountType', 'OWNER_AGENT');
 
     prismaMock.oAuthAccount.findUnique.mockResolvedValue({ userId: 'u1' } as never);
     prismaMock.user.findUnique.mockResolvedValueOnce({
@@ -355,7 +395,12 @@ describe('GET /api/auth/oauth/google/callback', () => {
     await GET(makeReq({ code: 'c', state: STATE }));
 
     // Each ephemeral cookie has been re-set with maxAge: 0.
-    for (const name of ['app-oauth-state', 'app-oauth-pkce', 'app-oauth-next']) {
+    for (const name of [
+      'app-oauth-state',
+      'app-oauth-pkce',
+      'app-oauth-next',
+      'app-oauth-accountType',
+    ]) {
       const entry = __cookieStore.get(name);
       expect(entry).toBeDefined();
       expect((entry!.options as { maxAge?: number }).maxAge).toBe(0);

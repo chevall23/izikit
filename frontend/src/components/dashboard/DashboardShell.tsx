@@ -14,8 +14,8 @@ import { cn } from '@/lib/utils';
 import { NAV_GROUPS, type NavEntry, type NavKey } from './nav-config';
 
 const ROLE_LABEL: Record<string, string> = {
-  OWNER_AGENT: 'Agent',
-  TENANT_BUYER: 'Locataire / Acheteur',
+  OWNER_AGENT: 'Professionnel',
+  TENANT_BUYER: 'Particulier',
 };
 
 // The mobile bottom nav has its own fixed 5-tab set (mirrors Banani's

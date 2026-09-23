@@ -101,7 +101,7 @@ describe('GET /api/admin/users/export', () => {
         _count: { listings: 1, ownedOrganizations: 1 },
       },
     ] as never);
-    mockLegalDocGroupBy.mockResolvedValueOnce([{ userId: 'u2', _count: { _all: 6 } }] as never);
+    mockLegalDocGroupBy.mockResolvedValueOnce([{ userId: 'u2', _count: { _all: 3 } }] as never);
     const text = await (await GET(get())).text();
     expect(text).toContain('AGENCE');
     expect(text).toContain('ACTIF');

@@ -3,13 +3,13 @@ import { prismaMock } from '@/test-utils/prisma-mock';
 import { mockNextCookies, __cookieStore } from '@/test-utils/mock-cookies';
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
-import { mockCloudinaryClient } from '@/test-utils/cloudinary-mock';
+import { mockStorageClient } from '@/test-utils/storage-mock';
 
 mockNextCookies();
 
-const cl = mockCloudinaryClient();
+const cl = mockStorageClient();
 
-vi.mock('@/lib/server/upload/cloudinary-client', () => ({
+vi.mock('@/lib/server/upload/storage-client', () => ({
   uploadBuffer: vi.fn((publicId: string, body: Buffer) => cl.uploadBuffer(publicId, body)),
   StorageNotConfiguredError: class StorageNotConfiguredError extends Error {
     constructor() {
@@ -49,9 +49,11 @@ function makePostReq(id: string, file: File | null, isPrimary?: boolean) {
 }
 
 beforeEach(() => {
-  vi.stubEnv('CLOUDINARY_CLOUD_NAME', 'test-cloud');
-  vi.stubEnv('CLOUDINARY_API_KEY', 'test-key');
-  vi.stubEnv('CLOUDINARY_API_SECRET', 'test-secret');
+  vi.stubEnv('R2_ACCOUNT_ID', 'test-account');
+  vi.stubEnv('R2_ACCESS_KEY_ID', 'test-key');
+  vi.stubEnv('R2_SECRET_ACCESS_KEY', 'test-secret');
+  vi.stubEnv('R2_BUCKET_NAME', 'test-bucket');
+  vi.stubEnv('R2_PUBLIC_URL', 'https://cdn.test-bucket.example');
   vi.clearAllMocks();
   __cookieStore.clear();
   mockRequireAuth.mockResolvedValue(authedCtx);
@@ -65,7 +67,7 @@ beforeEach(() => {
   });
   prismaMock.listingPhoto.create.mockResolvedValue({
     id: 'photo-1',
-    url: 'https://res.cloudinary.com/test/x.jpg',
+    url: 'https://cdn.test-bucket.example/test/x.jpg',
     isPrimary: true,
     position: 0,
     createdAt: new Date(),
@@ -108,16 +110,30 @@ describe('POST /api/listings/[id]/photos', () => {
     expect(res.status).toBe(404);
   });
 
-  it('non-DRAFT listing returns 409', async () => {
+  it('SOLD listing returns 409 (frozen, no longer editable)', async () => {
     prismaMock.listing.findUnique.mockResolvedValueOnce({
       userId: 'user-1',
-      status: 'PENDING',
+      status: 'SOLD',
     } as never);
     const file = new File([JPEG_BYTES], 'a.jpg', { type: 'image/jpeg' });
     const { req, ctx } = makePostReq('l1', file);
     const res = await POST(req, ctx);
     expect(res.status).toBe(409);
   });
+
+  it.each(['PENDING', 'VERIFIED', 'REJECTED'])(
+    '%s listing accepts a photo upload (editable, not just DRAFT)',
+    async (status) => {
+      prismaMock.listing.findUnique.mockResolvedValueOnce({
+        userId: 'user-1',
+        status,
+      } as never);
+      const file = new File([JPEG_BYTES], 'a.jpg', { type: 'image/jpeg' });
+      const { req, ctx } = makePostReq('l1', file);
+      const res = await POST(req, ctx);
+      expect(res.status).toBe(201);
+    },
+  );
 
   it('missing file returns 400', async () => {
     const { req, ctx } = makePostReq('l1', null);
@@ -187,7 +203,7 @@ describe('POST /api/listings/[id]/photos', () => {
   });
 
   it('storage not configured returns 503', async () => {
-    vi.stubEnv('CLOUDINARY_CLOUD_NAME', '');
+    vi.stubEnv('R2_ACCOUNT_ID', '');
     const file = new File([JPEG_BYTES], 'a.jpg', { type: 'image/jpeg' });
     const { req, ctx } = makePostReq('l1', file);
     const res = await POST(req, ctx);

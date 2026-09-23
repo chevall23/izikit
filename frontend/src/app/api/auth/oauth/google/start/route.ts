@@ -9,6 +9,12 @@
 // the callback can post-login redirect back to the originating page.
 // Cross-origin or scheme-prefixed values are silently dropped (Pitfall 10
 // in 02-RESEARCH.md — `//evil.com` is the classic open-redirect bypass).
+//
+// Optional ?accountType= (TENANT_BUYER | OWNER_AGENT) echoes the profile
+// chosen on /signup through `app-oauth-accountType` so the callback can
+// apply it — but ONLY on the new-user create path (see callback route
+// comment); an existing user's accountType is never touched by login.
+// Unknown/missing values are silently dropped, matching the ?next= pattern.
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -24,7 +30,9 @@ const COOKIE_PREFIX = process.env.COOKIE_PREFIX || 'app';
 const OAUTH_STATE_COOKIE = `${COOKIE_PREFIX}-oauth-state`;
 const OAUTH_PKCE_COOKIE = `${COOKIE_PREFIX}-oauth-pkce`;
 const OAUTH_NEXT_COOKIE = `${COOKIE_PREFIX}-oauth-next`;
+const OAUTH_ACCOUNT_TYPE_COOKIE = `${COOKIE_PREFIX}-oauth-accountType`;
 const OAUTH_COOKIE_MAX_AGE = 5 * 60; // 5 min, per OAUTH-01
+const VALID_ACCOUNT_TYPES = new Set(['TENANT_BUYER', 'OWNER_AGENT']);
 
 function isProd(): boolean {
   return process.env.NODE_ENV === 'production';
@@ -66,6 +74,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       } else {
         log.warn('oauth.start: rejected cross-origin ?next=', { next: nextParam });
       }
+    }
+
+    const accountTypeParam = req.nextUrl.searchParams.get('accountType');
+    if (accountTypeParam && VALID_ACCOUNT_TYPES.has(accountTypeParam)) {
+      store.set(OAUTH_ACCOUNT_TYPE_COOKIE, accountTypeParam, cookieOpts);
     }
 
     return NextResponse.redirect(url.toString(), 302);

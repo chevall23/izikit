@@ -20,6 +20,7 @@ import { PublicFooter } from '@/components/public/PublicFooter';
 import { CertifiedAgentsSection } from './CertifiedAgentsSection';
 import { FeaturedListingsSection } from './FeaturedListingsSection';
 import { CountryDestinationsSection } from './CountryDestinationsSection';
+import { MobileCountryPicker } from './MobileCountryPicker';
 import { PROPERTY_TYPE_LABEL, TRANSACTION_TYPE_LABEL } from '@/lib/listings';
 import { COUNTRIES as COUNTRY_CITIES } from '@/lib/countries';
 
@@ -223,6 +224,8 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      <MobileCountryPicker />
 
       {/* STATS BAND */}
       <section className="px-4 pb-7 lg:px-7">

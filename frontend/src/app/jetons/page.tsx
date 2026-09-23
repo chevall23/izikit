@@ -20,6 +20,8 @@ import {
   TOKEN_PACK_CATALOG,
   TOKEN_PACK_KEYS,
   TOKEN_PURCHASE_CURRENCY,
+  CUSTOM_TOKEN_PRICE_FCFA,
+  customTokenPurchasePriceFcfa,
   type TokenPackKey,
 } from '@/lib/token-packs';
 
@@ -53,6 +55,8 @@ export default function JetonsPage() {
   const [usedThisMonth, setUsedThisMonth] = useState<number | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [buying, setBuying] = useState(false);
+  const [customTokens, setCustomTokens] = useState('10');
+  const [buyingCustom, setBuyingCustom] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -104,6 +108,29 @@ export default function JetonsPage() {
     } catch (err) {
       toast(err instanceof ApiError ? err.message : 'Erreur réseau. Réessaie.', 'error');
       setBuying(false);
+    }
+  }
+
+  const customTokensNum = Math.trunc(Number(customTokens));
+  const customTokensValid = Number.isFinite(customTokensNum) && customTokensNum >= 1;
+
+  async function buyCustomTokens() {
+    if (!customTokensValid) return;
+    setBuyingCustom(true);
+    try {
+      const res = await api<{ paymentUrl: string }>('/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': crypto.randomUUID() },
+        body: {
+          amount: customTokenPurchasePriceFcfa(customTokensNum),
+          currency: TOKEN_PURCHASE_CURRENCY,
+          metadata: { kind: 'token_purchase_custom', tokens: customTokensNum },
+        },
+      });
+      window.location.href = res.paymentUrl;
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Erreur réseau. Réessaie.', 'error');
+      setBuyingCustom(false);
     }
   }
 
@@ -175,7 +202,7 @@ export default function JetonsPage() {
         <p className="font-sora mb-3.5 text-[15px] font-semibold text-neutral-900">
           Recharger votre solde
         </p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {TOKEN_PACK_KEYS.map((key) => {
             const pack = TOKEN_PACK_CATALOG[key];
             const active = selectedPack === key;
@@ -220,6 +247,44 @@ export default function JetonsPage() {
               </button>
             );
           })}
+        </div>
+
+        <div className="mt-5 flex flex-col gap-3 border-t border-black/[0.06] pt-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="custom-tokens" className="text-[13px] font-semibold text-neutral-900">
+              Ou choisissez le nombre de jetons
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="custom-tokens"
+                type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                value={customTokens}
+                onChange={(e) => setCustomTokens(e.target.value)}
+                className="w-28 rounded-lg border-[1.5px] border-black/[0.1] bg-gray-50 px-3 py-2 text-sm outline-none focus:border-brand"
+              />
+              <span className="text-[13px] text-gray-500">
+                jeton{customTokensNum > 1 ? 's' : ''} ·{' '}
+                {customTokensValid
+                  ? `${customTokenPurchasePriceFcfa(customTokensNum).toLocaleString('fr-FR')} FCFA`
+                  : '—'}{' '}
+                <span className="text-gray-400">
+                  ({CUSTOM_TOKEN_PRICE_FCFA.toLocaleString('fr-FR')} FCFA/jeton)
+                </span>
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={!customTokensValid || buyingCustom}
+            onClick={() => void buyCustomTokens()}
+            className="flex items-center justify-center gap-1.5 rounded-lg bg-brand px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Coins className="h-[15px] w-[15px]" aria-hidden />
+            {buyingCustom ? 'Traitement…' : 'Recharger ce montant'}
+          </button>
         </div>
       </div>
 

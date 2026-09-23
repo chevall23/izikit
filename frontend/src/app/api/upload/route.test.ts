@@ -1,9 +1,9 @@
-// Tests for POST /api/upload — Cloudinary edition.
+// Tests for POST /api/upload — R2 edition.
 //
 // Mock strategy:
-//   - `@/lib/server/upload/cloudinary-client`: stubbed via vi.mock so the real
-//     Cloudinary SDK is never invoked. `mockCloudinaryClient()` from
-//     cloudinary-mock.ts supplies a happy `uploadBuffer()` by default.
+//   - `@/lib/server/upload/storage-client`: stubbed via vi.mock so the real
+//     S3/R2 SDK (and `sharp`) is never invoked. `mockStorageClient()` from
+//     storage-mock.ts supplies a happy `uploadBuffer()` by default.
 //   - `@/lib/server/middleware`: mocked so requireAuth returns a happy
 //     user ctx by default. Per-test mockReturnValueOnce overrides simulate
 //     401.
@@ -12,16 +12,16 @@
 //   - `@/lib/server/prisma`: mocked so fileUpload.create can assert calls
 //     without a real DB.
 //
-// Env stubs: each test calls `vi.stubEnv` for UPLOAD_* and CLOUDINARY_* so the
+// Env stubs: each test calls `vi.stubEnv` for UPLOAD_* and R2_* so the
 // route's handler-time env reads see the right values. `vi.unstubAllEnvs`
 // in afterEach prevents bleed across tests.
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { NextResponse } from 'next/server';
-import { mockCloudinaryClient } from '@/test-utils/cloudinary-mock';
+import { mockStorageClient } from '@/test-utils/storage-mock';
 
-const cl = mockCloudinaryClient();
+const cl = mockStorageClient();
 
-vi.mock('@/lib/server/upload/cloudinary-client', () => ({
+vi.mock('@/lib/server/upload/storage-client', () => ({
   uploadBuffer: vi.fn((publicId: string, body: Buffer) => cl.uploadBuffer(publicId, body)),
   StorageNotConfiguredError: class StorageNotConfiguredError extends Error {
     constructor() {
@@ -54,9 +54,11 @@ vi.mock('@/lib/server/prisma', () => ({
 beforeEach(() => {
   vi.stubEnv('UPLOAD_ALLOWED_MIME', 'image/jpeg,image/png,image/webp');
   vi.stubEnv('UPLOAD_MAX_BYTES', '10485760');
-  vi.stubEnv('CLOUDINARY_CLOUD_NAME', 'test-cloud');
-  vi.stubEnv('CLOUDINARY_API_KEY', 'test-key');
-  vi.stubEnv('CLOUDINARY_API_SECRET', 'test-secret');
+  vi.stubEnv('R2_ACCOUNT_ID', 'test-account');
+  vi.stubEnv('R2_ACCESS_KEY_ID', 'test-key');
+  vi.stubEnv('R2_SECRET_ACCESS_KEY', 'test-secret');
+  vi.stubEnv('R2_BUCKET_NAME', 'test-bucket');
+  vi.stubEnv('R2_PUBLIC_URL', 'https://cdn.test-bucket.example');
 });
 
 afterEach(() => {
@@ -81,7 +83,7 @@ function makeReq(file: File | null, opts: MakeReqOpts = { csrf: true, auth: true
   });
 }
 
-describe('POST /api/upload (Cloudinary)', () => {
+describe('POST /api/upload (R2)', () => {
   it('valid jpeg uploads', async () => {
     const { POST } = await import('./route');
     const jpeg = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], 'photo.jpg', {
@@ -91,7 +93,7 @@ describe('POST /api/upload (Cloudinary)', () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.key).toMatch(/^user-1\/.+$/);
-    expect(body.url).toMatch(/^https:\/\/res\.cloudinary\.com\//);
+    expect(body.url).toMatch(/^https:\/\/cdn\.test-bucket\.example\//);
     expect(prismaCreate).toHaveBeenCalled();
   });
 
@@ -129,7 +131,7 @@ describe('POST /api/upload (Cloudinary)', () => {
   });
 
   it('storage not configured (env missing)', async () => {
-    vi.stubEnv('CLOUDINARY_CLOUD_NAME', '');
+    vi.stubEnv('R2_ACCOUNT_ID', '');
     const { POST } = await import('./route');
     const f = new File([new Uint8Array([0xff, 0xd8, 0xff])], 'x.jpg', { type: 'image/jpeg' });
     const res = await POST(makeReq(f) as never);
@@ -146,10 +148,10 @@ describe('POST /api/upload (Cloudinary)', () => {
     expect(body.code).toBe('UPLOAD_MISSING_FILE');
   });
 
-  it('upload failed (cloudinary throws)', async () => {
-    const { uploadBuffer } = await import('@/lib/server/upload/cloudinary-client');
+  it('upload failed (R2 throws)', async () => {
+    const { uploadBuffer } = await import('@/lib/server/upload/storage-client');
     (uploadBuffer as unknown as Mock).mockImplementationOnce(async () => {
-      throw new Error('Cloudinary down');
+      throw new Error('R2 down');
     });
     const { POST } = await import('./route');
     const f = new File([new Uint8Array([0xff, 0xd8, 0xff])], 'a.jpg', { type: 'image/jpeg' });

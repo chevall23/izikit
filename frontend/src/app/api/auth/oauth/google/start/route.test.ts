@@ -160,6 +160,40 @@ describe('GET /api/auth/oauth/google/start', () => {
     expect(__cookieStore.has('app-oauth-next')).toBe(false);
   });
 
+  it('echoes ?accountType=OWNER_AGENT to app-oauth-accountType cookie', async () => {
+    mockTryCreate.mockReturnValue({
+      client: {
+        createAuthorizationURL: () => new URL('https://accounts.google.com/?state=x'),
+      } as unknown as ProviderClient,
+      scopes: ['openid', 'email', 'profile'] as const,
+      redirectUri: '',
+    });
+
+    await GET(
+      makeReq('https://app.example.test/api/auth/oauth/google/start?accountType=OWNER_AGENT'),
+    );
+
+    const cookie = __cookieStore.get('app-oauth-accountType');
+    expect(cookie).toBeDefined();
+    expect(cookie!.value).toBe('OWNER_AGENT');
+    expect(cookie!.options).toEqual(
+      expect.objectContaining({ path: '/api/auth/oauth', maxAge: 300, httpOnly: true }),
+    );
+  });
+
+  it('rejects an unknown ?accountType= silently (no cookie set)', async () => {
+    mockTryCreate.mockReturnValue({
+      client: {
+        createAuthorizationURL: () => new URL('https://accounts.google.com/?state=x'),
+      } as unknown as ProviderClient,
+      scopes: ['openid', 'email', 'profile'] as const,
+      redirectUri: '',
+    });
+
+    await GET(makeReq('https://app.example.test/api/auth/oauth/google/start?accountType=ADMIN'));
+    expect(__cookieStore.has('app-oauth-accountType')).toBe(false);
+  });
+
   it("source contains runtime='nodejs' (Phase 0 invariant)", () => {
     const src = fs.readFileSync(path.join(__dirname, 'route.ts'), 'utf8');
     expect(src).toMatch(/export\s+const\s+runtime\s*=\s*['"]nodejs['"]/);

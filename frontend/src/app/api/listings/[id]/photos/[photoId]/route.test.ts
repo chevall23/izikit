@@ -76,15 +76,25 @@ describe('DELETE /api/listings/[id]/photos/[photoId]', () => {
     expect(res.status).toBe(404);
   });
 
-  it('non-DRAFT listing returns 409', async () => {
+  it('SOLD listing returns 409 (frozen, no longer editable)', async () => {
     prismaMock.listing.findUnique.mockResolvedValueOnce({
       userId: 'user-1',
-      status: 'PENDING',
+      status: 'SOLD',
     } as never);
     const { req, ctx } = makeDeleteReq('l1', 'p1');
     const res = await DELETE(req, ctx);
     expect(res.status).toBe(409);
   });
+
+  it.each(['PENDING', 'VERIFIED', 'REJECTED'])(
+    '%s listing accepts photo removal (editable, not just DRAFT)',
+    async (status) => {
+      prismaMock.listing.findUnique.mockResolvedValueOnce({ userId: 'user-1', status } as never);
+      const { req, ctx } = makeDeleteReq('l1', 'p1');
+      const res = await DELETE(req, ctx);
+      expect(res.status).toBe(200);
+    },
+  );
 
   it('photo not found (or belongs to another listing) returns 404', async () => {
     prismaMock.listingPhoto.findUnique.mockResolvedValueOnce(null);

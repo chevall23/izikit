@@ -1,7 +1,7 @@
 import {
   Home,
   LayoutDashboard,
-  MessageCircle,
+  // MessageCircle, // re-add alongside the 'messages' entry below when restored
   Settings,
   Building2,
   MapPinned,
@@ -48,7 +48,8 @@ export const NAV_GROUPS: { label: string; items: NavEntry[] }[] = [
       { key: 'visits', label: 'Visites programmées', icon: CalendarCheck, href: '/visites' },
       { key: 'requests', label: 'Demande immobilière', icon: FileSearch, href: '/demandes' },
       { key: 'alerts', label: 'Alerte secteur', icon: MapPinned, href: '/alertes' },
-      { key: 'messages', label: 'Messages', icon: MessageCircle, href: '/messages' },
+      // Hidden on request (2026-09-22) — re-add when asked to bring it back.
+      // { key: 'messages', label: 'Messages', icon: MessageCircle, href: '/messages' },
     ],
   },
   {

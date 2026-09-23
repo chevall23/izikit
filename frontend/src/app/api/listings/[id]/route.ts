@@ -7,16 +7,49 @@
 //     per-field shape/range checks. Status stays DRAFT.
 //   - `publish: true` — "Publier l'annonce": merges the incoming fields
 //     with the listing's current values, checks every field/photo required
-//     for publication is present, and only then flips status to PENDING
-//     for admin moderation (also clearing any prior rejectionReason /
-//     rejectedAt). Missing requirements come back as 400
-//     `PUBLISH_REQUIREMENTS_NOT_MET` with a `missing` array the frontend
-//     maps to inline field errors.
+//     for publication is present, and only then flips status straight to
+//     VERIFIED — no admin moderation gate, the listing is publicly visible
+//     immediately (also clearing any prior rejectionReason / rejectedAt /
+//     moderatedById / moderatedAt from an earlier admin rejection, so a
+//     self-published listing never carries stale moderator attribution).
+//     Missing requirements come back as 400 `PUBLISH_REQUIREMENTS_NOT_MET`
+//     with a `missing` array the frontend maps to inline field errors.
+//
+//     ⚠️ Trust trade-off: this skips `lib/server/listings/moderation.ts`'s
+//     approve/reject flow entirely for the publish path — any signed-in
+//     user can put a live, publicly-searchable listing up with zero human
+//     review. The admin `/api/admin/listings` reject action still exists
+//     and can pull a VERIFIED listing back down after the fact, but nothing
+//     blocks it from going live first. Re-add the PENDING gate here if that
+//     stops being an acceptable trade-off for this project.
 //
 // Only the owning user can edit their own listing — 404 (not 403) on
 // mismatch/missing to avoid leaking existence, same convention as the org
-// routes. Only DRAFT or REJECTED listings can be edited through this route
-// (a rejected listing is re-submittable); anything else is 409.
+// routes. Editable statuses are DRAFT/PENDING/VERIFIED/REJECTED (see
+// `lib/server/listings/editable.ts`); SOLD is frozen — 409 otherwise. A
+// VERIFIED/PENDING listing being edited via `publish: true` just
+// re-validates and stays at status VERIFIED (see the publish comment
+// above); `publish: false` on one of those lets the owner save a partial
+// field tweak without re-running the full requirements check.
+//
+// GET /api/listings/[id]
+//
+// Owner-only detail fetch (full field set + photos, ordered primary-first)
+// used to prefill the "Modifier" edit page (`/listings/[id]/edit`) — the
+// list view (`GET /api/listings`) only returns a summary + primary photo.
+//
+// DELETE /api/listings/[id]
+//
+// Lets the owner remove one of their own listings regardless of status
+// (DRAFT/PENDING/VERIFIED/REJECTED/SOLD — unlike PATCH, delete isn't
+// status-gated: "Mes annonces" should always be able to pull a row down).
+// `onDelete: Cascade` on ListingPhoto/ListingDocument/ListingInquiry/
+// ListingReport (see prisma/schema.prisma) means the DB rows go with it in
+// one `prisma.listing.delete()` call. Matches the existing
+// `DELETE /api/listings/[id]/photos/[photoId]` precedent: this is a DB-only
+// delete, the R2 objects themselves are NOT removed (orphaned storage is a
+// disclosed v1 limitation, same as that route — a future cleanup job/cron
+// could sweep them).
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -26,6 +59,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { isListingEditable } from '@/lib/server/listings/editable';
 
 const PROPERTY_TYPES = [
   'VILLA',
@@ -92,6 +126,41 @@ const LISTING_SELECT = {
   updatedAt: true,
 } as const;
 
+export async function GET(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const reqCtx = makeRequestContext(req.headers);
+  return withRequestContext(reqCtx, async () => {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
+    const { id } = await ctx.params;
+
+    const listing = await prisma.listing.findUnique({
+      where: { id },
+      select: {
+        ...LISTING_SELECT,
+        photos: {
+          orderBy: [{ isPrimary: 'desc' }, { position: 'asc' }],
+          select: { id: true, url: true, isPrimary: true, position: true },
+        },
+      },
+    });
+    if (!listing || listing.userId !== auth.user.sub) {
+      return NextResponse.json(
+        { error: 'LISTING_NOT_FOUND', message: 'Listing not found' },
+        { status: 404, headers: { 'x-request-id': reqCtx.requestId } },
+      );
+    }
+
+    return NextResponse.json(
+      { listing },
+      { status: 200, headers: { 'x-request-id': reqCtx.requestId } },
+    );
+  });
+}
+
 export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
@@ -121,11 +190,11 @@ export async function PATCH(
         { status: 404, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
-    if (existing.status !== 'DRAFT' && existing.status !== 'REJECTED') {
+    if (!isListingEditable(existing.status)) {
       return NextResponse.json(
         {
-          error: 'LISTING_NOT_DRAFT',
-          message: 'Only a draft or rejected listing can be edited here',
+          error: 'LISTING_NOT_EDITABLE',
+          message: 'This listing can no longer be edited',
         },
         { status: 409, headers: { 'x-request-id': reqCtx.requestId } },
       );
@@ -183,9 +252,11 @@ export async function PATCH(
         ...(fields.kitchens !== undefined && { kitchens: fields.kitchens }),
         ...(fields.amenities !== undefined && { amenities: fields.amenities }),
         ...(publish && {
-          status: 'PENDING',
+          status: 'VERIFIED',
           rejectionReason: null,
           rejectedAt: null,
+          moderatedById: null,
+          moderatedAt: null,
         }),
       },
       select: LISTING_SELECT,
@@ -193,6 +264,40 @@ export async function PATCH(
 
     return NextResponse.json(
       { listing: updated },
+      { status: 200, headers: { 'x-request-id': reqCtx.requestId } },
+    );
+  });
+}
+
+export async function DELETE(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const reqCtx = makeRequestContext(req.headers);
+  return withRequestContext(reqCtx, async () => {
+    const csrfFail = verifyCsrf(req);
+    if (csrfFail) return csrfFail;
+
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
+    const { id } = await ctx.params;
+
+    const existing = await prisma.listing.findUnique({
+      where: { id },
+      select: { userId: true },
+    });
+    if (!existing || existing.userId !== auth.user.sub) {
+      return NextResponse.json(
+        { error: 'LISTING_NOT_FOUND', message: 'Listing not found' },
+        { status: 404, headers: { 'x-request-id': reqCtx.requestId } },
+      );
+    }
+
+    await prisma.listing.delete({ where: { id } });
+
+    return NextResponse.json(
+      { deleted: true },
       { status: 200, headers: { 'x-request-id': reqCtx.requestId } },
     );
   });

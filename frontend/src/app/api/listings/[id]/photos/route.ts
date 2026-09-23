@@ -4,8 +4,8 @@
 // on selection in the "Publier une annonce" form (not staged client-side —
 // simpler than juggling unsaved File objects across the whole multi-section
 // form). Mirrors the /api/upload + /api/legal-documents trust boundary
-// (CSRF → auth → ownership/DRAFT check → Cloudinary probe → size/MIME gates
-// → magic-byte sniff → Cloudinary → DB row), restricted to image MIME types
+// (CSRF → auth → ownership/DRAFT check → R2 probe → size/MIME gates
+// → magic-byte sniff → R2 → DB row), restricted to image MIME types
 // and a 20-photo cap per the Banani mockup ("jusqu'à 20 photos").
 //
 // The first photo uploaded is auto-marked primary; later uploads can pass
@@ -19,8 +19,9 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { prisma } from '@/lib/server/prisma';
-import { StorageNotConfiguredError, uploadBuffer } from '@/lib/server/upload/cloudinary-client';
+import { StorageNotConfiguredError, uploadBuffer } from '@/lib/server/upload/storage-client';
 import { verifyMagicBytes } from '@/lib/server/upload/sniff';
+import { isListingEditable } from '@/lib/server/listings/editable';
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -50,17 +51,19 @@ export async function POST(
         { status: 404, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
-    if (listing.status !== 'DRAFT') {
+    if (!isListingEditable(listing.status)) {
       return NextResponse.json(
-        { error: 'LISTING_NOT_DRAFT', message: 'Only a draft listing can be edited here' },
+        { error: 'LISTING_NOT_EDITABLE', message: 'This listing can no longer be edited' },
         { status: 409, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
 
     if (
-      !process.env.CLOUDINARY_CLOUD_NAME ||
-      !process.env.CLOUDINARY_API_KEY ||
-      !process.env.CLOUDINARY_API_SECRET
+      !process.env.R2_ACCOUNT_ID ||
+      !process.env.R2_ACCESS_KEY_ID ||
+      !process.env.R2_SECRET_ACCESS_KEY ||
+      !process.env.R2_BUCKET_NAME ||
+      !process.env.R2_PUBLIC_URL
     ) {
       return NextResponse.json(
         { code: 'STORAGE_NOT_CONFIGURED', message: 'Storage not configured' },

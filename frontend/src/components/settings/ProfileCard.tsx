@@ -9,6 +9,13 @@ import { useAuth, type User } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
+import type { FlagCode } from '@/components/ui/CountryFlag';
+import {
+  DIAL_COUNTRIES,
+  PhoneCountrySelect,
+  flagCodeForCountryName,
+  splitPhone,
+} from '@/components/ui/PhoneCountrySelect';
 import { InitialsAvatar } from '@/components/dashboard/InitialsAvatar';
 
 // Splits the single `User.name` column into Prénom/Nom for editing (first
@@ -60,7 +67,9 @@ export function ProfileCard({ user }: { user: User }) {
 
   const [firstName, setFirstName] = useState(initial.firstName);
   const [lastName, setLastName] = useState(initial.lastName);
-  const [phone, setPhone] = useState(user.phone ?? '');
+  const storedPhone = splitPhone(user.phone ?? '');
+  const [phone, setPhone] = useState(storedPhone.local);
+  const [phoneCountryCode, setPhoneCountryCode] = useState<FlagCode | null>(storedPhone.code);
   const [city, setCity] = useState(user.city ?? '');
   const [country, setCountry] = useState(user.country ?? '');
   const [bio, setBio] = useState(user.bio ?? '');
@@ -69,6 +78,14 @@ export function ProfileCard({ user }: { user: User }) {
   const [error, setError] = useState<string | null>(null);
 
   const availableCities = COUNTRIES.find((c) => c.name === country)?.cities ?? [];
+  const phoneCountry: FlagCode = phoneCountryCode ?? flagCodeForCountryName(country) ?? 'BJ';
+  const phoneDial = DIAL_COUNTRIES.find((c) => c.code === phoneCountry)?.dial ?? '+229';
+
+  function buildPhone(): string {
+    const local = phone.trim();
+    if (!local) return '';
+    return local.startsWith('+') ? local : `${phoneDial} ${local}`;
+  }
 
   function onCountryChange(value: string) {
     setCountry(value);
@@ -106,7 +123,7 @@ export function ProfileCard({ user }: { user: User }) {
         method: 'PATCH',
         body: {
           name: `${firstName} ${lastName}`.trim(),
-          phone,
+          phone: buildPhone(),
           city,
           country,
           bio,
@@ -124,7 +141,8 @@ export function ProfileCard({ user }: { user: User }) {
   function onCancel() {
     setFirstName(initial.firstName);
     setLastName(initial.lastName);
-    setPhone(user.phone ?? '');
+    setPhone(storedPhone.local);
+    setPhoneCountryCode(storedPhone.code);
     setCity(user.city ?? '');
     setCountry(user.country ?? '');
     setBio(user.bio ?? '');
@@ -184,11 +202,29 @@ export function ProfileCard({ user }: { user: User }) {
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <TextField label="Adresse e-mail" value={user.email} disabled />
-          <TextField
-            label="Numéro de téléphone"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="profile-phone" className="text-[13px] font-medium text-neutral-700">
+              Numéro de téléphone
+            </label>
+            <div className="flex items-stretch gap-2">
+              <PhoneCountrySelect
+                value={phoneCountry}
+                onChange={setPhoneCountryCode}
+                className="min-h-12 rounded-[10px]"
+              />
+              <div className="flex min-h-12 min-w-0 flex-1 items-center rounded-[10px] border-[1.5px] border-black/[0.08] bg-gray-50 focus-within:border-brand">
+                <input
+                  id="profile-phone"
+                  type="tel"
+                  inputMode="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="07 00 00 00 00"
+                  className="h-12 w-full min-w-0 bg-transparent px-3.5 text-[15px] text-neutral-900 outline-none placeholder:text-gray-400"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

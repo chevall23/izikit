@@ -14,10 +14,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { LEGAL_DOCUMENT_TYPE_COUNT } from '@/lib/server/users/enrich';
 
 const DEFAULT_LIMIT = 9;
 const MAX_LIMIT = 24;
-const LEGAL_DOCUMENT_TYPE_COUNT = 6;
 
 function parsePage(raw: string | null): number {
   const parsed = raw ? Number.parseInt(raw, 10) : NaN;

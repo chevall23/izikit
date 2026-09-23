@@ -41,6 +41,8 @@ const COOKIE_PREFIX = process.env.COOKIE_PREFIX || 'app';
 const OAUTH_STATE_COOKIE = `${COOKIE_PREFIX}-oauth-state`;
 const OAUTH_PKCE_COOKIE = `${COOKIE_PREFIX}-oauth-pkce`;
 const OAUTH_NEXT_COOKIE = `${COOKIE_PREFIX}-oauth-next`;
+const OAUTH_ACCOUNT_TYPE_COOKIE = `${COOKIE_PREFIX}-oauth-accountType`;
+const VALID_ACCOUNT_TYPES = new Set(['TENANT_BUYER', 'OWNER_AGENT']);
 
 function isProd(): boolean {
   return process.env.NODE_ENV === 'production';
@@ -58,6 +60,7 @@ async function clearEphemeralCookies(): Promise<void> {
   store.set(OAUTH_STATE_COOKIE, '', expireOpts);
   store.set(OAUTH_PKCE_COOKIE, '', expireOpts);
   store.set(OAUTH_NEXT_COOKIE, '', expireOpts);
+  store.set(OAUTH_ACCOUNT_TYPE_COOKIE, '', expireOpts);
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -79,6 +82,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const stateCookie = store.get(OAUTH_STATE_COOKIE)?.value;
     const pkceCookie = store.get(OAUTH_PKCE_COOKIE)?.value;
     const nextCookie = store.get(OAUTH_NEXT_COOKIE)?.value;
+    const accountTypeCookie = store.get(OAUTH_ACCOUNT_TYPE_COOKIE)?.value;
+    const requestedAccountType = VALID_ACCOUNT_TYPES.has(accountTypeCookie ?? '')
+      ? (accountTypeCookie as 'TENANT_BUYER' | 'OWNER_AGENT')
+      : null;
 
     if (!code || !state || !stateCookie || !pkceCookie || state !== stateCookie) {
       await clearEphemeralCookies();
@@ -151,6 +158,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
               name: claims.name ?? null,
               avatarUrl: claims.picture ?? null,
               passwordHash: null,
+              ...(requestedAccountType ? { accountType: requestedAccountType } : {}),
             },
             select: { id: true },
           });

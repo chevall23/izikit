@@ -40,6 +40,12 @@ import { api, ApiError } from '@/lib/api';
 import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
 import { COUNTRIES } from '@/lib/countries';
+import type { FlagCode } from '@/components/ui/CountryFlag';
+import {
+  DIAL_COUNTRIES,
+  PhoneCountrySelect,
+  flagCodeForCountryName,
+} from '@/components/ui/PhoneCountrySelect';
 import { PROPERTY_TYPE_LABEL, TRANSACTION_TYPE_LABEL, AMENITY_LABEL } from '@/lib/listings';
 
 type Step = 1 | 2 | 3;
@@ -255,6 +261,7 @@ export default function NouvelleDemandePage() {
   const [clientName, setClientName] = useState('');
   const [email, setEmail] = useState('');
   const [telephone, setTelephone] = useState('');
+  const [phoneCountryCode, setPhoneCountryCode] = useState<FlagCode | null>(null);
   const [clientType, setClientType] = useState<ClientType>('Particulier');
   const [source, setSource] = useState(SOURCE_OPTIONS[0]!);
   const [consentContact, setConsentContact] = useState(false);
@@ -265,6 +272,8 @@ export default function NouvelleDemandePage() {
   const [submitError, setSubmitError] = useState('');
 
   const availableCities = COUNTRIES.find((c) => c.name === pays)?.cities ?? [];
+  const phoneCountry: FlagCode = phoneCountryCode ?? flagCodeForCountryName(pays) ?? 'BJ';
+  const phoneDial = DIAL_COUNTRIES.find((c) => c.code === phoneCountry)?.dial ?? '+229';
   const isLandType = LAND_PROPERTY_TYPES.has(propertyType);
   const isHallType = HALL_PROPERTY_TYPES.has(propertyType);
   const showRoomField = !isLandType && !isHallType;
@@ -331,7 +340,7 @@ export default function NouvelleDemandePage() {
           financing,
           delay,
           clientName: clientName.trim(),
-          clientPhone: telephone.trim(),
+          clientPhone: `${phoneDial} ${telephone.trim()}`,
           ...(email.trim() && { clientEmail: email.trim() }),
           clientType,
           source,
@@ -759,15 +768,20 @@ export default function NouvelleDemandePage() {
                       </div>
                       <div>
                         <FieldLabel required>Téléphone</FieldLabel>
-                        <div className="flex items-center gap-2.5 rounded-lg border-[1.5px] border-black/[0.1] bg-gray-50 px-3.5 py-2.5">
-                          <Phone className="h-4 w-4 flex-shrink-0 text-gray-400" aria-hidden />
-                          <input
-                            required
-                            value={telephone}
-                            onChange={(e) => setTelephone(e.target.value)}
-                            placeholder="+225 07 00 00 00 00"
-                            className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400"
-                          />
+                        <div className="flex items-stretch gap-2">
+                          <PhoneCountrySelect value={phoneCountry} onChange={setPhoneCountryCode} />
+                          <div className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border-[1.5px] border-black/[0.1] bg-gray-50 px-3.5 py-2.5">
+                            <Phone className="h-4 w-4 flex-shrink-0 text-gray-400" aria-hidden />
+                            <input
+                              required
+                              type="tel"
+                              inputMode="tel"
+                              value={telephone}
+                              onChange={(e) => setTelephone(e.target.value)}
+                              placeholder="07 00 00 00 00"
+                              className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-gray-400"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { LayoutDashboard, MessageCircle, Building2, BellRing, Settings } from 'lucide-react';
+import { LayoutDashboard, Building2, BellRing, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type BottomNavKey = 'dashboard' | 'messages' | 'listings' | 'alerts' | 'settings';
@@ -18,9 +18,11 @@ interface BottomNavEntry {
 // more mapping logic than just declaring both directly.
 const BOTTOM_NAV: BottomNavEntry[] = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
-  { key: 'messages', label: 'Messages', icon: MessageCircle, href: '/messages' },
+  // Hidden on request (2026-09-22) — re-add alongside the MessageCircle
+  // import above when restored.
+  // { key: 'messages', label: 'Messages', icon: MessageCircle, href: '/messages' },
   { key: 'listings', label: 'Annonces', icon: Building2, href: '/listings' },
-  { key: 'alerts', label: 'Alerte secteur', icon: BellRing },
+  { key: 'alerts', label: 'Alerte secteur', icon: BellRing, href: '/alertes' },
   { key: 'settings', label: 'Paramètres', icon: Settings, href: '/settings' },
 ];
 

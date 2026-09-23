@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Bath,
@@ -9,6 +9,7 @@ import {
   CalendarCheck,
   Home,
   Loader2,
+  Lock,
   Maximize,
   MapPin,
   MessageCircle,
@@ -22,11 +23,14 @@ import {
 import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
 import { InitialsAvatar } from '@/components/dashboard/InitialsAvatar';
 import { PROPERTY_TYPE_LABEL, TRANSACTION_TYPE_LABEL, formatListingPrice } from '@/lib/listings';
 import { COUNTRY_FLAG, formatDate } from '@/lib/alerts';
+
+const UNLOCK_COST_TOKENS = 1;
 
 interface AgentListing {
   id: string;
@@ -52,6 +56,7 @@ interface AgentDetail {
   country: string | null;
   bio: string | null;
   phone: string | null;
+  contactUnlocked: boolean;
   createdAt: string;
   stats: {
     activeListings: number;
@@ -115,10 +120,13 @@ export default function AgentProfilePage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const { user } = useAuth();
+  const router = useRouter();
+  const toast = useToast();
 
   const [agent, setAgent] = useState<AgentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
 
   const [reviews, setReviews] = useState<AgentReview[]>([]);
   const [reviewsTotal, setReviewsTotal] = useState(0);
@@ -172,6 +180,28 @@ export default function AgentProfilePage() {
   useEffect(() => {
     loadReviews();
   }, [id]);
+
+  async function handleUnlockContact() {
+    if (!user) {
+      router.push(`/login?next=${encodeURIComponent(`/agents/${id}`)}`);
+      return;
+    }
+    setUnlocking(true);
+    try {
+      await api(`/api/agents/${id}/unlock-contact`, { method: 'POST' });
+      const fresh = await api<AgentDetail>(`/api/public/agents/${id}`);
+      setAgent(fresh);
+      toast.toast('Contact débloqué', 'success');
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'INSUFFICIENT_TOKENS') {
+        toast.toast('Jetons insuffisants — rechargez pour débloquer ce contact', 'error');
+      } else {
+        toast.toast(err instanceof ApiError ? err.message : 'Une erreur est survenue.', 'error');
+      }
+    } finally {
+      setUnlocking(false);
+    }
+  }
 
   const myReview = user ? (reviews.find((r) => r.author.id === user.id) ?? null) : null;
 
@@ -348,35 +378,31 @@ export default function AgentProfilePage() {
               </div>
             </div>
             <div className="flex w-full flex-col items-center gap-3 pb-7 lg:w-auto lg:items-end">
-              {agent.phone ? (
-                <a
-                  href={`tel:${agent.phone}`}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-[22px] py-3.5 text-sm font-bold whitespace-nowrap text-brand lg:w-auto"
-                >
-                  <Phone className="h-[15px] w-[15px]" aria-hidden />
-                  Appeler maintenant
-                </a>
+              {agent.contactUnlocked ? (
+                agent.phone ? (
+                  <a
+                    href={`tel:${agent.phone}`}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-[22px] py-3.5 text-sm font-bold whitespace-nowrap text-brand lg:w-auto"
+                  >
+                    <Phone className="h-[15px] w-[15px]" aria-hidden />
+                    Appeler maintenant
+                  </a>
+                ) : (
+                  <InertLink className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-[22px] py-3.5 text-sm font-bold whitespace-nowrap text-brand lg:w-auto">
+                    <Phone className="h-[15px] w-[15px]" aria-hidden />
+                    Appeler maintenant
+                  </InertLink>
+                )
               ) : (
-                <InertLink className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-[22px] py-3.5 text-sm font-bold whitespace-nowrap text-brand lg:w-auto">
-                  <Phone className="h-[15px] w-[15px]" aria-hidden />
-                  Appeler maintenant
-                </InertLink>
-              )}
-              {agent.phone ? (
-                <a
-                  href={buildWhatsappLink(agent.phone, agent.name ?? 'agent')}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white/[0.14] px-[22px] py-3.5 text-sm font-semibold whitespace-nowrap text-white lg:w-auto"
+                <button
+                  type="button"
+                  onClick={() => void handleUnlockContact()}
+                  disabled={unlocking}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-[22px] py-3.5 text-sm font-bold whitespace-nowrap text-brand disabled:opacity-60 lg:w-auto"
                 >
-                  <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
-                  Envoyer un message
-                </a>
-              ) : (
-                <InertLink className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white/[0.14] px-[22px] py-3.5 text-sm font-semibold whitespace-nowrap text-white lg:w-auto">
-                  <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
-                  Envoyer un message
-                </InertLink>
+                  <Lock className="h-[15px] w-[15px]" aria-hidden />
+                  {unlocking ? 'Déblocage…' : `Débloquer le contact — ${UNLOCK_COST_TOKENS} jeton`}
+                </button>
               )}
             </div>
           </div>
@@ -653,67 +679,87 @@ export default function AgentProfilePage() {
               <div className="mb-4 text-[15px] font-bold">
                 Contacter {agent.name ?? 'cet agent'}
               </div>
-              <div className="mb-4.5 flex flex-col gap-3">
-                {agent.phone && (
-                  <div className="flex items-center gap-3 rounded-[10px] border border-black/[0.08] px-4 py-3.5">
-                    <Phone className="h-4 w-4 flex-shrink-0 text-brand" aria-hidden />
-                    <div className="min-w-0">
-                      <div className="mb-0.5 text-[11px] font-semibold tracking-[0.1em] text-gray-500 uppercase">
-                        Téléphone
+              {agent.contactUnlocked ? (
+                <>
+                  <div className="mb-4.5 flex flex-col gap-3">
+                    {agent.phone && (
+                      <div className="flex items-center gap-3 rounded-[10px] border border-black/[0.08] px-4 py-3.5">
+                        <Phone className="h-4 w-4 flex-shrink-0 text-brand" aria-hidden />
+                        <div className="min-w-0">
+                          <div className="mb-0.5 text-[11px] font-semibold tracking-[0.1em] text-gray-500 uppercase">
+                            Téléphone
+                          </div>
+                          <div className="truncate text-sm font-semibold">{agent.phone}</div>
+                        </div>
                       </div>
-                      <div className="truncate text-sm font-semibold">{agent.phone}</div>
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="flex flex-col gap-2.5">
-                {agent.phone ? (
-                  <a
-                    href={`tel:${agent.phone}`}
-                    className="flex items-center justify-center gap-2 rounded-full bg-brand px-4.5 py-3.5 text-sm font-bold whitespace-nowrap text-white"
+                  <div className="flex flex-col gap-2.5">
+                    {agent.phone ? (
+                      <a
+                        href={`tel:${agent.phone}`}
+                        className="flex items-center justify-center gap-2 rounded-full bg-brand px-4.5 py-3.5 text-sm font-bold whitespace-nowrap text-white"
+                      >
+                        <Phone className="h-[15px] w-[15px]" aria-hidden />
+                        Appeler maintenant
+                      </a>
+                    ) : (
+                      <InertLink className="flex items-center justify-center gap-2 rounded-full bg-brand px-4.5 py-3.5 text-sm font-bold whitespace-nowrap text-white">
+                        <Phone className="h-[15px] w-[15px]" aria-hidden />
+                        Appeler maintenant
+                      </InertLink>
+                    )}
+                    {agent.phone ? (
+                      <a
+                        href={buildWhatsappLink(agent.phone, agent.name ?? 'agent')}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 rounded-full bg-[#25D366] px-4.5 py-3.5 text-sm font-bold whitespace-nowrap text-white"
+                      >
+                        <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
+                        WhatsApp
+                      </a>
+                    ) : (
+                      <InertLink className="flex items-center justify-center gap-2 rounded-full bg-[#25D366]/40 px-4.5 py-3.5 text-sm font-bold whitespace-nowrap text-white">
+                        <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
+                        WhatsApp
+                      </InertLink>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="mb-4.5 flex items-start gap-3 rounded-[10px] border border-black/[0.08] bg-gray-50 px-4 py-3.5">
+                    <Lock className="h-4 w-4 flex-shrink-0 text-gray-400" aria-hidden />
+                    <p className="text-[13px] leading-relaxed text-gray-500">
+                      Le contact de cet agent est protégé. Débloquez-le pour {UNLOCK_COST_TOKENS}{' '}
+                      jeton et accédez à son numéro pour toujours.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleUnlockContact()}
+                    disabled={unlocking}
+                    className="flex w-full items-center justify-center gap-2 rounded-full bg-brand px-4.5 py-3.5 text-sm font-bold whitespace-nowrap text-white disabled:opacity-60"
                   >
-                    <Phone className="h-[15px] w-[15px]" aria-hidden />
-                    Appeler maintenant
-                  </a>
-                ) : (
-                  <InertLink className="flex items-center justify-center gap-2 rounded-full bg-brand px-4.5 py-3.5 text-sm font-bold whitespace-nowrap text-white">
-                    <Phone className="h-[15px] w-[15px]" aria-hidden />
-                    Appeler maintenant
-                  </InertLink>
-                )}
-                {agent.phone ? (
-                  <a
-                    href={buildWhatsappLink(agent.phone, agent.name ?? 'agent')}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 rounded-full bg-gray-50 px-4.5 py-3.5 text-sm font-bold whitespace-nowrap"
-                  >
-                    <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
-                    Envoyer un message
-                  </a>
-                ) : (
-                  <InertLink className="flex items-center justify-center gap-2 rounded-full bg-gray-50 px-4.5 py-3.5 text-sm font-bold whitespace-nowrap">
-                    <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
-                    Envoyer un message
-                  </InertLink>
-                )}
-                {agent.phone ? (
-                  <a
-                    href={buildWhatsappLink(agent.phone, agent.name ?? 'agent')}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 rounded-full bg-[#25D366] px-4.5 py-3.5 text-sm font-bold whitespace-nowrap text-white"
-                  >
-                    <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
-                    WhatsApp
-                  </a>
-                ) : (
-                  <InertLink className="flex items-center justify-center gap-2 rounded-full bg-[#25D366]/40 px-4.5 py-3.5 text-sm font-bold whitespace-nowrap text-white">
-                    <MessageCircle className="h-[15px] w-[15px]" aria-hidden />
-                    WhatsApp
-                  </InertLink>
-                )}
-              </div>
+                    <Lock className="h-[15px] w-[15px]" aria-hidden />
+                    {unlocking
+                      ? 'Déblocage…'
+                      : `Débloquer le contact — ${UNLOCK_COST_TOKENS} jeton`}
+                  </button>
+                  {!user && (
+                    <p className="mt-2 text-center text-xs text-gray-400">
+                      <Link
+                        href={`/login?next=${encodeURIComponent(`/agents/${id}`)}`}
+                        className="font-semibold text-brand"
+                      >
+                        Connectez-vous
+                      </Link>{' '}
+                      pour débloquer ce contact.
+                    </p>
+                  )}
+                </>
+              )}
             </div>
 
             {/* INFO CARD */}

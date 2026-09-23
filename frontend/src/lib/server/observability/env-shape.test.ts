@@ -49,7 +49,7 @@ describe('.env.example shape — cible PlanetHoster N0C (OPS-01, OPS-04)', () =>
 });
 
 // ───────────────────────────────────────────────────────────────────────
-// Phase 4 — UPLOAD + Cloudinary + WITHDRAWAL safety knobs.
+// Phase 4 — UPLOAD + R2 + WITHDRAWAL safety knobs.
 //
 // These assertions are tripwires: refactors that "tidy up" .env.example by
 // stripping the FINANCIAL-SAFETY warning block or the verbatim defaults
@@ -69,10 +69,12 @@ describe('.env.example phase 4 additions (UP-01, UP-02, WD-01..04)', () => {
     expect(src).toContain('UPLOAD_MAX_BYTES="10485760"');
   });
 
-  it('declares CLOUDINARY_* keys with empty defaults', () => {
-    expect(src).toMatch(/^CLOUDINARY_CLOUD_NAME=""$/m);
-    expect(src).toMatch(/^CLOUDINARY_API_KEY=""$/m);
-    expect(src).toMatch(/^CLOUDINARY_API_SECRET=""$/m);
+  it('declares R2_* keys with empty defaults', () => {
+    expect(src).toMatch(/^R2_ACCOUNT_ID=""$/m);
+    expect(src).toMatch(/^R2_ACCESS_KEY_ID=""$/m);
+    expect(src).toMatch(/^R2_SECRET_ACCESS_KEY=""$/m);
+    expect(src).toMatch(/^R2_BUCKET_NAME=""$/m);
+    expect(src).toMatch(/^R2_PUBLIC_URL=""$/m);
   });
 
   it('declares production-safe withdrawal-policy defaults', () => {

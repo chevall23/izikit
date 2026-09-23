@@ -136,18 +136,24 @@ export function FeaturedListingsSection() {
                 className="overflow-hidden rounded-[20px] border border-black/[0.06]"
               >
                 <div className="relative h-[220px] bg-gray-100 lg:h-[240px]">
-                  {listing.primaryPhotoUrl ? (
-                    <img
-                      src={listing.primaryPhotoUrl}
-                      alt={listing.title}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-gray-300">
-                      <MapPin className="h-8 w-8" aria-hidden />
-                    </div>
-                  )}
-                  <div className="absolute top-3.5 right-3.5 left-3.5 flex items-center justify-between gap-2">
+                  <Link
+                    href={`/annonces/${listing.id}`}
+                    aria-label={`Voir l'annonce : ${listing.title}`}
+                    className="block h-full w-full"
+                  >
+                    {listing.primaryPhotoUrl ? (
+                      <img
+                        src={listing.primaryPhotoUrl}
+                        alt={listing.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-gray-300">
+                        <MapPin className="h-8 w-8" aria-hidden />
+                      </div>
+                    )}
+                  </Link>
+                  <div className="pointer-events-none absolute top-3.5 right-3.5 left-3.5 flex items-center justify-between gap-2">
                     <span className="rounded-full bg-emerald-500 px-2.5 py-1 text-[11px] font-bold whitespace-nowrap text-white">
                       ✓ Vérifié
                     </span>

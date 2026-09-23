@@ -50,6 +50,9 @@ import {
   getProvider,
   PaymentProviderUnconfiguredError,
 } from '@/lib/server/payments/provider-singleton';
+import { clampLimit, cursorWhere, decodeCursor, buildPage } from '@/lib/server/pagination/paginate';
+import { isPlanKey, PLAN_CATALOG } from '@/lib/subscription-plans';
+import { isTokenPackKey, TOKEN_PACK_CATALOG } from '@/lib/token-packs';
 
 // CR-02 helpers ────────────────────────────────────────────────────────
 // Idempotency-Key length cap. 200 chars matches Stripe's documented limit
@@ -346,5 +349,77 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 502, headers: { 'x-request-id': ctx.requestId } },
       );
     }
+  });
+}
+
+// GET /api/orders — SET-04. Cursor-paginated payment history for the
+// authenticated user's own Orders (settings "Historique des paiements"),
+// mirroring the /api/tokens/transactions pagination pattern. Only surfaces
+// orders created through a known `metadata.kind` (subscription plan change,
+// token pack purchase, custom token top-up) — other Order rows (if any
+// future kind is added) still render with a generic fallback description
+// rather than being silently dropped.
+function describeOrder(metadata: unknown): string {
+  const meta = (metadata ?? null) as {
+    kind?: unknown;
+    planKey?: unknown;
+    packKey?: unknown;
+    tokens?: unknown;
+  } | null;
+  const kind = meta?.kind;
+  if (kind === 'subscription_plan_change' && isPlanKey(meta?.planKey)) {
+    return `Abonnement ${PLAN_CATALOG[meta.planKey].label}`;
+  }
+  if (kind === 'token_purchase' && isTokenPackKey(meta?.packKey)) {
+    return `Achat pack de jetons ${TOKEN_PACK_CATALOG[meta.packKey].label}`;
+  }
+  if (kind === 'token_purchase_custom' && typeof meta?.tokens === 'number') {
+    return `Achat de ${meta.tokens} jeton${meta.tokens > 1 ? 's' : ''}`;
+  }
+  return 'Paiement';
+}
+
+export async function GET(req: NextRequest): Promise<NextResponse> {
+  const ctx = makeRequestContext(req.headers);
+  return withRequestContext(ctx, async () => {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
+    const url = req.nextUrl;
+    const limit = clampLimit(url.searchParams.get('limit'));
+    const cursor = decodeCursor(url.searchParams.get('cursor'));
+
+    const rows = await prisma.order.findMany({
+      where: { userId: auth.user.sub, ...cursorWhere(cursor) },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      select: {
+        id: true,
+        createdAt: true,
+        amount: true,
+        currency: true,
+        status: true,
+        provider: true,
+        paymentMethod: true,
+        metadata: true,
+      },
+    });
+
+    const { items, nextCursor } = buildPage(rows, limit);
+    return NextResponse.json(
+      {
+        items: items.map((row) => ({
+          id: row.id,
+          date: row.createdAt,
+          description: describeOrder(row.metadata),
+          method: row.paymentMethod ?? row.provider,
+          status: row.status,
+          amount: row.amount,
+          currency: row.currency,
+        })),
+        nextCursor,
+      },
+      { headers: { 'x-request-id': ctx.requestId } },
+    );
   });
 }

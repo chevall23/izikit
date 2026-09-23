@@ -3,13 +3,13 @@ import { prismaMock } from '@/test-utils/prisma-mock';
 import { mockNextCookies, __cookieStore } from '@/test-utils/mock-cookies';
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
-import { mockCloudinaryClient } from '@/test-utils/cloudinary-mock';
+import { mockStorageClient } from '@/test-utils/storage-mock';
 
 mockNextCookies();
 
-const cl = mockCloudinaryClient();
+const cl = mockStorageClient();
 
-vi.mock('@/lib/server/upload/cloudinary-client', () => ({
+vi.mock('@/lib/server/upload/storage-client', () => ({
   uploadBuffer: vi.fn((publicId: string, body: Buffer) => cl.uploadBuffer(publicId, body)),
   StorageNotConfiguredError: class StorageNotConfiguredError extends Error {
     constructor() {
@@ -49,9 +49,11 @@ function makePostReq(id: string, type: string | null, file: File | null) {
 }
 
 beforeEach(() => {
-  vi.stubEnv('CLOUDINARY_CLOUD_NAME', 'test-cloud');
-  vi.stubEnv('CLOUDINARY_API_KEY', 'test-key');
-  vi.stubEnv('CLOUDINARY_API_SECRET', 'test-secret');
+  vi.stubEnv('R2_ACCOUNT_ID', 'test-account');
+  vi.stubEnv('R2_ACCESS_KEY_ID', 'test-key');
+  vi.stubEnv('R2_SECRET_ACCESS_KEY', 'test-secret');
+  vi.stubEnv('R2_BUCKET_NAME', 'test-bucket');
+  vi.stubEnv('R2_PUBLIC_URL', 'https://cdn.test-bucket.example');
   vi.clearAllMocks();
   __cookieStore.clear();
   mockRequireAuth.mockResolvedValue(authedCtx);
@@ -60,7 +62,7 @@ beforeEach(() => {
   prismaMock.listingDocument.upsert.mockResolvedValue({
     type: 'LAND_TITLE',
     status: 'PENDING',
-    url: 'https://res.cloudinary.com/test/x.pdf',
+    url: 'https://cdn.test-bucket.example/test/x.pdf',
     filename: 'titre.pdf',
     mimeType: 'application/pdf',
     sizeBytes: 4,
@@ -173,17 +175,17 @@ describe('POST /api/listings/[id]/documents', () => {
   });
 
   it('storage not configured returns 503', async () => {
-    vi.stubEnv('CLOUDINARY_CLOUD_NAME', '');
+    vi.stubEnv('R2_ACCOUNT_ID', '');
     const file = new File([PDF_BYTES], 'a.pdf', { type: 'application/pdf' });
     const { req, ctx } = makePostReq('l1', 'LAND_TITLE', file);
     const res = await POST(req, ctx);
     expect(res.status).toBe(503);
   });
 
-  it('upload failure (cloudinary throws) returns 502', async () => {
-    const { uploadBuffer } = await import('@/lib/server/upload/cloudinary-client');
+  it('upload failure (R2 throws) returns 502', async () => {
+    const { uploadBuffer } = await import('@/lib/server/upload/storage-client');
     (uploadBuffer as unknown as Mock).mockImplementationOnce(async () => {
-      throw new Error('Cloudinary down');
+      throw new Error('R2 down');
     });
     const file = new File([PDF_BYTES], 'a.pdf', { type: 'application/pdf' });
     const { req, ctx } = makePostReq('l1', 'LAND_TITLE', file);

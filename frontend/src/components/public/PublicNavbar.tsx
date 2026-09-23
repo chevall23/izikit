@@ -13,9 +13,9 @@ export type PublicNavKey = 'accueil' | 'annonces' | 'agents' | 'demande' | 'blog
 
 export const NAV_LINKS: { key: PublicNavKey; label: string; href: string | null }[] = [
   { key: 'accueil', label: 'Accueil', href: '/' },
-  { key: 'annonces', label: 'Annonce immobilière', href: '/annonces' },
-  { key: 'demande', label: 'Demande immobilière', href: '/demande-immobiliere' },
-  { key: 'agents', label: 'Agent immobilier', href: '/agents' },
+  { key: 'annonces', label: 'Annonces immobilières', href: '/annonces' },
+  { key: 'demande', label: 'Demandes immobilières', href: '/demande-immobiliere' },
+  { key: 'agents', label: 'Agents immobiliers', href: '/agents' },
   { key: 'contact', label: 'Contact', href: '/contact' },
 ];
 

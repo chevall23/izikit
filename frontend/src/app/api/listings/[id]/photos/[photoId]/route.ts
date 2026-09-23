@@ -1,9 +1,10 @@
 // LISTINGS-05 — DELETE /api/listings/[id]/photos/[photoId]
 //
-// Removes a photo from a DRAFT listing (the thumbnail's "×" button in the
-// Banani mockup). If the removed photo was primary and others remain, the
-// earliest-added remaining photo is promoted to primary so the listing
-// never ends up with photos but no cover image.
+// Removes a photo from an editable listing (the thumbnail's "×" button in
+// the Banani mockup, and the same removal path the "Modifier" edit page
+// uses for already-published photos). If the removed photo was primary and
+// others remain, the earliest-added remaining photo is promoted to primary
+// so the listing never ends up with photos but no cover image.
 export const runtime = 'nodejs';
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -11,6 +12,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { prisma } from '@/lib/server/prisma';
+import { isListingEditable } from '@/lib/server/listings/editable';
 
 export async function DELETE(
   req: NextRequest,
@@ -36,9 +38,9 @@ export async function DELETE(
         { status: 404, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
-    if (listing.status !== 'DRAFT') {
+    if (!isListingEditable(listing.status)) {
       return NextResponse.json(
-        { error: 'LISTING_NOT_DRAFT', message: 'Only a draft listing can be edited here' },
+        { error: 'LISTING_NOT_EDITABLE', message: 'This listing can no longer be edited' },
         { status: 409, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }

@@ -66,6 +66,54 @@ describe('fulfillPaidOrder', () => {
     );
   });
 
+  it('credits the token wallet when metadata.kind is token_purchase_custom', async () => {
+    await fulfillPaidOrder(tx, {
+      id: 'o1',
+      userId: 'u1',
+      customerEmail: null,
+      amount: 3_500,
+      currency: 'XOF',
+      metadata: { kind: 'token_purchase_custom', tokens: 7 },
+    });
+    expect(tokenWalletUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'u1' },
+        create: { userId: 'u1', balance: 7 },
+        update: { balance: { increment: 7 } },
+      }),
+    );
+    expect(tokenTransactionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: 'u1',
+          type: 'PURCHASE',
+          amount: 7,
+          orderId: 'o1',
+        }),
+      }),
+    );
+  });
+
+  it('ignores a non-positive or non-integer token_purchase_custom amount', async () => {
+    await fulfillPaidOrder(tx, {
+      id: 'o1',
+      userId: 'u1',
+      customerEmail: null,
+      amount: 0,
+      currency: 'XOF',
+      metadata: { kind: 'token_purchase_custom', tokens: 0 },
+    });
+    await fulfillPaidOrder(tx, {
+      id: 'o2',
+      userId: 'u1',
+      customerEmail: null,
+      amount: 100,
+      currency: 'XOF',
+      metadata: { kind: 'token_purchase_custom', tokens: 1.5 },
+    });
+    expect(tokenWalletUpsert).not.toHaveBeenCalled();
+  });
+
   it('ignores an unknown packKey', async () => {
     await fulfillPaidOrder(tx, {
       id: 'o1',

@@ -13,9 +13,6 @@ import { cn } from '@/lib/utils';
 
 const DIAL_CODE = '+229';
 
-const googleSignInHref = '/api/auth/oauth/google/start?next=/dashboard';
-const facebookSignInHref = '/api/auth/oauth/facebook/start?next=/dashboard';
-
 type AccountType = 'TENANT_BUYER' | 'OWNER_AGENT';
 
 function errorMessage(err: unknown): string {
@@ -171,13 +168,13 @@ export default function SignupPage() {
           <div className="flex flex-col gap-2.5 sm:flex-row">
             <RoleOption
               icon={<User className="h-4 w-4" aria-hidden />}
-              label="Locataire / Acheteur"
+              label="Particulier"
               selected={accountType === 'TENANT_BUYER'}
               onSelect={() => setAccountType('TENANT_BUYER')}
             />
             <RoleOption
               icon={<Building2 className="h-4 w-4" aria-hidden />}
-              label="Propriétaire / Agent"
+              label="Professionnel"
               selected={accountType === 'OWNER_AGENT'}
               onSelect={() => setAccountType('OWNER_AGENT')}
             />
@@ -206,13 +203,19 @@ export default function SignupPage() {
         </div>
 
         <div className="flex flex-col gap-3 md:flex-row">
-          <a href={googleSignInHref} className="flex-1">
+          <a
+            href={`/api/auth/oauth/google/start?next=/dashboard&accountType=${accountType}`}
+            className="flex-1"
+          >
             <Button type="button" variant="social" className="w-full">
               <GoogleIcon />
               Google
             </Button>
           </a>
-          <a href={facebookSignInHref} className="flex-1">
+          <a
+            href={`/api/auth/oauth/facebook/start?next=/dashboard&accountType=${accountType}`}
+            className="flex-1"
+          >
             <Button type="button" variant="social" className="w-full">
               <FacebookIcon />
               Facebook

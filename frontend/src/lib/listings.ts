@@ -9,20 +9,31 @@ export interface Listing {
   currency: string;
   status: string;
   createdAt: string;
+  primaryPhotoUrl?: string | null;
+  rejectionReason?: string | null;
 }
 
 export interface ListingCounts {
   total: number;
   verified: number;
   pending: number;
+  rejected: number;
   sold: number;
 }
 
 /**
  * Injects Cloudinary's f_auto,q_auto (+ optional width cap) into a
- * delivery URL to cut bandwidth — the biggest cost driver on Cloudinary's
- * metered plans since photos are served at upload resolution otherwise.
- * No-ops on non-Cloudinary URLs (anything without the `/upload/` segment).
+ * delivery URL to cut bandwidth. No-ops on non-Cloudinary URLs (anything
+ * without the `/upload/` segment).
+ *
+ * Storage moved to Cloudflare R2 (see storage-client.ts) — R2 has no
+ * per-request dynamic transform API, so this is now effectively a no-op for
+ * every newly uploaded photo (images are already compressed to a single
+ * capped-resolution WebP at upload time). Kept around only in case any
+ * legacy Cloudinary URL still lingers in the DB; safe to delete once none
+ * remain. If you need per-breakpoint responsive sizes again, generate a
+ * couple of derivative sizes at upload time in storage-client.ts instead of
+ * trying to replicate Cloudinary's on-the-fly transforms against R2.
  */
 export function cloudinaryOptimize(url: string, width?: number): string {
   const marker = '/upload/';

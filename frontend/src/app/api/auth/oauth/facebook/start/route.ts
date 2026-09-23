@@ -7,6 +7,11 @@
 //
 // Optional ?next= echoes a same-origin path through `app-oauth-next` so
 // the callback can post-login redirect back to the originating page.
+//
+// Optional ?accountType= (TENANT_BUYER | OWNER_AGENT) echoes the profile
+// chosen on /signup through `app-oauth-accountType` so the callback can
+// apply it — but ONLY on the new-user create path; an existing user's
+// accountType is never touched by login. Mirrors the Google start route.
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -21,7 +26,9 @@ import { log } from '@/lib/server/observability/log';
 const COOKIE_PREFIX = process.env.COOKIE_PREFIX || 'app';
 const OAUTH_STATE_COOKIE = `${COOKIE_PREFIX}-oauth-fb-state`;
 const OAUTH_NEXT_COOKIE = `${COOKIE_PREFIX}-oauth-next`;
+const OAUTH_ACCOUNT_TYPE_COOKIE = `${COOKIE_PREFIX}-oauth-accountType`;
 const OAUTH_COOKIE_MAX_AGE = 5 * 60; // 5 min, matches Google
+const VALID_ACCOUNT_TYPES = new Set(['TENANT_BUYER', 'OWNER_AGENT']);
 
 function isProd(): boolean {
   return process.env.NODE_ENV === 'production';
@@ -61,6 +68,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       } else {
         log.warn('oauth.facebook.start: rejected cross-origin ?next=', { next: nextParam });
       }
+    }
+
+    const accountTypeParam = req.nextUrl.searchParams.get('accountType');
+    if (accountTypeParam && VALID_ACCOUNT_TYPES.has(accountTypeParam)) {
+      store.set(OAUTH_ACCOUNT_TYPE_COOKIE, accountTypeParam, cookieOpts);
     }
 
     return NextResponse.redirect(url.toString(), 302);

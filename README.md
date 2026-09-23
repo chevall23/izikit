@@ -1,6 +1,6 @@
 # izi kit
 
-Starter full-stack headless pour la stack Next.js 16 + Prisma 5 + PostgreSQL + Upstash + Cloudinary + Brevo + Bictorys + Sentry. Une seule app Next.js déployable — aucun backend séparé. Les providers tiers (Cloudinary, Brevo, Bictorys, Google OAuth, Sentry, Upstash) sont gated par variables d'environnement et inertes sans leurs clés ; l'app boote et `/api/auth` fonctionne avec juste `DATABASE_URL`, `JWT_SECRET`, `ENCRYPTION_KEY` et `CRON_SECRET`. Le starter ne ship que de la logique — aucun composant UI, aucune page — chaque fork designe son propre UX.
+Starter full-stack headless pour la stack Next.js 16 + Prisma 5 + PostgreSQL + Upstash + Cloudflare R2 + Brevo + Bictorys + Sentry. Une seule app Next.js déployable — aucun backend séparé. Les providers tiers (Cloudflare R2, Brevo, Bictorys, Google OAuth, Sentry, Upstash) sont gated par variables d'environnement et inertes sans leurs clés ; l'app boote et `/api/auth` fonctionne avec juste `DATABASE_URL`, `JWT_SECRET`, `ENCRYPTION_KEY` et `CRON_SECRET`. Le starter ne ship que de la logique — aucun composant UI, aucune page — chaque fork designe son propre UX.
 
 Voir [STATUS.md](STATUS.md) pour l'historique de migration.
 
@@ -42,7 +42,7 @@ Pour `DATABASE_URL` + `DIRECT_URL` : crée une base Postgres dans le panel N0C (
 
 - **App :** Next.js 16 (App Router) + React 19 + TypeScript — full-stack via `app/api/<resource>/route.ts` + Server Actions ; tout dans une seule app
 - **Base de données :** Prisma 5 — PostgreSQL (PlanetHoster N0C) via `DATABASE_URL` ; `DIRECT_URL` = même valeur pour `prisma migrate`
-- **Infra (toutes optionnelles, env-gated) :** Upstash Redis (rate-limit + leader election + outbox), Cloudinary (média / uploads), Brevo (email), Bictorys (paiements mobile money), Google OAuth via `arctic`
+- **Infra (toutes optionnelles, env-gated) :** Upstash Redis (rate-limit + leader election + outbox), Cloudflare R2 (média / uploads, compression WebP via `sharp`), Brevo (email), Bictorys (paiements mobile money), Google OAuth via `arctic`
 - **Auth :** cookie + CSRF + JWT (access 15min / refresh 7j / csrf 7j)
 - **Observabilité :** Sentry via `@sentry/nextjs` (`instrumentation.ts` + `sentry.{client,server,edge}.config.ts`) — no-op silencieux sans `SENTRY_DSN` ; traces distribuées OpenTelemetry via `@vercel/otel` (`registerOTel` dans `instrumentation.ts`) — dépendance à migrer vers l'instrumentation OpenTelemetry native de Sentry
 - **Outils :** workspace pnpm (un seul package dans `frontend/`), Vitest, ESLint 9 flat config, Prettier, Node 20+
@@ -62,7 +62,7 @@ Groupes optionnels (set les vars pour activer ; absent = inerte) :
 
 | Groupe               | Vars                                                                                                   | Comportement quand absent                                                                                                                                                                                                                                                                              |
 | -------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Storage (Cloudinary) | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_UPLOAD_PRESET?`    | `/api/upload` renvoie 503 ; les URLs retournées sont des `secure_url` Cloudinary servies directement par leur CDN. **⚠️ Ces URLs sont publiques — quiconque a l'URL peut lire le fichier. OK pour avatars / posts publics ; pour KYC / factures, ajoute Cloudinary signed delivery ou un proxy auth.** |
+| Storage (Cloudflare R2) | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`    | `/api/upload` renvoie 503 ; les URLs retournées pointent directement vers `R2_PUBLIC_URL` (r2.dev ou domaine custom). Les images (jpeg/png/webp) sont recompressées en WebP côté serveur avant l'upload. **⚠️ Ces URLs sont publiques — quiconque a l'URL peut lire le fichier. OK pour avatars / posts publics ; pour KYC / factures, mets le bucket derrière des URLs signées ou un proxy auth.** |
 | Email (Brevo)        | `BREVO_API_KEY`, `EMAIL_FROM`                                                                          | Les lignes en queue email s'accumulent mais ne partent jamais (drainage au cron suivant dès que la clé arrive)                                                                                                                                                                                         |
 | SMS (Brevo)          | `BREVO_API_KEY`, `BREVO_SMS_SENDER`                                                                    | Notifications de correspondance d'alerte : le canal SMS est ignoré (log `warn`), les autres canaux continuent normalement                                                                                                                                                                              |
 | WhatsApp (Brevo)     | `BREVO_API_KEY`, `BREVO_WHATSAPP_SENDER_NUMBER`, `BREVO_WHATSAPP_TEMPLATE_ID`                          | Idem — nécessite en plus un template WhatsApp pré-approuvé côté compte Brevo (obligatoire par WhatsApp Business, à configurer manuellement)                                                                                                                                                            |
@@ -121,7 +121,7 @@ Référence env complète avec toutes les flags : voir [`.env.example`](.env.exa
 | ------- | ------------- | ------------- |
 | POST    | `/api/upload` | access + CSRF |
 
-Les fichiers uploadés renvoient un `secure_url` Cloudinary servi directement par leur CDN — pas de route proxy côté Next.
+Les fichiers uploadés renvoient une URL R2 (`R2_PUBLIC_URL/<key>`) servie directement — pas de route proxy côté Next. Les images sont compressées/re-encodées en WebP avant l'upload (voir `frontend/src/lib/server/upload/storage-client.ts`).
 
 ### Webhooks — 1 route
 

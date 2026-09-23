@@ -4,30 +4,29 @@
  * Pipeline (D-UP-04 ordering — gates BEFORE byte read):
  *   1. CSRF (verifyCsrf) → bail 403 on mismatch
  *   2. Auth (requireAuth) → bail 401 on missing/invalid session
- *   3. Cloudinary lazy-init → 503 STORAGE_NOT_CONFIGURED on missing creds
+ *   3. R2 lazy-init → 503 STORAGE_NOT_CONFIGURED on missing creds
  *   4. formData parse → 400 UPLOAD_MISSING_FILE if no `file` field
  *   5. Size cap (UPLOAD_MAX_BYTES) → 413 FILE_TOO_LARGE
  *   6. MIME allowlist (UPLOAD_ALLOWED_MIME) → 415 INVALID_MIME
  *   7. Magic-byte sniff (verifyMagicBytes) → 415 MAGIC_BYTE_MISMATCH if sniffed && !match
- *   8. Cloudinary upload_stream → 502 UPLOAD_FAILED on throw
+ *   8. R2 PutObject (with WebP re-encode for images, see storage-client.ts) → 502 UPLOAD_FAILED on throw
  *   9. prisma.fileUpload.create → 201 with row + x-request-id header
  *
  * Magic-byte invariant: sniff happens server-side BEFORE the upload call.
- * Do NOT delegate validation to Cloudinary alone — the route is the single
- * trust boundary for declared-vs-actual MIME parity.
+ * Do NOT delegate validation to R2 alone — the route is the single trust
+ * boundary for declared-vs-actual MIME parity.
  *
- * ⚠️ Privacy invariant: Cloudinary `secure_url` is publicly accessible —
- * anyone with the URL can fetch the file (no auth, no expiry). Safe for
- * avatars / product images / public posts. For private files (KYC docs,
- * invoices, IDs) this route must be wrapped with Cloudinary signed delivery
- * URLs or an owner-gated proxy. The v1 starter ships neither — adding either
- * is project-specific.
+ * ⚠️ Privacy invariant: the R2 `secureUrl` is publicly accessible — anyone
+ * with the URL can fetch the file (no auth, no expiry). Safe for avatars /
+ * product images / public posts. For private files (KYC docs, invoices, IDs)
+ * this route must be wrapped with signed R2 URLs or an owner-gated proxy.
+ * The v1 starter ships neither — adding either is project-specific.
  *
- * Key naming: `{userId}/{cuid}.{ext}` — random UUID prevents collisions and
- * blocks path-traversal via attacker-controlled filename (T-04-02-02). The
- * resulting string is passed to Cloudinary as `public_id` and stored in
- * `FileUpload.key` (column kept as-is from the R2 era; semantically now a
- * Cloudinary public_id, same unique-string column).
+ * Key naming: `{userId}/{uuid}` — random UUID prevents collisions and blocks
+ * path-traversal via attacker-controlled filename (T-04-02-02). The
+ * resulting string is passed to R2 as the object key and stored in
+ * `FileUpload.key` (a `.webp` extension is appended when the image was
+ * re-encoded — see storage-client.ts).
  *
  * Env is read at handler-call time (never module-top) so vi.stubEnv works in
  * tests and the route picks up env changes without restart.
@@ -42,7 +41,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { prisma } from '@/lib/server/prisma';
-import { StorageNotConfiguredError, uploadBuffer } from '@/lib/server/upload/cloudinary-client';
+import { StorageNotConfiguredError, uploadBuffer } from '@/lib/server/upload/storage-client';
 import { sanitizeFilename } from '@/lib/server/upload/sanitize-filename';
 import { verifyMagicBytes } from '@/lib/server/upload/sniff';
 
@@ -65,12 +64,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .filter(Boolean);
     const maxBytes = Number.parseInt(process.env.UPLOAD_MAX_BYTES ?? '10485760', 10);
 
-    // Probe Cloudinary configuration BEFORE consuming the request body — we
-    // want STORAGE_NOT_CONFIGURED to be a cheap 503, not a body-parse-after.
+    // Probe R2 configuration BEFORE consuming the request body — we want
+    // STORAGE_NOT_CONFIGURED to be a cheap 503, not a body-parse-after.
     if (
-      !process.env.CLOUDINARY_CLOUD_NAME ||
-      !process.env.CLOUDINARY_API_KEY ||
-      !process.env.CLOUDINARY_API_SECRET
+      !process.env.R2_ACCOUNT_ID ||
+      !process.env.R2_ACCESS_KEY_ID ||
+      !process.env.R2_SECRET_ACCESS_KEY ||
+      !process.env.R2_BUCKET_NAME ||
+      !process.env.R2_PUBLIC_URL
     ) {
       return NextResponse.json(
         { code: 'STORAGE_NOT_CONFIGURED', message: 'Storage not configured' },
@@ -119,8 +120,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     let storedFilename = sanitizeFilename(file.name);
 
     // HEIC/HEIF lacks broad browser support — transcode to JPEG so the
-    // returned Cloudinary URL can be used in <img> tags without a
-    // client-side decoder.
+    // returned R2 URL can be used in <img> tags without a client-side
+    // decoder. (storage-client.ts will then re-encode it to WebP anyway.)
     if (HEIC_MIMES.has(storedMime)) {
       try {
         const converted = await heicConvert({
@@ -139,9 +140,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // Cloudinary stores `public_id` without extension by convention; we keep
-    // the {userId}/{uuid} form (no extension) so the path semantics match the
-    // R2 era and the stored `key` remains a stable unique opaque string.
+    // No extension here — storage-client.ts appends `.webp` itself when it
+    // re-encodes an image, so the caller-supplied key stays a stable opaque
+    // string regardless of the original upload's format.
     const publicId = `${auth.user.sub}/${randomUUID()}`;
 
     let uploaded;

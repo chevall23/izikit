@@ -101,18 +101,23 @@ export function CountryDestinationsSection() {
             className="flex min-h-[332px] flex-col overflow-hidden rounded-[24px] border border-black/[0.06] bg-white"
           >
             <div className="relative h-[176px] bg-gray-100">
+              <Link
+                href={`/annonces?country=${encodeURIComponent(c.name)}`}
+                aria-label={`Explorer le ${c.name}`}
+                className="absolute inset-0 z-10"
+              />
               <img src={c.imageUrl} alt={c.name} className="h-full w-full object-cover" />
               <div
-                className="absolute inset-0"
+                className="pointer-events-none absolute inset-0"
                 style={{
                   background:
                     'linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.42) 100%)',
                 }}
               />
-              <span className="absolute top-3.5 left-3.5 inline-flex h-7 min-w-[42px] items-center justify-center rounded-full bg-white/94 px-2.5 text-[13px] font-semibold">
+              <span className="pointer-events-none absolute top-3.5 left-3.5 inline-flex h-7 min-w-[42px] items-center justify-center rounded-full bg-white/94 px-2.5 text-[13px] font-semibold">
                 {c.flag}
               </span>
-              <div className="absolute right-4 bottom-4 left-4 text-white">
+              <div className="pointer-events-none absolute right-4 bottom-4 left-4 text-white">
                 <p className="font-sora text-[24px] leading-tight font-extrabold tracking-[-0.03em]">
                   {c.name}
                 </p>

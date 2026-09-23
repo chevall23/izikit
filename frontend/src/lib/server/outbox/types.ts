@@ -13,7 +13,8 @@ export type OutboxEvent =
   | NotificationPaymentReceivedEvent
   | EmailPaymentConfirmationEvent
   | EmailVerificationCodeEvent
-  | EmailPasswordResetEvent;
+  | EmailPasswordResetEvent
+  | EmailLegalDocumentsSubmittedEvent;
 
 export interface NotificationPaymentReceivedEvent {
   kind: 'notification.payment_received';
@@ -58,6 +59,21 @@ export interface EmailPasswordResetEvent {
     to: string;
     code: string;
     expiresAt: string;
+  };
+}
+
+/**
+ * Emitted by POST /api/legal-documents/submit after the batch upload +
+ * token debit transaction commits. Best-effort admin alert — consumed by
+ * the email-queue cron. Skipped by the dispatcher only in the sense that
+ * LEGAL_DOCUMENTS_ADMIN_EMAIL unset means the route never enqueues it.
+ */
+export interface EmailLegalDocumentsSubmittedEvent {
+  kind: 'email.legal_documents_submitted';
+  payload: {
+    to: string;
+    userEmail: string;
+    types: string[];
   };
 }
 

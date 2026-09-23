@@ -4,7 +4,7 @@
 // charged and what's credited. No secrets here — safe to import from client
 // components. Mirrors frontend/src/lib/subscription-plans.ts.
 
-export const TOKEN_PACK_KEYS = ['STARTER', 'STANDARD', 'PRO', 'ENTREPRISE'] as const;
+export const TOKEN_PACK_KEYS = ['STARTER', 'STANDARD', 'PRO'] as const;
 export type TokenPackKey = (typeof TOKEN_PACK_KEYS)[number];
 
 export interface TokenPackDefinition {
@@ -20,9 +20,16 @@ export const TOKEN_PACK_CATALOG: Record<TokenPackKey, TokenPackDefinition> = {
   STARTER: { key: 'STARTER', label: 'Starter', tokens: 50, priceFcfa: 15_000 },
   STANDARD: { key: 'STANDARD', label: 'Standard', tokens: 150, priceFcfa: 40_000 },
   PRO: { key: 'PRO', label: 'Pro', tokens: 350, priceFcfa: 85_000 },
-  ENTREPRISE: { key: 'ENTREPRISE', label: 'Entreprise', tokens: 1000, priceFcfa: 220_000 },
 };
 
 export function isTokenPackKey(value: unknown): value is TokenPackKey {
   return typeof value === 'string' && (TOKEN_PACK_KEYS as readonly string[]).includes(value);
+}
+
+// Per-token rate for a custom top-up (/jetons "Recharger un montant
+// personnalisé") — a custom purchase of N tokens costs exactly N * this.
+export const CUSTOM_TOKEN_PRICE_FCFA = 500;
+
+export function customTokenPurchasePriceFcfa(tokens: number): number {
+  return tokens * CUSTOM_TOKEN_PRICE_FCFA;
 }

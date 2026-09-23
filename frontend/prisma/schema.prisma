@@ -96,6 +96,7 @@ model User {
   alerts            Alert[]
   tokenWallet       TokenWallet?
   tokenTransactions TokenTransaction[]
+  paymentMethodPreferences PaymentMethodPreference[]
 
   // Multi-tenancy is opt-in per project: by default no resource is org-scoped.
   // Apps that need it (marketplace, B2B SaaS, classifieds) wire owner relations
@@ -108,6 +109,10 @@ model User {
   // the @@unique below) — resubmitting updates their existing review.
   reviewsReceived AgentReview[] @relation("AgentReviewsReceived")
   reviewsAuthored AgentReview[] @relation("AgentReviewsAuthored")
+
+  // Paid contact reveals — see AgentContactUnlock.
+  contactUnlocksMade     AgentContactUnlock[] @relation("ContactUnlocksMade")
+  contactUnlocksReceived AgentContactUnlock[] @relation("ContactUnlocksReceived")
 
   @@index([email])
   @@index([phone])
@@ -134,6 +139,24 @@ model AgentReview {
   updatedAt DateTime @updatedAt
 
   @@unique([agentId, authorId])
+  @@index([agentId])
+}
+
+// Paid contact reveal — /agents/[id] hides the agent's phone/WhatsApp
+// buttons until the viewer spends 1 token to unlock them (POST
+// /api/agents/[id]/unlock-contact). One row per (user, agent) pair: once
+// unlocked, the contact stays visible for that user on every future visit
+// — no repeat charge. The agent viewing their own profile never needs a
+// row here (checked at the API layer, not enforced by the schema).
+model AgentContactUnlock {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("ContactUnlocksMade", fields: [userId], references: [id], onDelete: Cascade)
+  agentId   String
+  agent     User     @relation("ContactUnlocksReceived", fields: [agentId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, agentId])
   @@index([agentId])
 }
 
@@ -305,6 +328,27 @@ model LegalDocument {
   updatedAt       DateTime  @updatedAt
 
   @@unique([userId, type])
+  @@index([userId])
+}
+
+// Saved Mobile Money preference — /settings "Abonnement & paiement" >
+// "Méthodes de paiement" card. NOT a real payment-method vault: Bictorys
+// (our provider) exposes no card/wallet tokenization API, so we never store
+// card numbers or provider tokens here — only a non-sensitive operator +
+// phone pair the checkout flow can pre-fill. A user may save several; at
+// most one is `isDefault` (enforced in the route, not the DB, since Prisma
+// has no partial-unique-index syntax portable to every DB).
+model PaymentMethodPreference {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  operator  String // ORANGE_MONEY | WAVE | FREE_MONEY
+  phone     String // E.164-ish, free-form (not validated against a country list)
+  label     String? // optional user-facing nickname
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([userId])
 }
 

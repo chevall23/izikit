@@ -1,16 +1,16 @@
 // Tests for GET/POST /api/legal-documents.
 //
-// Mock strategy mirrors src/app/api/upload/route.test.ts (Cloudinary via
-// cloudinary-mock, requireAuth/verifyCsrf mocked directly, prisma.legalDocument
+// Mock strategy mirrors src/app/api/upload/route.test.ts (R2 via
+// storage-mock, requireAuth/verifyCsrf mocked directly, prisma.legalDocument
 // stubbed with plain vi.fn — no need for the full deep prismaMock here since
 // this route only touches one model).
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { NextResponse } from 'next/server';
-import { mockCloudinaryClient } from '@/test-utils/cloudinary-mock';
+import { mockStorageClient } from '@/test-utils/storage-mock';
 
-const cl = mockCloudinaryClient();
+const cl = mockStorageClient();
 
-vi.mock('@/lib/server/upload/cloudinary-client', () => ({
+vi.mock('@/lib/server/upload/storage-client', () => ({
   uploadBuffer: vi.fn((publicId: string, body: Buffer) => cl.uploadBuffer(publicId, body)),
   StorageNotConfiguredError: class StorageNotConfiguredError extends Error {
     constructor() {
@@ -33,7 +33,7 @@ const findUnique = vi.fn(async () => null);
 const upsert = vi.fn(async (args: unknown) => ({
   type: (args as { where: { userId_type: { type: string } } }).where.userId_type.type,
   status: 'PENDING',
-  url: 'https://res.cloudinary.com/test/x.pdf',
+  url: 'https://cdn.test-bucket.example/test/x.pdf',
   filename: 'doc.pdf',
   mimeType: 'application/pdf',
   sizeBytes: 4,
@@ -47,9 +47,11 @@ vi.mock('@/lib/server/prisma', () => ({
 }));
 
 beforeEach(() => {
-  vi.stubEnv('CLOUDINARY_CLOUD_NAME', 'test-cloud');
-  vi.stubEnv('CLOUDINARY_API_KEY', 'test-key');
-  vi.stubEnv('CLOUDINARY_API_SECRET', 'test-secret');
+  vi.stubEnv('R2_ACCOUNT_ID', 'test-account');
+  vi.stubEnv('R2_ACCESS_KEY_ID', 'test-key');
+  vi.stubEnv('R2_SECRET_ACCESS_KEY', 'test-secret');
+  vi.stubEnv('R2_BUCKET_NAME', 'test-bucket');
+  vi.stubEnv('R2_PUBLIC_URL', 'https://cdn.test-bucket.example');
 });
 
 afterEach(() => {
@@ -87,14 +89,14 @@ function makePostReq(opts: MakePostOpts) {
 const PDF_BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
 
 describe('GET /api/legal-documents', () => {
-  it('returns all 6 fixed types with null documents when none uploaded', async () => {
+  it('returns all 3 fixed types with null documents when none uploaded', async () => {
     const { GET } = await import('./route');
     const res = await GET(makeGetReq() as never);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.documents).toHaveLength(6);
+    expect(body.documents).toHaveLength(3);
     expect(body.documents.every((d: { document: unknown }) => d.document === null)).toBe(true);
-    expect(body.stats).toEqual({ verified: 0, pending: 0, missing: 6, total: 6 });
+    expect(body.stats).toEqual({ verified: 0, pending: 0, missing: 3, total: 3 });
   });
 
   it('merges uploaded rows and computes stats', async () => {
@@ -105,7 +107,7 @@ describe('GET /api/legal-documents', () => {
     const { GET } = await import('./route');
     const res = await GET(makeGetReq() as never);
     const body = await res.json();
-    expect(body.stats).toEqual({ verified: 1, pending: 1, missing: 4, total: 6 });
+    expect(body.stats).toEqual({ verified: 1, pending: 1, missing: 1, total: 3 });
     const idCard = body.documents.find((d: { type: string }) => d.type === 'ID_CARD');
     expect(idCard.document.status).toBe('VERIFIED');
   });
@@ -203,7 +205,7 @@ describe('POST /api/legal-documents', () => {
   });
 
   it('storage not configured (env missing) returns 503', async () => {
-    vi.stubEnv('CLOUDINARY_CLOUD_NAME', '');
+    vi.stubEnv('R2_ACCOUNT_ID', '');
     const { POST } = await import('./route');
     const file = new File([PDF_BYTES], 'cnib.pdf', { type: 'application/pdf' });
     const res = await POST(makePostReq({ type: 'ID_CARD', file }) as never);
@@ -232,10 +234,10 @@ describe('POST /api/legal-documents', () => {
     expect(res.status).toBe(401);
   });
 
-  it('upload failed (cloudinary throws) returns 502', async () => {
-    const { uploadBuffer } = await import('@/lib/server/upload/cloudinary-client');
+  it('upload failed (R2 throws) returns 502', async () => {
+    const { uploadBuffer } = await import('@/lib/server/upload/storage-client');
     (uploadBuffer as unknown as Mock).mockImplementationOnce(async () => {
-      throw new Error('Cloudinary down');
+      throw new Error('R2 down');
     });
     const { POST } = await import('./route');
     const file = new File([PDF_BYTES], 'cnib.pdf', { type: 'application/pdf' });

@@ -15,7 +15,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { prisma } from '@/lib/server/prisma';
-import { StorageNotConfiguredError, uploadBuffer } from '@/lib/server/upload/cloudinary-client';
+import { StorageNotConfiguredError, uploadBuffer } from '@/lib/server/upload/storage-client';
 import { sanitizeFilename } from '@/lib/server/upload/sanitize-filename';
 import { verifyMagicBytes } from '@/lib/server/upload/sniff';
 
@@ -57,9 +57,11 @@ export async function POST(
     }
 
     if (
-      !process.env.CLOUDINARY_CLOUD_NAME ||
-      !process.env.CLOUDINARY_API_KEY ||
-      !process.env.CLOUDINARY_API_SECRET
+      !process.env.R2_ACCOUNT_ID ||
+      !process.env.R2_ACCESS_KEY_ID ||
+      !process.env.R2_SECRET_ACCESS_KEY ||
+      !process.env.R2_BUCKET_NAME ||
+      !process.env.R2_PUBLIC_URL
     ) {
       return NextResponse.json(
         { code: 'STORAGE_NOT_CONFIGURED', message: 'Storage not configured' },

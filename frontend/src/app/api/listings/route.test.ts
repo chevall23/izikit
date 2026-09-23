@@ -46,6 +46,7 @@ function makeListing(overrides: Record<string, unknown> = {}) {
     currency: 'XOF',
     status: 'VERIFIED',
     createdAt: new Date('2026-07-01T10:00:00Z'),
+    photos: [],
     ...overrides,
   };
 }
@@ -83,6 +84,23 @@ describe('GET /api/listings', () => {
     expect(body.items).toHaveLength(1);
     expect(body.items[0]).toMatchObject({ id: 'l1', title: 'Villa moderne avec piscine' });
     expect(body.nextCursor).toBeNull();
+  });
+
+  it('flattens the primary photo into primaryPhotoUrl and drops the photos array', async () => {
+    prismaMock.listing.findMany.mockResolvedValue([
+      makeListing({ photos: [{ url: 'https://cdn.test-bucket.example/l1/cover.webp' }] }),
+    ] as never);
+    const res = await GET(makeGet());
+    const body = await res.json();
+    expect(body.items[0].primaryPhotoUrl).toBe('https://cdn.test-bucket.example/l1/cover.webp');
+    expect(body.items[0].photos).toBeUndefined();
+  });
+
+  it('primaryPhotoUrl is null when the listing has no primary photo', async () => {
+    prismaMock.listing.findMany.mockResolvedValue([makeListing()] as never);
+    const res = await GET(makeGet());
+    const body = await res.json();
+    expect(body.items[0].primaryPhotoUrl).toBeNull();
   });
 
   it('emits a nextCursor when more rows exist than the limit', async () => {

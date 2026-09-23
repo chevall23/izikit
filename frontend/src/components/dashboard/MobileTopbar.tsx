@@ -3,8 +3,8 @@ import type { User } from '@/contexts/AuthContext';
 import { InitialsAvatar } from './InitialsAvatar';
 
 const ROLE_LABEL: Record<string, string> = {
-  OWNER_AGENT: 'Agent',
-  TENANT_BUYER: 'Locataire / Acheteur',
+  OWNER_AGENT: 'Professionnel',
+  TENANT_BUYER: 'Particulier',
 };
 
 export function MobileTopbar({

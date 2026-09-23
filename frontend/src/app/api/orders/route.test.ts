@@ -54,7 +54,7 @@ import {
   PaymentProviderUnconfiguredError,
 } from '@/lib/server/payments/provider-singleton';
 import { CircuitOpenError } from '@/lib/server/payments/circuit-breaker';
-import { POST } from './route';
+import { POST, GET } from './route';
 
 const mockRequireAuth = vi.mocked(requireAuth);
 const mockGetProvider = vi.mocked(getProvider);
@@ -538,5 +538,82 @@ describe('POST /api/orders [Wave 1] — CSRF', () => {
     );
     expect(res.status).toBe(403);
     expect(mockRequireAuth).not.toHaveBeenCalled();
+  });
+});
+
+// SET-04 — GET /api/orders (payment history)
+function makeGet(qs = ''): NextRequest {
+  return new NextRequest(`http://test/api/orders${qs}`, { method: 'GET' });
+}
+
+describe('GET /api/orders [SET-04] — payment history', () => {
+  it('401 when unauthenticated', async () => {
+    mockRequireAuth.mockResolvedValue(
+      NextResponse.json({ error: 'UNAUTHENTICATED' }, { status: 401 }),
+    );
+    const res = await GET(makeGet());
+    expect(res.status).toBe(401);
+  });
+
+  it('200 lists the caller own orders, mapped with human descriptions', async () => {
+    prismaMock.order.findMany.mockResolvedValue([
+      seededOrder({
+        id: 'order_1',
+        status: 'PAID',
+        amount: 29_900,
+        paymentMethod: 'orange_money',
+        metadata: { kind: 'subscription_plan_change', planKey: 'PRO_AGENT' },
+        createdAt: new Date('2026-06-15T10:00:00Z'),
+      }),
+      seededOrder({
+        id: 'order_2',
+        status: 'PAID',
+        amount: 15_000,
+        paymentMethod: null,
+        provider: 'bictorys',
+        metadata: { kind: 'token_purchase', packKey: 'STARTER' },
+        createdAt: new Date('2026-06-01T10:00:00Z'),
+      }),
+      seededOrder({
+        id: 'order_3',
+        status: 'REFUNDED',
+        amount: 5_000,
+        metadata: { kind: 'token_purchase_custom', tokens: 10 },
+        createdAt: new Date('2026-05-01T10:00:00Z'),
+      }),
+    ] as never);
+
+    const res = await GET(makeGet());
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { items: Array<Record<string, unknown>> };
+    expect(body.items).toHaveLength(3);
+    expect(body.items[0]).toMatchObject({
+      id: 'order_1',
+      description: 'Abonnement Pro Agent',
+      method: 'orange_money',
+      status: 'PAID',
+      amount: 29_900,
+    });
+    expect(body.items[1]).toMatchObject({
+      description: 'Achat pack de jetons Starter',
+      method: 'bictorys',
+    });
+    expect(body.items[2]).toMatchObject({
+      description: 'Achat de 10 jetons',
+      status: 'REFUNDED',
+    });
+
+    expect(prismaMock.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ userId: 'user-1' }) }),
+    );
+  });
+
+  it('falls back to a generic description for an unknown metadata.kind', async () => {
+    prismaMock.order.findMany.mockResolvedValue([
+      seededOrder({ id: 'order_x', metadata: { kind: 'something_else' } }),
+    ] as never);
+    const res = await GET(makeGet());
+    const body = (await res.json()) as { items: Array<Record<string, unknown>> };
+    expect(body.items[0]?.description).toBe('Paiement');
   });
 });

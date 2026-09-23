@@ -1,8 +1,19 @@
 // PUBLIC-AGENT-DETAIL-01 — GET /api/public/agents/[id] tests.
+// AGENT-CONTACT-01 — also covers the paid-contact-reveal gating (`phone` /
+// `contactUnlocked` in the response), so `optionalAuth` is mocked directly
+// rather than exercising real cookie/JWT plumbing.
 import { prismaMock } from '@/test-utils/prisma-mock';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+
+vi.mock('@/lib/server/middleware', () => ({
+  optionalAuth: vi.fn(),
+}));
+
+import { optionalAuth } from '@/lib/server/middleware';
 import { GET } from './route';
+
+const mockOptionalAuth = vi.mocked(optionalAuth);
 
 function makeAgent(overrides: Record<string, unknown> = {}) {
   return {
@@ -40,6 +51,8 @@ beforeEach(() => {
   vi.mocked(prismaMock.listing.groupBy).mockResolvedValue([] as never);
   prismaMock.agentReview.count.mockResolvedValue(0 as never);
   prismaMock.agentReview.aggregate.mockResolvedValue({ _avg: { rating: null } } as never);
+  mockOptionalAuth.mockResolvedValue(null); // logged-out visitor by default
+  prismaMock.agentContactUnlock.findUnique.mockResolvedValue(null as never);
 });
 
 describe('GET /api/public/agents/[id]', () => {
@@ -70,7 +83,7 @@ describe('GET /api/public/agents/[id]', () => {
 
   it('returns the flat DTO shape with real stats, never leaking email', async () => {
     prismaMock.listing.count.mockResolvedValueOnce(4).mockResolvedValueOnce(2);
-    prismaMock.legalDocument.count.mockResolvedValueOnce(6);
+    prismaMock.legalDocument.count.mockResolvedValueOnce(3);
     prismaMock.agentReview.count.mockResolvedValueOnce(3);
     prismaMock.agentReview.aggregate.mockResolvedValueOnce({ _avg: { rating: 4.5 } } as never);
     prismaMock.listing.findMany.mockResolvedValueOnce([
@@ -96,12 +109,14 @@ describe('GET /api/public/agents/[id]', () => {
     const body = await res.json();
 
     expect(body.id).toBe('agent-1');
-    expect(body.phone).toBe('+225070000000');
+    // Logged-out visitor (default mock) — contact stays locked.
+    expect(body.phone).toBeNull();
+    expect(body.contactUnlocked).toBe(false);
     expect(body.stats).toEqual({
       activeListings: 4,
       soldListings: 2,
-      verifiedDocCount: 6,
-      verifiedDocTotal: 6,
+      verifiedDocCount: 3,
+      verifiedDocTotal: 3,
       reviewCount: 3,
       ratingAvg: 4.5,
     });
@@ -123,5 +138,36 @@ describe('GET /api/public/agents/[id]', () => {
       },
     ]);
     expect(JSON.stringify(body)).not.toContain('email');
+  });
+
+  it('exposes the real phone when the viewer previously unlocked this agent', async () => {
+    mockOptionalAuth.mockResolvedValueOnce({ user: { sub: 'viewer-1', email: 'v@example.com' } });
+    prismaMock.agentContactUnlock.findUnique.mockResolvedValueOnce({ id: 'unlock-1' } as never);
+    const { req, ctx } = makeGet();
+    const res = await GET(req, ctx);
+    const body = await res.json();
+    expect(body.contactUnlocked).toBe(true);
+    expect(body.phone).toBe('+225070000000');
+  });
+
+  it('exposes the real phone for free when the agent views their own profile', async () => {
+    mockOptionalAuth.mockResolvedValueOnce({ user: { sub: 'agent-1', email: 'a@example.com' } });
+    const { req, ctx } = makeGet();
+    const res = await GET(req, ctx);
+    const body = await res.json();
+    expect(body.contactUnlocked).toBe(true);
+    expect(body.phone).toBe('+225070000000');
+    // Self-view never checks the unlock table.
+    expect(prismaMock.agentContactUnlock.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('hides the phone from a logged-in viewer who has not unlocked it', async () => {
+    mockOptionalAuth.mockResolvedValueOnce({ user: { sub: 'viewer-1', email: 'v@example.com' } });
+    prismaMock.agentContactUnlock.findUnique.mockResolvedValueOnce(null as never);
+    const { req, ctx } = makeGet();
+    const res = await GET(req, ctx);
+    const body = await res.json();
+    expect(body.contactUnlocked).toBe(false);
+    expect(body.phone).toBeNull();
   });
 });

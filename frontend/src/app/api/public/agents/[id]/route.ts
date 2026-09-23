@@ -5,14 +5,22 @@
 // 404s for any user id that is not accountType=OWNER_AGENT, so this route
 // never leaks the existence of a TENANT_BUYER account. Only VERIFIED
 // listings are ever shown in the agent's portfolio.
+//
+// AGENT-CONTACT-01 — paid contact reveal. `phone` is only included in the
+// response when the caller has unlocked this agent's contact (see POST
+// /api/agents/[id]/unlock-contact) — free for the agent viewing their own
+// profile, otherwise `null` + `contactUnlocked: false` until they pay.
+// Auth is optional here (optionalAuth, not requireAuth): logged-out
+// visitors still get the full profile, just without a phone.
 export const runtime = 'nodejs';
 
 import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { optionalAuth } from '@/lib/server/middleware';
+import { LEGAL_DOCUMENT_TYPE_COUNT } from '@/lib/server/users/enrich';
 
-const LEGAL_DOCUMENT_TYPE_COUNT = 6;
 const RECENT_LISTINGS_LIMIT = 6;
 
 const LISTING_SELECT = {
@@ -61,6 +69,17 @@ export async function GET(
       );
     }
 
+    const viewer = await optionalAuth(req.headers.get('authorization'));
+    const isSelf = viewer?.user.sub === agent.id;
+    const contactUnlocked =
+      isSelf ||
+      (viewer
+        ? (await prisma.agentContactUnlock.findUnique({
+            where: { userId_agentId: { userId: viewer.user.sub, agentId: agent.id } },
+            select: { id: true },
+          })) !== null
+        : false);
+
     const [
       listings,
       activeCount,
@@ -102,7 +121,8 @@ export async function GET(
         city: agent.city,
         country: agent.country,
         bio: agent.bio,
-        phone: agent.phone,
+        phone: contactUnlocked ? agent.phone : null,
+        contactUnlocked,
         createdAt: agent.createdAt,
         stats: {
           activeListings: activeCount,

@@ -19,12 +19,14 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useUser } from '@/contexts/AuthContext';
-import { api } from '@/lib/api';
+import { useToast } from '@/contexts/ToastContext';
+import { api, ApiError } from '@/lib/api';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import {
   STATUS_LABEL,
   TRANSACTION_TYPE_LABEL,
   formatListingPrice,
+  cloudinaryOptimize,
   type Listing,
   type ListingCounts,
 } from '@/lib/listings';
@@ -71,6 +73,7 @@ async function fetchPage(cursor: string | null): Promise<ListingsPageResult> {
 
 export default function ListingsPage() {
   const user = useUser();
+  const { toast } = useToast();
 
   const [fetchedPages, setFetchedPages] = useState<Listing[][]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -78,6 +81,7 @@ export default function ListingsPage() {
   const [currentPage, setCurrentPage] = useState(0);
   const [counts, setCounts] = useState<ListingCounts | null>(null);
   const [loadingPage, setLoadingPage] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -114,6 +118,29 @@ export default function ListingsPage() {
     void goToPage(0);
     // Initial load only.
   }, []);
+
+  async function handleDelete(l: Listing) {
+    if (!window.confirm(`Supprimer définitivement "${l.title || 'cette annonce'}" ?`)) return;
+    setDeletingId(l.id);
+    try {
+      await api(`/api/listings/${l.id}`, { method: 'DELETE' });
+      setFetchedPages((prev) => prev.map((page) => page.filter((row) => row.id !== l.id)));
+      setCounts((prev) => {
+        if (!prev) return prev;
+        const statusKey = l.status.toLowerCase() as Exclude<keyof ListingCounts, 'total'>;
+        return {
+          ...prev,
+          total: Math.max(0, prev.total - 1),
+          [statusKey]: Math.max(0, prev[statusKey] - 1),
+        };
+      });
+      toast('Annonce supprimée.', 'success');
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : 'Impossible de supprimer cette annonce.', 'error');
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   const pageItems = fetchedPages[currentPage] ?? [];
 
@@ -359,8 +386,16 @@ export default function ListingsPage() {
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-[52px] flex-shrink-0 items-center justify-center rounded-md bg-gray-100">
-                            <Building2 className="h-4 w-4 text-gray-300" aria-hidden />
+                          <div className="flex h-10 w-[52px] flex-shrink-0 items-center justify-center overflow-hidden rounded-md bg-gray-100">
+                            {l.primaryPhotoUrl ? (
+                              <img
+                                src={cloudinaryOptimize(l.primaryPhotoUrl, 104)}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <Building2 className="h-4 w-4 text-gray-300" aria-hidden />
+                            )}
                           </div>
                           <div>
                             <p className="max-w-[180px] truncate text-[13.5px] font-semibold text-neutral-900 lg:max-w-[220px]">
@@ -406,29 +441,56 @@ export default function ListingsPage() {
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center justify-center gap-1.5">
+                          {l.status === 'VERIFIED' ? (
+                            <Link
+                              href={`/annonces/${l.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Voir l'annonce publique"
+                              className="flex h-[30px] w-[30px] items-center justify-center rounded-md border border-black/[0.08] text-neutral-700 hover:bg-gray-50"
+                            >
+                              <Eye className="h-[13px] w-[13px]" aria-hidden />
+                            </Link>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              title="Visible une fois l'annonce vérifiée"
+                              className="flex h-[30px] w-[30px] cursor-not-allowed items-center justify-center rounded-md border border-black/[0.08] bg-gray-50 text-gray-400"
+                            >
+                              <Eye className="h-[13px] w-[13px]" aria-hidden />
+                            </button>
+                          )}
+                          {l.status === 'SOLD' ? (
+                            <button
+                              type="button"
+                              disabled
+                              title="Annonce vendue : non modifiable"
+                              className="flex h-[30px] w-[30px] cursor-not-allowed items-center justify-center rounded-md border border-black/[0.08] bg-gray-50 text-gray-400"
+                            >
+                              <Pencil className="h-[13px] w-[13px]" aria-hidden />
+                            </button>
+                          ) : (
+                            <Link
+                              href={`/listings/${l.id}/edit`}
+                              title="Modifier l'annonce"
+                              className="flex h-[30px] w-[30px] items-center justify-center rounded-md border border-black/[0.08] text-neutral-700 hover:bg-gray-50"
+                            >
+                              <Pencil className="h-[13px] w-[13px]" aria-hidden />
+                            </Link>
+                          )}
                           <button
                             type="button"
-                            disabled
-                            title="Bientôt disponible"
-                            className="flex h-[30px] w-[30px] cursor-not-allowed items-center justify-center rounded-md border border-black/[0.08] bg-gray-50 text-gray-400"
+                            disabled={deletingId === l.id}
+                            title="Supprimer l'annonce"
+                            onClick={() => void handleDelete(l)}
+                            className="flex h-[30px] w-[30px] items-center justify-center rounded-md border border-red-100 text-red-500 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            <Eye className="h-[13px] w-[13px]" aria-hidden />
-                          </button>
-                          <button
-                            type="button"
-                            disabled
-                            title="Bientôt disponible"
-                            className="flex h-[30px] w-[30px] cursor-not-allowed items-center justify-center rounded-md border border-black/[0.08] bg-gray-50 text-gray-400"
-                          >
-                            <Pencil className="h-[13px] w-[13px]" aria-hidden />
-                          </button>
-                          <button
-                            type="button"
-                            disabled
-                            title="Bientôt disponible"
-                            className="flex h-[30px] w-[30px] cursor-not-allowed items-center justify-center rounded-md border border-red-100 bg-gray-50 text-red-300"
-                          >
-                            <Trash2 className="h-[13px] w-[13px]" aria-hidden />
+                            {deletingId === l.id ? (
+                              <Loader2 className="h-[13px] w-[13px] animate-spin" aria-hidden />
+                            ) : (
+                              <Trash2 className="h-[13px] w-[13px]" aria-hidden />
+                            )}
                           </button>
                         </div>
                       </td>

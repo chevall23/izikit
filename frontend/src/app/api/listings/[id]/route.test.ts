@@ -16,7 +16,7 @@ vi.mock('@/lib/server/auth', () => ({
 
 import { requireAuth } from '@/lib/server/middleware';
 import { verifyCsrf } from '@/lib/server/auth';
-import { PATCH } from './route';
+import { DELETE, GET, PATCH } from './route';
 
 const mockRequireAuth = vi.mocked(requireAuth);
 const authedCtx = { user: { sub: 'user-1', email: 'me@example.com' } };
@@ -56,6 +56,19 @@ function makePatch(
     headers: { 'x-csrf-token': 'test-csrf', 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
+  return { req, ctx: { params: Promise.resolve({ id }) } };
+}
+
+function makeDelete(id: string): { req: NextRequest; ctx: { params: Promise<{ id: string }> } } {
+  const req = new NextRequest(`http://test/api/listings/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-csrf-token': 'test-csrf' },
+  });
+  return { req, ctx: { params: Promise.resolve({ id }) } };
+}
+
+function makeGet(id: string): { req: NextRequest; ctx: { params: Promise<{ id: string }> } } {
+  const req = new NextRequest(`http://test/api/listings/${id}`, { method: 'GET' });
   return { req, ctx: { params: Promise.resolve({ id }) } };
 }
 
@@ -112,16 +125,29 @@ describe('PATCH /api/listings/[id]', () => {
     expect(res.status).toBe(404);
   });
 
-  it('non-DRAFT listing returns 409 LISTING_NOT_DRAFT', async () => {
-    prismaMock.listing.findUnique.mockResolvedValueOnce(makeDraft({ status: 'PENDING' }) as never);
+  it('SOLD listing returns 409 LISTING_NOT_EDITABLE (frozen)', async () => {
+    prismaMock.listing.findUnique.mockResolvedValueOnce(makeDraft({ status: 'SOLD' }) as never);
     const { req, ctx } = makePatch('l1', { title: 'x' });
     const res = await PATCH(req, ctx);
     expect(res.status).toBe(409);
     const body = await res.json();
-    expect(body.error).toBe('LISTING_NOT_DRAFT');
+    expect(body.error).toBe('LISTING_NOT_EDITABLE');
   });
 
-  it('lets the owner edit a REJECTED listing and re-submit it to PENDING', async () => {
+  it.each(['PENDING', 'VERIFIED'])(
+    'lets the owner save a field tweak on a %s (live) listing without re-publishing',
+    async (status) => {
+      prismaMock.listing.findUnique.mockResolvedValueOnce(makeDraft({ status }) as never);
+      const { req, ctx } = makePatch('l1', { title: 'Nouveau titre' });
+      const res = await PATCH(req, ctx);
+      expect(res.status).toBe(200);
+      const args = prismaMock.listing.update.mock.calls[0]?.[0];
+      expect(args?.data?.title).toBe('Nouveau titre');
+      expect(args?.data?.status).toBeUndefined();
+    },
+  );
+
+  it('lets the owner edit a REJECTED listing and re-submit it straight to VERIFIED', async () => {
     prismaMock.listing.findUnique.mockResolvedValueOnce(
       makeDraft({
         status: 'REJECTED',
@@ -135,14 +161,16 @@ describe('PATCH /api/listings/[id]', () => {
       }) as never,
     );
     prismaMock.listingPhoto.count.mockResolvedValueOnce(1 as never);
-    prismaMock.listing.update.mockResolvedValueOnce(makeDraft({ status: 'PENDING' }) as never);
+    prismaMock.listing.update.mockResolvedValueOnce(makeDraft({ status: 'VERIFIED' }) as never);
     const { req, ctx } = makePatch('l1', { publish: true });
     const res = await PATCH(req, ctx);
     expect(res.status).toBe(200);
     const args = prismaMock.listing.update.mock.calls[0]?.[0];
-    expect(args?.data?.status).toBe('PENDING');
+    expect(args?.data?.status).toBe('VERIFIED');
     expect(args?.data?.rejectionReason).toBeNull();
     expect(args?.data?.rejectedAt).toBeNull();
+    expect(args?.data?.moderatedById).toBeNull();
+    expect(args?.data?.moderatedAt).toBeNull();
   });
 
   it('saves a partial draft without requiring every field (publish: false)', async () => {
@@ -212,7 +240,7 @@ describe('PATCH /api/listings/[id]', () => {
     expect(body.missing).not.toContain('surfaceM2');
   });
 
-  it('publish succeeds and flips status to PENDING once every requirement is met', async () => {
+  it('publish succeeds and flips status straight to VERIFIED once every requirement is met', async () => {
     prismaMock.listing.findUnique.mockResolvedValueOnce(
       makeDraft({
         title: 'Villa moderne',
@@ -232,6 +260,97 @@ describe('PATCH /api/listings/[id]', () => {
     const res = await PATCH(req, ctx);
     expect(res.status).toBe(200);
     const args = prismaMock.listing.update.mock.calls[0]?.[0];
-    expect(args?.data?.status).toBe('PENDING');
+    expect(args?.data?.status).toBe('VERIFIED');
+  });
+});
+
+describe('GET /api/listings/[id]', () => {
+  it('returns the full listing with photos primary-first, for the owner', async () => {
+    prismaMock.listing.findUnique.mockResolvedValueOnce({
+      ...makeDraft({ status: 'VERIFIED' }),
+      photos: [
+        { id: 'p2', url: 'https://cdn.test-bucket.example/p2.webp', isPrimary: true, position: 1 },
+        { id: 'p1', url: 'https://cdn.test-bucket.example/p1.webp', isPrimary: false, position: 0 },
+      ],
+    } as never);
+    const { req, ctx } = makeGet('l1');
+    const res = await GET(req, ctx);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.listing.id).toBe('l1');
+    expect(body.listing.photos[0].id).toBe('p2');
+  });
+
+  it("404s when the caller doesn't own the listing (no existence leak)", async () => {
+    prismaMock.listing.findUnique.mockResolvedValueOnce(
+      makeDraft({ userId: 'someone-else' }) as never,
+    );
+    const { req, ctx } = makeGet('l1');
+    const res = await GET(req, ctx);
+    expect(res.status).toBe(404);
+  });
+
+  it('404s when the listing does not exist', async () => {
+    prismaMock.listing.findUnique.mockResolvedValueOnce(null);
+    const { req, ctx } = makeGet('missing');
+    const res = await GET(req, ctx);
+    expect(res.status).toBe(404);
+  });
+
+  it('no auth returns 401', async () => {
+    mockRequireAuth.mockResolvedValueOnce(
+      NextResponse.json({ code: 'UNAUTHORIZED' }, { status: 401 }) as never,
+    );
+    const { req, ctx } = makeGet('l1');
+    const res = await GET(req, ctx);
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('DELETE /api/listings/[id]', () => {
+  it('deletes a listing owned by the caller, regardless of status', async () => {
+    prismaMock.listing.findUnique.mockResolvedValueOnce(makeDraft({ status: 'VERIFIED' }) as never);
+    prismaMock.listing.delete.mockResolvedValueOnce(makeDraft() as never);
+    const { req, ctx } = makeDelete('l1');
+    const res = await DELETE(req, ctx);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.deleted).toBe(true);
+    expect(prismaMock.listing.delete).toHaveBeenCalledWith({ where: { id: 'l1' } });
+  });
+
+  it('404s when the listing does not exist', async () => {
+    prismaMock.listing.findUnique.mockResolvedValueOnce(null);
+    const { req, ctx } = makeDelete('missing');
+    const res = await DELETE(req, ctx);
+    expect(res.status).toBe(404);
+    expect(prismaMock.listing.delete).not.toHaveBeenCalled();
+  });
+
+  it("404s when the caller doesn't own the listing (no existence leak)", async () => {
+    prismaMock.listing.findUnique.mockResolvedValueOnce(
+      makeDraft({ userId: 'someone-else' }) as never,
+    );
+    const { req, ctx } = makeDelete('l1');
+    const res = await DELETE(req, ctx);
+    expect(res.status).toBe(404);
+    expect(prismaMock.listing.delete).not.toHaveBeenCalled();
+  });
+
+  it('csrf missing returns 403', async () => {
+    (verifyCsrf as unknown as Mock).mockReturnValueOnce(new Response(null, { status: 403 }));
+    const { req, ctx } = makeDelete('l1');
+    const res = await DELETE(req, ctx);
+    expect(res.status).toBe(403);
+    expect(prismaMock.listing.delete).not.toHaveBeenCalled();
+  });
+
+  it('no auth returns 401', async () => {
+    mockRequireAuth.mockResolvedValueOnce(
+      NextResponse.json({ code: 'UNAUTHORIZED' }, { status: 401 }) as never,
+    );
+    const { req, ctx } = makeDelete('l1');
+    const res = await DELETE(req, ctx);
+    expect(res.status).toBe(401);
   });
 });

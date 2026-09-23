@@ -4,13 +4,14 @@
 // LegalDocument.status), so no migration is needed to back the /admin/utilisateurs
 // mockup's "type" + "statut" + "vérifié KYC" concepts.
 import 'server-only';
+import { LEGAL_DOCUMENT_TYPES } from '@/app/api/legal-documents/route';
 
 // Same required-document-type count used by the public agent directory
-// (frontend/src/app/api/public/agents/route.ts) — six LegalDocument.type
-// values an OWNER_AGENT can submit. Duplicated rather than imported since
-// that route isn't a shared module (App Router route files aren't meant
-// to be imported from).
-export const LEGAL_DOCUMENT_TYPE_COUNT = 6;
+// (frontend/src/app/api/public/agents/route.ts). Derived from the single
+// source of truth in `legal-documents/route.ts` (currently 3: RCCM, TAX_CERTIFICATE,
+// ID_CARD) rather than hardcoded, so reducing/adding required document types
+// never drifts out of sync with the KYC completion math here.
+export const LEGAL_DOCUMENT_TYPE_COUNT = LEGAL_DOCUMENT_TYPES.length;
 
 export type AdminUserType = 'PARTICULIER' | 'AGENCE' | 'DEMARCHEUR';
 export type AdminUserDisplayStatus = 'ACTIF' | 'EN_VERIFICATION' | 'SUSPENDU';

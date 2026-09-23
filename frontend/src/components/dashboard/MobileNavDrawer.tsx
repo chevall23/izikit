@@ -88,10 +88,20 @@ export function MobileNavDrawer({
       />
 
       {/* Panel */}
+      {/*
+        Slide via the classic `transform` shorthand ([transform:translateX(...)],
+        NOT the translate-x-* utility) — Tailwind v4's translate-x-* utilities
+        emit the standalone CSS `translate` property, which older WebViews
+        (e.g. Huawei devices stuck on a pre-GMS-ban WebView with no Play
+        Store updates) silently drop as an unrecognized property. That left
+        the panel at its default (fully visible) position regardless of
+        `open`, with no way to close it. `transform: translateX()` is
+        supported by virtually every browser back to IE9.
+      */}
       <aside
         className={cn(
           'absolute top-0 left-0 flex h-full w-[280px] max-w-[85vw] flex-col bg-white shadow-xl transition-transform duration-200',
-          open ? 'translate-x-0' : '-translate-x-full',
+          open ? '[transform:translateX(0)]' : '[transform:translateX(-100%)]',
         )}
       >
         <div className="flex h-[64px] flex-shrink-0 items-center justify-between border-b border-black/[0.06] px-4">

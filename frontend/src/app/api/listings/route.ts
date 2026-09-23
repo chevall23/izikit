@@ -58,6 +58,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           status: true,
           rejectionReason: true,
           createdAt: true,
+          photos: {
+            where: { isPrimary: true },
+            take: 1,
+            select: { url: true },
+          },
         },
       }),
       prisma.listing.count({ where: { userId: auth.user.sub, ...notDraft } }),
@@ -67,8 +72,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       prisma.listing.count({ where: { userId: auth.user.sub, status: 'SOLD' } }),
     ]);
 
+    // Flatten the `photos` include (single primary row, if any) into a
+    // `primaryPhotoUrl` scalar — the "Mes annonces" table renders a
+    // thumbnail per row and shouldn't have to know about the ListingPhoto
+    // shape. Mirrors `/api/public/listings`'s `primaryPhotoUrl` mapping.
+    const items = rows.map(({ photos, ...rest }) => ({
+      ...rest,
+      primaryPhotoUrl: photos[0]?.url ?? null,
+    }));
+
     return NextResponse.json(
-      { ...buildPage(rows, limit), counts: { total, verified, pending, rejected, sold } },
+      { ...buildPage(items, limit), counts: { total, verified, pending, rejected, sold } },
       { headers: { 'x-request-id': ctx.requestId } },
     );
   });

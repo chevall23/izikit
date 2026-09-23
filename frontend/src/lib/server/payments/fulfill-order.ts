@@ -13,6 +13,30 @@ import { TOKEN_PACK_CATALOG, isTokenPackKey } from '@/lib/token-packs';
 
 const SUBSCRIPTION_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
 
+async function creditTokenWallet(
+  tx: PrismaTransactionClient,
+  userId: string,
+  tokens: number,
+  description: string,
+  orderId: string,
+): Promise<void> {
+  const wallet = await tx.tokenWallet.upsert({
+    where: { userId },
+    create: { userId, balance: tokens },
+    update: { balance: { increment: tokens } },
+  });
+  await tx.tokenTransaction.create({
+    data: {
+      userId,
+      type: 'PURCHASE',
+      amount: tokens,
+      balanceAfter: wallet.balance,
+      description,
+      orderId,
+    },
+  });
+}
+
 export interface FulfillableOrder {
   id: string;
   userId: string | null;
@@ -37,6 +61,7 @@ export async function fulfillPaidOrder(
     kind?: unknown;
     planKey?: unknown;
     packKey?: unknown;
+    tokens?: unknown;
   } | null;
 
   if (order.userId && meta?.kind === 'subscription_plan_change' && isPlanKey(meta.planKey)) {
@@ -59,21 +84,23 @@ export async function fulfillPaidOrder(
 
   if (order.userId && meta?.kind === 'token_purchase' && isTokenPackKey(meta.packKey)) {
     const pack = TOKEN_PACK_CATALOG[meta.packKey];
-    const wallet = await tx.tokenWallet.upsert({
-      where: { userId: order.userId },
-      create: { userId: order.userId, balance: pack.tokens },
-      update: { balance: { increment: pack.tokens } },
-    });
-    await tx.tokenTransaction.create({
-      data: {
-        userId: order.userId,
-        type: 'PURCHASE',
-        amount: pack.tokens,
-        balanceAfter: wallet.balance,
-        description: `Achat pack ${pack.label}`,
-        orderId: order.id,
-      },
-    });
+    await creditTokenWallet(tx, order.userId, pack.tokens, `Achat pack ${pack.label}`, order.id);
+  }
+
+  if (
+    order.userId &&
+    meta?.kind === 'token_purchase_custom' &&
+    typeof meta.tokens === 'number' &&
+    Number.isInteger(meta.tokens) &&
+    meta.tokens > 0
+  ) {
+    await creditTokenWallet(
+      tx,
+      order.userId,
+      meta.tokens,
+      `Achat personnalisé de ${meta.tokens} jeton${meta.tokens > 1 ? 's' : ''}`,
+      order.id,
+    );
   }
 
   if (order.userId) {

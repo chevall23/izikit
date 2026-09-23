@@ -1,6 +1,6 @@
 'use client';
 
-import { User, Shield, Bell, Building, FileText, CreditCard, Globe, Palette } from 'lucide-react';
+import { User, Shield, Bell, Building, FileText, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type SettingsTabKey =
@@ -9,9 +9,7 @@ export type SettingsTabKey =
   | 'notifications'
   | 'agence'
   | 'documents'
-  | 'abonnement'
-  | 'langue'
-  | 'apparence';
+  | 'abonnement';
 
 interface TabEntry {
   key: SettingsTabKey;
@@ -32,11 +30,6 @@ const AGENCY_TABS: TabEntry[] = [
   { key: 'agence', label: 'Mon agence', icon: Building },
   { key: 'documents', label: 'Documents légaux', icon: FileText },
   { key: 'abonnement', label: 'Abonnement & paiement', icon: CreditCard },
-];
-
-const PREFERENCE_TABS: TabEntry[] = [
-  { key: 'langue', label: 'Langue & région', icon: Globe },
-  { key: 'apparence', label: 'Apparence', icon: Palette },
 ];
 
 function TabPill({
@@ -101,22 +94,6 @@ export function SettingsSideNav({
         </p>
         <div className="flex flex-shrink-0 gap-2 lg:flex-col">
           {AGENCY_TABS.map((entry) => (
-            <TabPill
-              key={entry.key}
-              entry={entry}
-              active={active === entry.key}
-              onSelect={onSelect}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="flex flex-shrink-0 flex-col gap-2 lg:gap-2.5">
-        <p className="font-sora hidden px-0.5 text-[11px] font-semibold tracking-wider text-gray-400 uppercase lg:block">
-          Préférences
-        </p>
-        <div className="flex flex-shrink-0 gap-2 lg:flex-col">
-          {PREFERENCE_TABS.map((entry) => (
             <TabPill
               key={entry.key}
               entry={entry}
