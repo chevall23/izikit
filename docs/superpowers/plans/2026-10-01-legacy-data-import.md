@@ -23,6 +23,10 @@
 - **Aucune notification déclenchée par l'import** : on écrit directement via Prisma, on n'appelle ni `matching.ts` ni l'outbox.
 - **Photos** : clé R2 `legacy/listings/<idannonce>/<idgal>` (basée sur les IDs legacy → un ré-envoi écrase le même objet, pas d'orphelins entre l'essai et l'import final).
 
+## Révision après la relecture finale (2026-10-01)
+
+Les règles d'écriture de la Task 4 ont été durcies : **l'import ne fait que créer**. Une annonce, alerte ou demande déjà importée n'est plus jamais réécrite (sinon une relance écraserait les modifications faites sur la refonte). Un utilisateur existant (déjà importé, ou rattaché par e-mail) ne reçoit que ses champs de profil vides (nom, bio, pays, téléphone libre) et passe de TENANT_BUYER à OWNER_AGENT s'il était démarcheur — jamais l'inverse. Un e-mail déjà rattaché à un autre `legacyId` (le compte gardé d'un doublon a changé entre deux dumps) est réutilisé au lieu d'être rejeté. Le rapport compte les lignes sans propriétaire (`ownerUnresolved`). Voir `scripts/legacy-import/write.ts`.
+
 ## Global Constraints
 
 - Le dump et les photos restent hors git (`ancien version habitatafrik/` est exclu via `.git/info/exclude`) — le script reçoit leurs chemins en arguments, rien n'est copié dans le repo.
