@@ -4,15 +4,26 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      target:
+        description: 'Cible : n0c-preprod (habitatafrik.izichop.xyz) ou n0c-production (habitat-afrik.com)'
+        type: choice
+        options: [n0c-preprod, n0c-production]
+        default: n0c-preprod
 
+# A push to main deploys pre-prod only; production is deployed by hand
+# (Actions → Run workflow → target n0c-production). Each GitHub environment
+# overrides the repo-level N0C_* / JWT_SECRET secrets with its own; the
+# n0c-preprod environment has none, so it falls back to the repo secrets.
 concurrency:
-  group: deploy-n0c
+  group: deploy-${{ inputs.target || 'n0c-preprod' }}
   cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment: ${{ inputs.target || 'n0c-preprod' }}
     steps:
       - uses: actions/checkout@v4
 

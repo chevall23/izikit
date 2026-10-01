@@ -120,6 +120,18 @@ Après 48 h stables : supprimer l'ancien projet et purger ses variables d'enviro
 - `.htaccess` Passenger : dans `~/habitatafrik/` (docroot du sous-domaine), **pas** dans l'app root → `rsync --delete` sur l'app root ne l'affecte pas.
 - App root géré par le panel : `app.js` (stub par défaut, écrasé par la CI), `public/` (Passenger sert le statique depuis là → `rsync` l'exclut + `mkdir -p public` au restart), `tmp/restart.txt`.
 
+## Production (node2-eu.n0c.com, compte habiwpes) — habitat-afrik.com
+
+Deux cibles, un seul workflow : un push sur `main` déploie la **préprod** (environnement GitHub `n0c-preprod`, qui n'a pas de secrets propres et retombe sur ceux du dépôt) ; la **production** se déploie à la main : Actions → « Deploy to PlanetHoster N0C » → Run workflow → `target = n0c-production`. L'environnement `n0c-production` surcharge `N0C_SSH_HOST/USER`, `N0C_APP_PATH`, `N0C_NODE_ACTIVATE`, `N0C_DEPLOY_URL` et `JWT_SECRET` (même valeur que le `.env` du serveur). `N0C_SSH_KEY` (même clé `n0c_deploy`, autorisée sur les deux comptes) et `NEXT_PUBLIC_COOKIE_PREFIX` sont partagés.
+
+- Compte : `habiwpes@node2-eu.n0c.com`, port 5022. Le même compte héberge l'ancien site PHP, `daagroupsarl.com` et la messagerie `@habitat-afrik.com` — ne jamais toucher à `mail/`, `daagroupsarl.com/`, `etc/`.
+- App créée avec `cloudlinux-selector create --interpreter nodejs --version 24 --app-root apps/habitatafrik --domain nouveau.habitat-afrik.com --app-uri / --app-mode production --startup-file app.js`.
+- `N0C_APP_PATH` = `/home/habiwpes/apps/habitatafrik` ; `.env` = `/home/habiwpes/apps/habitatafrik/.env` (chmod 600).
+- `N0C_NODE_ACTIVATE` = `/home/habiwpes/nodevenv/apps/habitatafrik/24/bin/activate`
+- `.htaccess` Passenger : `~/nouveau/` (docroot du sous-domaine de test). OpenSSL 1.1.1k (comme la préprod).
+- `N0C_DEPLOY_URL` = `https://nouveau.habitat-afrik.com` jusqu'à la bascule de `habitat-afrik.com`.
+- Services (Brevo, R2, Upstash, Google, Facebook) : mêmes clés que la préprod. ⚠️ Upstash partagé → les verrous de cron `cron:lease:<nom>` sont communs aux deux environnements : décaler les crons de préprod (ex. `2-59/5`) ou donner une base Upstash dédiée à la prod.
+
 ## Points encore à vérifier au 1er déploiement
 - **TCP `localhost` vs socket Unix** pour Postgres — si `migrate deploy` échoue en connexion, ajouter `&host=/var/run/postgresql` à `DATABASE_URL`/`DIRECT_URL` (cf. §1), dans le `.env` **et** l'UI du panel.
 - **`node_modules` symlink** éventuellement recréé par le panel dans l'app root après un restart — `ls -la $N0C_APP_PATH` ; si présent, `--exclude='node_modules'` casserait le bundle standalone (qui embarque son propre `node_modules`), donc au contraire **laisser** la CI l'écraser.
