@@ -1,6 +1,13 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, Sora } from 'next/font/google';
 import './globals.css';
+import {
+  BRAND_COLOR,
+  DEFAULT_DESCRIPTION,
+  DEFAULT_TITLE,
+  SITE_NAME,
+  SITE_URL,
+} from '@/lib/seo/site';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 
@@ -18,11 +25,26 @@ const sora = Sora({
   display: 'swap',
 });
 
-// Replace these with your app name + description per fork.
+// Site-wide defaults. Public pages override title/description/canonical via
+// their own `metadata` / `generateMetadata`; no canonical is set here on
+// purpose (a root canonical would point every page at the home page).
 export const metadata: Metadata = {
-  title: 'izi kit',
-  description: 'Headless Next.js 16 starter — auth, payments, admin, webhooks, cron.',
+  metadataBase: new URL(SITE_URL),
+  title: { default: DEFAULT_TITLE, template: `%s | ${SITE_NAME}` },
+  description: DEFAULT_DESCRIPTION,
+  applicationName: SITE_NAME,
+  formatDetection: { telephone: false },
+  openGraph: {
+    type: 'website',
+    siteName: SITE_NAME,
+    locale: 'fr_FR',
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+  },
+  twitter: { card: 'summary_large_image', title: DEFAULT_TITLE, description: DEFAULT_DESCRIPTION },
 };
+
+export const viewport: Viewport = { themeColor: BRAND_COLOR };
 
 export default function RootLayout({
   children,
@@ -30,7 +52,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${sora.variable}`}>
+    <html lang="fr" className={`${inter.variable} ${sora.variable}`}>
       {/* suppressHydrationWarning: browser extensions (ColorZilla, Grammarly, …)
           inject attributes like cz-shortcut-listen onto <body> before React
           hydrates — a harmless mismatch outside our control, not a real bug. */}
