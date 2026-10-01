@@ -99,6 +99,15 @@ export default function LoginPage() {
         </p>
       </div>
 
+      <div className="mb-6 rounded-lg border border-brand/20 bg-brand/5 px-4 py-3 text-sm text-neutral-700">
+        Vous aviez un compte sur l&apos;ancien site Habitat-Afrik ? Vos annonces ont été conservées.
+        Pour votre première connexion,{' '}
+        <Link href="/forgot-password" className="font-medium text-brand underline">
+          créez un nouveau mot de passe
+        </Link>{' '}
+        avec votre adresse e-mail.
+      </div>
+
       <form onSubmit={onSubmit} className="flex flex-col gap-5">
         <TextField
           label="Adresse Email"

@@ -7,3 +7,6 @@ pnpm-lock.yaml
 *.md
 backend/src/generated
 .planning/banani/raw
+# Local, untracked backup of the legacy PHP site — never reformat it
+ancien version habitatafrik
+.superpowers
