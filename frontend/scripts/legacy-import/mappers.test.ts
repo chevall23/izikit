@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  int,
   mapPropertyType,
   mapRequestTransaction,
   mapTransactionType,
@@ -21,6 +22,13 @@ describe('parsePrice', () => {
   it.each(['', '0', '2.02', 'null', 'à débattre', null, '-5'])('%s → null', (raw) =>
     expect(parsePrice(raw)).toBeNull(),
   );
+});
+
+describe('int', () => {
+  it('rejects values that overflow a Postgres INT4 column', () => {
+    expect(int('2147483647')).toBe(2147483647);
+    expect(int('3000000000')).toBeNull();
+  });
 });
 
 describe('normalizePhone', () => {

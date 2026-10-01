@@ -143,6 +143,29 @@ describe('buildImportSet', () => {
     expect(ls[3]?.propertyType).toBe('MAISON');
   });
 
+  it('keeps a listing without city as DRAFT in the agent country, city to be completed', () => {
+    const d = base();
+    d.tbldemarcheur = [
+      dem({ codepays: 'TG' }),
+      dem({ iddem: 2, mail: 'b@x.com', codepays: 'NULL' }),
+    ];
+    d.tblannonce = [ann({ idannonce: 1, idville: 0 }), ann({ idannonce: 2, idville: 0, iddem: 2 })];
+    const ls = buildImportSet(d, NOW).listings;
+    expect(ls[0]).toMatchObject({ city: 'À préciser', country: 'Togo', status: 'DRAFT' });
+    expect(ls[1]).toMatchObject({ city: 'À préciser', country: 'Bénin', status: 'DRAFT' });
+  });
+
+  it('keeps a price too large for the INT4 column as DRAFT, quoting it in the description', () => {
+    const d = base();
+    d.tbldemarcheur = [dem({})];
+    d.tblannonce = [ann({ prix: '2500000000', idtype: 9 })];
+    expect(buildImportSet(d, NOW).listings[0]).toMatchObject({
+      price: 0,
+      status: 'DRAFT',
+      description: "Belle villa\n\nPrix indiqué sur l'ancien site : 2 500 000 000 FCFA",
+    });
+  });
+
   it('notes the land-title status for parcels', () => {
     const d = base();
     d.tbldemarcheur = [dem({})];

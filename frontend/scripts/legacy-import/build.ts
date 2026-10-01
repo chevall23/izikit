@@ -7,6 +7,7 @@ import {
   COUNTRY_BY_ID,
   DIAL_BY_COUNTRY,
   int,
+  INT4_MAX,
   mapPropertyType,
   mapRequestTransaction,
   mapTransactionType,
@@ -124,6 +125,9 @@ export interface ImportSet {
 const fullName = (r: SqlRow): string | null =>
   [str(r.prenom), str(r.nom)].filter(Boolean).join(' ') || null;
 
+/** 2500000000 → "2 500 000 000" (plain spaces, unlike toLocaleString's NNBSP). */
+const groupThousands = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
 const plural = (n: number | null, word: string): string | null =>
   n ? `${n} ${word}${n > 1 ? 's' : ''}` : null;
 
@@ -213,37 +217,55 @@ export function buildImportSet(d: Record<string, SqlRow[]>, now: Date = new Date
     const id = Number(v.idannonce);
     views.set(id, (views.get(id) ?? 0) + (Number(v.nbrevu) || 0));
   }
+  const agentCountry = new Map(agentUsers.map((u) => [u.legacyId, u.country]));
   const listings: ListingRecord[] = [];
   const listingIds = new Set<number>();
   for (const r of rows('tblannonce')) {
     const id = Number(r.idannonce);
     const owner = ownerOf.get(Number(r.iddem));
-    const ville = villes.get(Number(r.idville));
-    const country = ville ? COUNTRY_BY_ID[Number(ville.idpays)] : undefined;
-    if (!owner || !ville || !country) {
-      skip('listingsWithoutOwnerOrCity');
+    if (!owner) {
+      skip('listingsWithoutOwner');
       continue;
     }
-    const price = parsePrice(r.prix);
+    const ville = villes.get(Number(r.idville));
+    const villeCountry = ville ? COUNTRY_BY_ID[Number(ville.idpays)] : undefined;
+    // ~36 legacy listings have idville=0: keep them as DRAFT in the agent's
+    // country (Bénin when unknown) so the agent can complete the city.
+    const hasCity = ville !== undefined && villeCountry !== undefined;
+    if (!hasCity) skip('listingsWithoutCity');
+    const country = villeCountry ?? agentCountry.get(owner) ?? 'Bénin';
+    const parsedPrice = parsePrice(r.prix);
+    // Listing.price is INT4: a few legacy prices (≥ 2.15 billion FCFA) don't
+    // fit. Keep the figure in the description and leave the listing DRAFT.
+    const oversized = parsedPrice !== null && parsedPrice > INT4_MAX;
+    if (oversized) skip('listingsPriceTooLarge');
+    const price = oversized ? null : parsedPrice;
     const propertyType = mapPropertyType(r.idtype);
     const transactionType = mapTransactionType(r.type);
     const publishable =
-      Number(r.confid) === 1 && price !== null && propertyType !== null && transactionType !== null;
+      hasCity &&
+      Number(r.confid) === 1 &&
+      price !== null &&
+      propertyType !== null &&
+      transactionType !== null;
     const idtype = Number(r.idtype);
     const landTitle =
       idtype === 13 ? 'Titre foncier : oui' : idtype === 8 ? 'Titre foncier : non' : null;
+    const priceNote = oversized
+      ? `Prix indiqué sur l'ancien site : ${groupThousands(parsedPrice)} FCFA`
+      : null;
     listingIds.add(id);
     listings.push({
       legacyId: `ann:${id}`,
       ownerLegacyId: owner,
       title: str(r.titre) || 'Annonce',
-      city: str(ville.libville),
+      city: hasCity ? str(ville.libville) : 'À préciser',
       country,
       propertyType: propertyType ?? 'MAISON',
       transactionType: transactionType ?? 'VENTE',
       price: price ?? 0,
       status: publishable ? 'VERIFIED' : 'DRAFT',
-      description: [str(r.description), landTitle].filter(Boolean).join('\n\n') || null,
+      description: [str(r.description), landTitle, priceNote].filter(Boolean).join('\n\n') || null,
       landmark: [str(r.quartier), str(r.repere)].filter(Boolean).join(' — ') || null,
       surfaceM2: int(r.superficie),
       bedrooms: int(r.chambre),

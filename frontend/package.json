@@ -22,6 +22,7 @@
     "seed:test-agents": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/seed-test-agents.ts",
     "smoke:auth": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke-auth.ts",
     "drain:emails": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/drain-emails.ts",
+    "import:legacy": "tsx --conditions=react-server --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/import-legacy.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

@@ -102,7 +102,9 @@ export async function importPhotos(
         if (report.uploaded % 200 === 0) log(`  photos ${report.uploaded}/${work.length}`);
       } catch (err) {
         report.failed++;
-        log(`⚠ ${p.legacyId} (${p.filename}) : ${(err as Error).message}`);
+        // AWS SDK network errors can carry an empty message — keep the name.
+        const e = err as Error;
+        log(`⚠ ${p.legacyId} (${p.filename}) : ${e.name}${e.message ? ` — ${e.message}` : ''}`);
       }
     }
   }

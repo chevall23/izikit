@@ -48,9 +48,18 @@ export function str(v: SqlValue | undefined): string {
   return v === null || v === undefined ? '' : String(v).trim();
 }
 
-export function int(v: SqlValue | undefined): number | null {
+/** Largest value a Prisma `Int` (Postgres INT4) column accepts. */
+export const INT4_MAX = 2_147_483_647;
+
+function positiveInt(v: SqlValue | undefined): number | null {
   const n = typeof v === 'number' ? v : Number.parseInt(str(v), 10);
-  return Number.isInteger(n) && n > 0 ? n : null;
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+/** Positive integer that fits an INT4 column, else null. */
+export function int(v: SqlValue | undefined): number | null {
+  const n = positiveInt(v);
+  return n !== null && n <= INT4_MAX ? n : null;
 }
 
 export function normalizeEmail(raw: SqlValue | undefined): string | null {
@@ -69,11 +78,12 @@ export function normalizePhone(raw: SqlValue | undefined, dial?: string | null):
   return null;
 }
 
+/** Unbounded: callers check INT4_MAX themselves so an oversized price can be quoted. */
 export function parsePrice(raw: SqlValue | undefined): number | null {
-  if (typeof raw === 'number') return Number.isInteger(raw) && raw > 0 ? raw : null;
+  if (typeof raw === 'number') return positiveInt(raw);
   const s = str(raw).replace(/\s/g, ''); // \s also covers U+00A0 (no-break space)
-  if (/^\d+$/.test(s)) return int(s);
-  if (/^\d{1,3}([.,]\d{3})+$/.test(s)) return int(s.replace(/[.,]/g, ''));
+  if (/^\d+$/.test(s)) return positiveInt(s);
+  if (/^\d{1,3}([.,]\d{3})+$/.test(s)) return positiveInt(s.replace(/[.,]/g, ''));
   return null;
 }
 

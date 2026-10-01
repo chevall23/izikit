@@ -70,6 +70,14 @@ describe('importPhotos', () => {
     expect(r.uploaded).toBe(1);
   });
 
+  it('logs something useful for an error without a message', async () => {
+    const lines: string[] = [];
+    const err = Object.assign(new Error(''), { name: 'TimeoutError' });
+    const upload = vi.fn().mockRejectedValue(err);
+    await importPhotos([photo(1)], ids, deps({ upload }), { log: (m) => lines.push(m) });
+    expect(lines.join('\n')).toContain('TimeoutError');
+  });
+
   it('honours limit even with concurrent workers', async () => {
     const d = deps({ existingLegacyIds: vi.fn(async () => new Set<string>()) });
     const r = await importPhotos([photo(1), photo(3), photo(5)], ids, d, { ...silent, limit: 2 });
