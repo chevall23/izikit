@@ -51,3 +51,22 @@ curl -fsS -m 30 -H @/home/USER/.n0c-cron-auth https://<DOMAIN>/api/cron/outbox-d
   acceptée : jusqu'à ~5 min.
 - Les purges tournent la nuit (`0 3 * * *`) pour lisser la charge.
 - Si le panel envoie des e-mails sur stdout : garder le `>/dev/null 2>&1`.
+
+## Production (compte habiwpes, node2-eu.n0c.com)
+
+Les crons de production passent par un script, `~/bin/habitatafrik-cron.sh <nom>`, qui source
+`~/apps/habitatafrik/.env` puis appelle `${APP_URL}/api/cron/<nom>` avec `CRON_SECRET` :
+le secret ne figure pas dans la crontab, et les crons suivent `APP_URL` lors de la bascule de
+domaine (`nouveau.habitat-afrik.com` → `habitat-afrik.com`).
+
+Préprod et prod partagent la même base Upstash, donc les verrous `cron:lease:<nom>` (TTL ≤ 2 min) :
+les minutes de la prod sont décalées pour ne jamais tomber en même temps que la préprod.
+
+```
+3-59/5 * * * * /home/habiwpes/bin/habitatafrik-cron.sh outbox-drain >/dev/null 2>&1
+3-59/5 * * * * /home/habiwpes/bin/habitatafrik-cron.sh email-queue-drain >/dev/null 2>&1
+3-59/5 * * * * /home/habiwpes/bin/habitatafrik-cron.sh order-expiration >/dev/null 2>&1
+7 * * * * /home/habiwpes/bin/habitatafrik-cron.sh verification-cleanup >/dev/null 2>&1
+20 3 * * * /home/habiwpes/bin/habitatafrik-cron.sh webhook-log-purge >/dev/null 2>&1
+20 3 * * * /home/habiwpes/bin/habitatafrik-cron.sh email-job-purge >/dev/null 2>&1
+```
