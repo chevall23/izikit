@@ -77,6 +77,10 @@ model User {
   // refused with 403 ACCOUNT_SUSPENDED. Mutated via /api/admin/users/[id]/status
   // (ADMIN can suspend; only SUPERADMIN can restore).
   status              String    @default("ACTIVE") // ACTIVE | SUSPENDED
+  // Identifiant de l'ancien site PHP (habitat-afrik.com) — "dem:<iddem>" pour
+  // un démarcheur, "cli:<idcli>" pour un client. Rend l'import
+  // `pnpm import:legacy` ré-exécutable. null pour les comptes créés ici.
+  legacyId            String?   @unique
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
@@ -602,6 +606,9 @@ model Listing {
 
   viewCount Int @default(0)
 
+  // Identifiant de l'ancien site — voir scripts/legacy-import/. null si créé ici.
+  legacyId String? @unique
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -744,6 +751,9 @@ model PropertyRequest {
 
   status String @default("EN_ATTENTE") // EN_ATTENTE | EN_COURS | CLOTUREE
 
+  // Identifiant de l'ancien site — voir scripts/legacy-import/. null si créé ici.
+  legacyId String? @unique
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -779,6 +789,9 @@ model Alert {
   notifSms      Boolean @default(false)
 
   active Boolean @default(true)
+
+  // Identifiant de l'ancien site — voir scripts/legacy-import/. null si créé ici.
+  legacyId String? @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -822,6 +835,9 @@ model ListingPhoto {
   url       String
   isPrimary Boolean @default(false)
   position  Int     @default(0)
+
+  // Identifiant de l'ancien site — voir scripts/legacy-import/. null si créé ici.
+  legacyId String? @unique
 
   createdAt DateTime @default(now())
 
