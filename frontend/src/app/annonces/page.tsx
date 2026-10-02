@@ -4,6 +4,7 @@ import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { listingPath } from '@/lib/seo/listing';
 import {
   MapPin,
   ChevronDown,
@@ -40,6 +41,7 @@ interface PublicListingItem {
   transactionType: string;
   price: number;
   currency: string;
+  bedrooms: number | null;
   createdAt: string;
   primaryPhotoUrl: string | null;
   photoCount: number;
@@ -779,7 +781,7 @@ function AnnoncesPageContent() {
                     className="overflow-hidden rounded-2xl border border-black/[0.06]"
                   >
                     <Link
-                      href={`/annonces/${listing.id}`}
+                      href={listingPath(listing)}
                       className="relative block h-[200px] bg-gray-100"
                     >
                       {listing.primaryPhotoUrl ? (
@@ -830,7 +832,7 @@ function AnnoncesPageContent() {
                           {formatListingPrice(listing.price, listing.currency)}
                         </p>
                         <Link
-                          href={`/annonces/${listing.id}`}
+                          href={listingPath(listing)}
                           className="flex items-center gap-1 text-[13px] font-medium text-brand"
                         >
                           Voir <ArrowRight className="h-3 w-3" aria-hidden />
@@ -848,7 +850,7 @@ function AnnoncesPageContent() {
                     className="flex flex-col overflow-hidden rounded-2xl border border-black/[0.06] sm:flex-row"
                   >
                     <Link
-                      href={`/annonces/${listing.id}`}
+                      href={listingPath(listing)}
                       className="relative block h-[200px] flex-shrink-0 bg-gray-100 sm:h-auto sm:w-[220px]"
                     >
                       {listing.primaryPhotoUrl ? (
@@ -912,7 +914,7 @@ function AnnoncesPageContent() {
                           </span>
                         </div>
                         <Link
-                          href={`/annonces/${listing.id}`}
+                          href={listingPath(listing)}
                           className="flex items-center gap-1.5 rounded-full bg-brand px-3.5 py-2 text-[13px] font-medium whitespace-nowrap text-white"
                         >
                           Voir le détail

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { listingPath } from '@/lib/seo/listing';
 import { Loader2, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
@@ -137,7 +138,7 @@ export function FeaturedListingsSection() {
               >
                 <div className="relative h-[220px] bg-gray-100 lg:h-[240px]">
                   <Link
-                    href={`/annonces/${listing.id}`}
+                    href={listingPath(listing)}
                     aria-label={`Voir l'annonce : ${listing.title}`}
                     className="block h-full w-full"
                   >
@@ -183,7 +184,7 @@ export function FeaturedListingsSection() {
                       <span className="text-[13px] font-semibold text-gray-500">{unit}</span>
                     </p>
                     <Link
-                      href={`/annonces/${listing.id}`}
+                      href={listingPath(listing)}
                       className="text-[13px] font-semibold text-brand"
                     >
                       Voir →

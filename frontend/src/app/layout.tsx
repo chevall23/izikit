@@ -4,6 +4,7 @@ import './globals.css';
 import {
   BRAND_COLOR,
   DEFAULT_DESCRIPTION,
+  DEFAULT_OG_IMAGE,
   DEFAULT_TITLE,
   SITE_NAME,
   SITE_URL,
@@ -41,8 +42,14 @@ export const metadata: Metadata = {
     locale: 'fr_FR',
     title: DEFAULT_TITLE,
     description: DEFAULT_DESCRIPTION,
+    images: [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: SITE_NAME }],
   },
-  twitter: { card: 'summary_large_image', title: DEFAULT_TITLE, description: DEFAULT_DESCRIPTION },
+  twitter: {
+    card: 'summary_large_image',
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE],
+  },
 };
 
 export const viewport: Viewport = { themeColor: BRAND_COLOR };

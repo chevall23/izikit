@@ -33,6 +33,7 @@ function makeListingRow(overrides: Record<string, unknown> = {}) {
     status: 'VERIFIED',
     viewCount: 10,
     createdAt: new Date('2026-08-01T00:00:00Z'),
+    updatedAt: new Date('2026-08-02T00:00:00Z'),
     photos: [{ url: 'https://example.com/1.jpg', isPrimary: true }],
     user: { id: 'user-1', name: 'Kofi Atta', avatarUrl: null, phone: '+22990000000' },
     ...overrides,

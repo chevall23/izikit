@@ -69,3 +69,104 @@ export function listingIdFromParam(param: string): string | null {
 export function isThinListing(l: { price: number; photoCount: number }): boolean {
   return l.price < MIN_REAL_PRICE || l.photoCount === 0;
 }
+
+export interface ListingSeoFields extends ListingSlugFields {
+  id: string;
+  title: string;
+  description: string | null;
+  country: string;
+  bathrooms: number | null;
+  surfaceM2: number | null;
+  price: number;
+  currency: string;
+  createdAt: string | Date;
+  photos: { url: string }[];
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** "500 000 FCFA" (plain spaces — fr-FR uses narrow no-break spaces). */
+function formatPrice(price: number, currency: string): string {
+  const amount = price.toLocaleString('fr-FR').replace(/\s/g, ' ');
+  return `${amount} ${currency === 'XOF' ? 'FCFA' : currency}`;
+}
+
+function priceLabel(l: Pick<ListingSeoFields, 'price' | 'currency' | 'transactionType'>) {
+  if (l.price < MIN_REAL_PRICE) return null;
+  return formatPrice(l.price, l.currency) + (l.transactionType === 'LOCATION' ? '/mois' : '');
+}
+
+const PHONE_RE = /\+?\d[\d\s.()-]{6,}\d/g;
+
+function cleanText(text: string): string {
+  return text.replace(PHONE_RE, '').replace(/\s+/g, ' ').trim();
+}
+
+function truncate(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max - 1);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), max / 2)).replace(/[\s,.;:–—-]+$/, '')}…`;
+}
+
+/** Search-result title built from structured fields (the raw title stays the page's H1). */
+export function listingSeoTitle(l: Omit<ListingSeoFields, 'id' | 'title' | 'description'>): string {
+  const parts = [capitalize(TYPE_WORD[l.propertyType] ?? 'bien immobilier')];
+  if (l.bedrooms && l.bedrooms > 0) parts.push(`${l.bedrooms} chambre${l.bedrooms > 1 ? 's' : ''}`);
+  const transaction = TRANSACTION_WORD[l.transactionType];
+  if (transaction) parts.push(transaction);
+  if (l.city) parts.push(`à ${l.city}`);
+  const price = priceLabel(l);
+  return parts.join(' ') + (price ? ` — ${price}` : '');
+}
+
+export function listingSeoDescription(l: Omit<ListingSeoFields, 'id' | 'title'>): string {
+  let lead = capitalize(TYPE_WORD[l.propertyType] ?? 'bien immobilier');
+  if (l.bedrooms && l.bedrooms > 0) lead += ` de ${l.bedrooms} chambre${l.bedrooms > 1 ? 's' : ''}`;
+  const transaction = TRANSACTION_WORD[l.transactionType];
+  if (transaction) lead += ` ${transaction}`;
+  if (l.city) lead += ` à ${l.city}`;
+  if (l.country) lead += ` (${l.country})`;
+  const facts = [
+    l.surfaceM2 ? `${l.surfaceM2} m²` : null,
+    l.bathrooms ? `${l.bathrooms} salle${l.bathrooms > 1 ? 's' : ''} de bain` : null,
+  ].filter(Boolean);
+  const price = priceLabel(l);
+  const sentences = [
+    lead + (facts.length ? `, ${facts.join(', ')}` : '') + '.',
+    price ? `Prix : ${price}.` : null,
+    l.description ? cleanText(l.description) : null,
+  ].filter(Boolean);
+  return truncate(sentences.join(' '), 160);
+}
+
+/** schema.org RealEstateListing for the detail page. */
+export function listingJsonLd(l: ListingSeoFields, url: string) {
+  const createdAt = typeof l.createdAt === 'string' ? l.createdAt : l.createdAt.toISOString();
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'RealEstateListing',
+    name: listingSeoTitle(l),
+    description: listingSeoDescription(l),
+    url,
+    datePosted: createdAt,
+    image: l.photos.map((p) => p.url),
+    ...(l.price >= MIN_REAL_PRICE && {
+      offers: {
+        '@type': 'Offer',
+        price: l.price,
+        priceCurrency: l.currency,
+        availability: 'https://schema.org/InStock',
+        businessFunction:
+          l.transactionType === 'VENTE'
+            ? 'https://purl.org/goodrelations/v1#Sell'
+            : 'https://purl.org/goodrelations/v1#LeaseOut',
+      },
+    }),
+    contentLocation: {
+      '@type': 'Place',
+      address: { '@type': 'PostalAddress', addressLocality: l.city, addressCountry: l.country },
+    },
+  };
+}

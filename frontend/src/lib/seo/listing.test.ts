@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { isThinListing, listingIdFromParam, listingPath, listingSlug, slugify } from './listing';
+import {
+  isThinListing,
+  listingIdFromParam,
+  listingJsonLd,
+  listingPath,
+  listingSeoDescription,
+  listingSeoTitle,
+  listingSlug,
+  slugify,
+} from './listing';
 
 describe('slugify', () => {
   it('lowercases, strips accents and collapses separators', () => {
@@ -70,6 +79,55 @@ describe('listingPath / listingIdFromParam', () => {
     expect(listingIdFromParam('cmabc123xyz')).toBe('cmabc123xyz');
     expect(listingIdFromParam('')).toBeNull();
     expect(listingIdFromParam('a-b-')).toBeNull();
+  });
+});
+
+const detail = {
+  id: 'cmabc123xyz',
+  title: 'BELLE VILLA A VENDRE APPELEZ 97 00 00 00',
+  description: 'Villa neuve, appelez le +229 97 00 00 00 pour visiter. Quartier calme.',
+  propertyType: 'VILLA',
+  transactionType: 'LOCATION',
+  city: 'Cotonou',
+  country: 'Bénin',
+  bedrooms: 4,
+  bathrooms: 3,
+  surfaceM2: 250,
+  price: 500_000,
+  currency: 'XOF',
+  createdAt: '2026-09-01T10:00:00.000Z',
+  photos: [{ url: 'https://cdn.example/1.webp' }, { url: 'https://cdn.example/2.webp' }],
+};
+
+describe('listingSeoTitle', () => {
+  it('uses structured fields and a per-month price for rentals', () => {
+    expect(listingSeoTitle(detail)).toBe('Villa 4 chambres à louer à Cotonou — 500 000 FCFA/mois');
+  });
+
+  it('drops placeholder prices', () => {
+    expect(listingSeoTitle({ ...detail, transactionType: 'VENTE', price: 1, bedrooms: null })).toBe(
+      'Villa à vendre à Cotonou',
+    );
+  });
+});
+
+describe('listingSeoDescription', () => {
+  it('summarises the listing, strips phone numbers and stays under 160 chars', () => {
+    const d = listingSeoDescription(detail);
+    expect(d.startsWith('Villa de 4 chambres à louer à Cotonou (Bénin)')).toBe(true);
+    expect(d).toContain('250 m²');
+    expect(d).not.toMatch(/97 00/);
+    expect(d.length).toBeLessThanOrEqual(160);
+  });
+});
+
+describe('listingJsonLd', () => {
+  it('describes the listing as a RealEstateListing with an offer', () => {
+    const ld = listingJsonLd(detail, 'https://habitat-afrik.com/annonces/x-cmabc123xyz');
+    expect(ld['@type']).toBe('RealEstateListing');
+    expect(ld.url).toBe('https://habitat-afrik.com/annonces/x-cmabc123xyz');
+    expect(ld.image).toEqual(['https://cdn.example/1.webp', 'https://cdn.example/2.webp']);
+    expect(ld.offers).toMatchObject({ '@type': 'Offer', price: 500_000, priceCurrency: 'XOF' });
   });
 });
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { listingPath } from '@/lib/seo/listing';
 import {
   Bath,
   Bed,
@@ -473,7 +474,7 @@ export default function AgentProfilePage() {
                   {agent.listings.map((l) => (
                     <Link
                       key={l.id}
-                      href={`/annonces/${l.id}`}
+                      href={listingPath(l)}
                       className="block overflow-hidden rounded-xl border border-black/[0.08]"
                     >
                       {l.primaryPhotoUrl ? (

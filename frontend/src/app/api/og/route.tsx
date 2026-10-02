@@ -1,13 +1,15 @@
-// Default social-share image (WhatsApp / Facebook / X previews) for every page
-// that doesn't provide its own (listing pages use their main photo).
+// GET /api/og — default social-share image (WhatsApp / Facebook / X
+// previews), referenced from the root layout's metadata. Deliberately a
+// route and not an app/opengraph-image file: file-based metadata would
+// override the per-page images (listing pages share their main photo).
+export const runtime = 'nodejs';
+
 import { ImageResponse } from 'next/og';
 import { BRAND_COLOR } from '@/lib/seo/site';
 
-export const alt = "Habitat-Afrik — Annonces immobilières en Afrique de l'Ouest";
-export const size = { width: 1200, height: 630 };
-export const contentType = 'image/png';
+const OG_SIZE = { width: 1200, height: 630 };
 
-export default function OpengraphImage() {
+export function GET() {
   return new ImageResponse(
     <div
       style={{
@@ -30,6 +32,6 @@ export default function OpengraphImage() {
         Maisons · Appartements · Terrains · Bureaux — à vendre ou à louer
       </div>
     </div>,
-    size,
+    { ...OG_SIZE, headers: { 'Cache-Control': 'public, max-age=86400, immutable' } },
   );
 }

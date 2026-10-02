@@ -3,6 +3,8 @@
 // pre-prod) and falls back to the production URL wherever it isn't set
 // (client bundles, `next build` prerendering).
 
+import type { Metadata } from 'next';
+
 export const PRODUCTION_HOST = 'habitat-afrik.com';
 
 export const SITE_URL = (process.env.APP_URL || `https://${PRODUCTION_HOST}`).replace(/\/+$/, '');
@@ -24,6 +26,54 @@ export function isIndexableHost(siteUrl: string = SITE_URL): boolean {
   } catch {
     return false;
   }
+}
+
+/** Default share image (app/api/og/route.tsx). */
+export const DEFAULT_OG_IMAGE = '/api/og';
+
+export interface PageSeo {
+  title: string;
+  description: string;
+  /** Site path, used as canonical and og:url (resolved against metadataBase). */
+  path: string;
+  image?: { url: string; alt?: string };
+  noindex?: boolean;
+  /** Skip the "| Habitat-Afrik" suffix (titles that already carry enough). */
+  absoluteTitle?: boolean;
+  type?: 'website' | 'article';
+}
+
+/**
+ * Complete page metadata. Next merges metadata shallowly — a page-level
+ * `openGraph` replaces the layout's whole object — so every public page
+ * builds its own with the site defaults through this helper.
+ */
+export function pageMetadata(p: PageSeo): Metadata {
+  const fullTitle = p.absoluteTitle ? p.title : `${p.title} | ${SITE_NAME}`;
+  const images = p.image
+    ? [{ url: p.image.url, ...(p.image.alt && { alt: p.image.alt }) }]
+    : [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: SITE_NAME }];
+  return {
+    title: p.absoluteTitle ? { absolute: p.title } : p.title,
+    description: p.description,
+    alternates: { canonical: p.path },
+    ...(p.noindex && { robots: { index: false, follow: true } }),
+    openGraph: {
+      type: p.type ?? 'website',
+      siteName: SITE_NAME,
+      locale: 'fr_FR',
+      url: p.path,
+      title: fullTitle,
+      description: p.description,
+      images,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: fullTitle,
+      description: p.description,
+      images: images.map((i) => i.url),
+    },
+  };
 }
 
 /** Absolute URL on the current site for a path ("/annonces" → "https://…/annonces"). */
