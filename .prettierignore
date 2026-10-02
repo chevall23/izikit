@@ -10,3 +10,6 @@ backend/src/generated
 # Local, untracked backup of the legacy PHP site — never reformat it
 ancien version habitatafrik
 .superpowers
+# Search-engine ownership files: Google / Facebook compare their bytes
+frontend/public/google*.html
+frontend/public/9fgu9s4eq23t45kyz0fuqn69eup8hh.html
