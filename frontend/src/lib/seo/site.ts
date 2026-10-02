@@ -28,6 +28,46 @@ export function isIndexableHost(siteUrl: string = SITE_URL): boolean {
   }
 }
 
+/** Official social accounts (carried over from the legacy site footer). */
+export const SOCIAL_PROFILES = [
+  'https://www.facebook.com/Habitat-AFRIK-110443520892443',
+  'https://www.instagram.com/habitatafrik/',
+  'https://twitter.com/HabitatAfrik',
+];
+
+/** schema.org Organization + WebSite (with the listing search box) for the home page. */
+export function siteJsonLd(siteUrl: string = SITE_URL) {
+  return [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      '@id': `${siteUrl}/#organization`,
+      name: SITE_NAME,
+      url: `${siteUrl}/`,
+      logo: `${siteUrl}/icon-512.png`,
+      sameAs: SOCIAL_PROFILES,
+      areaServed: ['Bénin', 'Togo', "Côte d'Ivoire", 'Sénégal'],
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      '@id': `${siteUrl}/#website`,
+      name: SITE_NAME,
+      url: `${siteUrl}/`,
+      inLanguage: 'fr',
+      publisher: { '@id': `${siteUrl}/#organization` },
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: `${siteUrl}/annonces?city={search_term_string}`,
+        },
+        'query-input': 'required name=search_term_string',
+      },
+    },
+  ];
+}
+
 /** Default share image (app/api/og/route.tsx). */
 export const DEFAULT_OG_IMAGE = '/api/og';
 

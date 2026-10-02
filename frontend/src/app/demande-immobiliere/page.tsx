@@ -1,4 +1,6 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import { pageMetadata } from '@/lib/seo/site';
 import {
   PlusCircle,
   List,
@@ -14,6 +16,13 @@ import { cn } from '@/lib/utils';
 import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
 import { RecentRequestsTable } from './RecentRequestsTable';
+
+export const metadata: Metadata = pageMetadata({
+  title: 'Demande immobilière : trouvez le bien que vous cherchez',
+  description:
+    'Vous ne trouvez pas le bien idéal ? Publiez gratuitement votre demande immobilière et laissez les agents vérifiés du Bénin, du Togo, de Côte d’Ivoire et du Sénégal vous contacter.',
+  path: '/demande-immobiliere',
+});
 
 const HOW_IT_WORKS = [
   {
