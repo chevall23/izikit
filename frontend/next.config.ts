@@ -46,6 +46,20 @@ const config: NextConfig = {
     // breaks `next build` with ERR_MODULE_NOT_FOUND.
     ignoreDuringBuilds: true,
   },
+  // Listing / article photos go through the Next image optimizer (resized,
+  // cached on our server, served from our domain). WebP only: AVIF encoding
+  // is too CPU-hungry for the shared host. Originals never change (new
+  // upload = new key), so the cache can live long.
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: '**.r2.dev' },
+      { protocol: 'https', hostname: 'res.cloudinary.com' },
+    ],
+    formats: ['image/webp'],
+    deviceSizes: [384, 640, 828, 1080, 1280, 1920],
+    imageSizes: [96, 160, 256],
+    minimumCacheTTL: 60 * 60 * 24 * 30,
+  },
   async headers() {
     return [
       {

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { listingPath } from '@/lib/seo/listing';
+import { ListingImage } from '@/components/public/ListingImage';
 import {
   MapPin,
   ChevronDown,
@@ -23,12 +24,7 @@ import { api } from '@/lib/api';
 import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
 import { InitialsAvatar } from '@/components/dashboard/InitialsAvatar';
-import {
-  PROPERTY_TYPE_LABEL,
-  TRANSACTION_TYPE_LABEL,
-  formatListingPrice,
-  cloudinaryOptimize,
-} from '@/lib/listings';
+import { PROPERTY_TYPE_LABEL, TRANSACTION_TYPE_LABEL, formatListingPrice } from '@/lib/listings';
 import { COUNTRY_FLAG, formatDate } from '@/lib/alerts';
 
 import type { PublicListingsResult as PublicListingsResponse } from '@/lib/server/public/listings';
@@ -753,10 +749,10 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
                       className="relative block h-[200px] bg-gray-100"
                     >
                       {listing.primaryPhotoUrl ? (
-                        <img
-                          src={cloudinaryOptimize(listing.primaryPhotoUrl, 700)}
+                        <ListingImage
+                          src={listing.primaryPhotoUrl}
                           alt={listing.title}
-                          className="h-full w-full object-cover"
+                          sizes="(min-width: 1024px) 400px, (min-width: 640px) 50vw, 100vw"
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center">
@@ -822,10 +818,10 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
                       className="relative block h-[200px] flex-shrink-0 bg-gray-100 sm:h-auto sm:w-[220px]"
                     >
                       {listing.primaryPhotoUrl ? (
-                        <img
-                          src={cloudinaryOptimize(listing.primaryPhotoUrl, 440)}
+                        <ListingImage
+                          src={listing.primaryPhotoUrl}
                           alt={listing.title}
-                          className="h-full w-full object-cover"
+                          sizes="(min-width: 640px) 220px, 100vw"
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center">

@@ -49,11 +49,11 @@ import {
   STANDING_LABEL,
   AMENITY_LABEL,
   formatListingPrice,
-  cloudinaryOptimize,
 } from '@/lib/listings';
 import { COUNTRY_FLAG, formatDate } from '@/lib/alerts';
 
 import { listingPath } from '@/lib/seo/listing';
+import { ListingImage } from '@/components/public/ListingImage';
 import type { PublicListingDetail } from '@/lib/server/public/listing';
 
 const AMENITY_ICON: Record<string, typeof Waves> = {
@@ -255,10 +255,11 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
           {/* HERO */}
           <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl bg-gray-100">
             {heroPhoto ? (
-              <img
-                src={cloudinaryOptimize(heroPhoto.url, 1400)}
+              <ListingImage
+                src={heroPhoto.url}
                 alt={listing.title}
-                className="h-full w-full object-cover"
+                sizes="(min-width: 1280px) 1260px, 100vw"
+                priority
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-slate-100">
@@ -326,11 +327,7 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
                       isActive && 'ring-2 ring-brand',
                     )}
                   >
-                    <img
-                      src={cloudinaryOptimize(p.url, 400)}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
+                    <ListingImage src={p.url} alt="" sizes="(min-width: 1024px) 300px, 25vw" />
                     {showOverlay && (
                       <span className="absolute inset-0 grid place-items-center bg-black/55 text-lg font-extrabold text-white">
                         +{extraCount}
@@ -516,10 +513,10 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
                     >
                       <div className="relative h-[148px] bg-gray-100">
                         {s.primaryPhotoUrl ? (
-                          <img
-                            src={cloudinaryOptimize(s.primaryPhotoUrl, 500)}
+                          <ListingImage
+                            src={s.primaryPhotoUrl}
                             alt={s.title}
-                            className="h-full w-full object-cover"
+                            sizes="(min-width: 1024px) 400px, 100vw"
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center">
@@ -798,12 +795,17 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
           >
             <div className="mx-auto grid max-w-[1100px] grid-cols-1 gap-3 sm:grid-cols-2">
               {photos.map((p, i) => (
-                <img
+                <div
                   key={`${p.url}-${i}`}
-                  src={cloudinaryOptimize(p.url, 1200)}
-                  alt={`${listing.title} — photo ${i + 1}`}
-                  className="w-full rounded-lg bg-white/5 object-cover"
-                />
+                  className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-white/5"
+                >
+                  <ListingImage
+                    src={p.url}
+                    alt={`${listing.title} — photo ${i + 1}`}
+                    sizes="(min-width: 640px) 550px, 100vw"
+                    className="object-contain"
+                  />
+                </div>
               ))}
             </div>
           </div>

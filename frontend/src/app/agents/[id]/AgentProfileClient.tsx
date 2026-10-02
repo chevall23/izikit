@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { listingPath } from '@/lib/seo/listing';
+import { ListingImage } from '@/components/public/ListingImage';
 import type { PublicAgentProfile } from '@/lib/server/public/agent';
 import {
   Bath,
@@ -403,11 +404,13 @@ export function AgentProfileClient({ initialAgent }: { initialAgent: AgentDetail
                       className="block overflow-hidden rounded-xl border border-black/[0.08]"
                     >
                       {l.primaryPhotoUrl ? (
-                        <img
-                          src={l.primaryPhotoUrl}
-                          alt={l.title}
-                          className="h-40 w-full object-cover"
-                        />
+                        <div className="relative h-40 w-full">
+                          <ListingImage
+                            src={l.primaryPhotoUrl}
+                            alt={l.title}
+                            sizes="(min-width: 1024px) 300px, 50vw"
+                          />
+                        </div>
                       ) : (
                         <div className="flex h-40 w-full items-center justify-center bg-gray-50 text-gray-300">
                           <Home className="h-8 w-8" aria-hidden />

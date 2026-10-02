@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { listingPath } from '@/lib/seo/listing';
+import { ListingImage } from '@/components/public/ListingImage';
 import { Loader2, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
@@ -140,13 +141,13 @@ export function FeaturedListingsSection() {
                   <Link
                     href={listingPath(listing)}
                     aria-label={`Voir l'annonce : ${listing.title}`}
-                    className="block h-full w-full"
+                    className="relative block h-full w-full"
                   >
                     {listing.primaryPhotoUrl ? (
-                      <img
+                      <ListingImage
                         src={listing.primaryPhotoUrl}
                         alt={listing.title}
-                        className="h-full w-full object-cover"
+                        sizes="(min-width: 1024px) 50vw, 100vw"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-gray-300">
