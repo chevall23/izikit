@@ -9,6 +9,9 @@ process.env.AUTH_FORGOT_TARGET_LATENCY_MS = '0';
 vi.mock('@/lib/server/outbox', () => ({
   enqueueOutbox: vi.fn().mockResolvedValue({ id: 'outbox-1' }),
 }));
+vi.mock('@/lib/server/outbox/nudge', () => ({
+  nudgeOutbox: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock('@/lib/server/auth/dummy-bcrypt', () => ({
   dummyBcryptCompare: vi.fn().mockResolvedValue(undefined),
 }));
@@ -16,6 +19,7 @@ vi.mock('@/lib/server/auth/dummy-bcrypt', () => ({
 import { POST } from './route';
 import { dummyBcryptCompare } from '@/lib/server/auth/dummy-bcrypt';
 import { enqueueOutbox } from '@/lib/server/outbox';
+import { nudgeOutbox } from '@/lib/server/outbox/nudge';
 
 function makeReq(body: unknown): NextRequest {
   return body === undefined
@@ -62,6 +66,9 @@ describe('POST /api/auth/forgot-password', () => {
     const outboxArg = (enqueueOutbox as unknown as ReturnType<typeof vi.fn>).mock.calls[0]?.[1];
     expect(outboxArg?.kind).toBe('email.password_reset');
     expect(outboxArg?.payload?.to).toBe('a@b.com');
+
+    // Immediate delivery instead of waiting ~10 min for the two crons.
+    expect(nudgeOutbox).toHaveBeenCalledWith('forgot-password');
   });
 
   it('returns identical 200 + dummy-bcrypts when the email does NOT exist (D-23)', async () => {
@@ -75,6 +82,7 @@ describe('POST /api/auth/forgot-password', () => {
     expect(dummyBcryptCompare).toHaveBeenCalledTimes(1);
     expect(prismaMock.verificationCode.create).not.toHaveBeenCalled();
     expect(enqueueOutbox).not.toHaveBeenCalled();
+    expect(nudgeOutbox).not.toHaveBeenCalled();
   });
 
   it('returns 429 TOO_MANY_FORGOT_ATTEMPTS after exceeding 3/h', async () => {

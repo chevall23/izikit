@@ -12,6 +12,9 @@ import { NextRequest } from 'next/server';
 vi.mock('@/lib/server/outbox', () => ({
   enqueueOutbox: vi.fn().mockResolvedValue({ id: 'outbox-1' }),
 }));
+vi.mock('@/lib/server/outbox/nudge', () => ({
+  nudgeOutbox: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock('@/lib/server/auth/dummy-bcrypt', () => ({
   dummyBcryptCompare: vi.fn().mockResolvedValue(undefined),
 }));
@@ -23,6 +26,7 @@ import { POST } from './route';
 import { dummyBcryptCompare } from '@/lib/server/auth/dummy-bcrypt';
 import { isPwned } from '@/lib/server/auth/hibp';
 import { enqueueOutbox } from '@/lib/server/outbox';
+import { nudgeOutbox } from '@/lib/server/outbox/nudge';
 
 function makeReq(body: unknown): NextRequest {
   // Build init inline so optional fields (body) aren't typed as `T | undefined`,
@@ -90,6 +94,7 @@ describe('POST /api/auth/signup', () => {
     const outboxArg = (enqueueOutbox as unknown as ReturnType<typeof vi.fn>).mock.calls[0]?.[1];
     expect(outboxArg?.kind).toBe('email.verification_code');
     expect(outboxArg?.payload?.to).toBe('new@example.com');
+    expect(nudgeOutbox).toHaveBeenCalledWith('signup');
   });
 
   it('returns identical 201 + dummy-bcrypts on existing email (enumeration-resist)', async () => {
@@ -104,6 +109,7 @@ describe('POST /api/auth/signup', () => {
     expect(prismaMock.user.create).not.toHaveBeenCalled();
     expect(prismaMock.verificationCode.create).not.toHaveBeenCalled();
     expect(enqueueOutbox).not.toHaveBeenCalled();
+    expect(nudgeOutbox).not.toHaveBeenCalled();
   });
 
   it('returns identical 201 + dummy-bcrypts on existing phone (enumeration-resist)', async () => {
@@ -162,7 +168,8 @@ describe('POST /api/auth/signup', () => {
     const limited = calls.find((r) => r.status === 429)!;
     const body = await limited.json();
     expect(body.error).toBe('TOO_MANY_SIGNUP_ATTEMPTS');
-  });
+    // 5 real cost-12 bcrypt hashes in parallel overrun the 5s default on slower machines.
+  }, 20_000);
 
   it('rejects pwned passwords with PASSWORD_PWNED when PASSWORD_HIBP_CHECK=1', async () => {
     vi.stubEnv('PASSWORD_HIBP_CHECK', '1');

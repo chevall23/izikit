@@ -33,6 +33,7 @@ import { log } from '@/lib/server/observability/log';
 import { generateVerificationCode } from '@/lib/server/auth';
 import { dummyBcryptCompare } from '@/lib/server/auth/dummy-bcrypt';
 import { enqueueOutbox } from '@/lib/server/outbox';
+import { nudgeOutbox } from '@/lib/server/outbox/nudge';
 
 const VERIFICATION_TTL_MS = Number(process.env.AUTH_VERIFICATION_TTL_MIN ?? 15) * 60 * 1000;
 
@@ -109,6 +110,9 @@ export async function POST(req: NextRequest): Promise<Response> {
           },
         });
       });
+      // Fire-and-forget: send the code now instead of waiting ~10 min for the
+      // crons. Not awaited, so the timing floor below still hides the branch.
+      void nudgeOutbox('forgot-password');
       log.info('forgot-password code issued', { userId: user.id });
     } else {
       log.info('forgot-password no-user (enumeration-resist)');

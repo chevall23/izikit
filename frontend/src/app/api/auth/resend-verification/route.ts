@@ -26,6 +26,7 @@ import { makeRequestContext, withRequestContext } from '@/lib/server/observabili
 import { log } from '@/lib/server/observability/log';
 import { generateVerificationCode } from '@/lib/server/auth';
 import { enqueueOutbox } from '@/lib/server/outbox';
+import { nudgeOutbox } from '@/lib/server/outbox/nudge';
 
 const VERIFICATION_TTL_MS = Number(process.env.AUTH_VERIFICATION_TTL_MIN ?? 15) * 60 * 1000;
 
@@ -107,6 +108,8 @@ export async function POST(req: NextRequest): Promise<Response> {
           },
         });
       });
+      // Fire-and-forget: send the code now instead of waiting ~10 min for the crons.
+      void nudgeOutbox('resend-verification');
       log.info('resend-verification: code re-issued', { userId: user.id });
     } else {
       // No user, OR already verified — log without leaking which case it is.
