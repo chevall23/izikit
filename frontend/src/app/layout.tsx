@@ -8,6 +8,7 @@ import {
   SITE_NAME,
   SITE_URL,
 } from '@/lib/seo/site';
+import { Analytics } from '@/components/seo/Analytics';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 
@@ -60,6 +61,7 @@ export default function RootLayout({
         <ToastProvider>
           <AuthProvider>{children}</AuthProvider>
         </ToastProvider>
+        <Analytics />
       </body>
     </html>
   );
