@@ -13,6 +13,10 @@ const STATIC_PAGES: { path: string; priority: number }[] = [
   { path: '/blog', priority: 0.6 },
   { path: '/demande-immobiliere', priority: 0.5 },
   { path: '/contact', priority: 0.4 },
+  { path: '/a-propos', priority: 0.3 },
+  { path: '/cgu', priority: 0.1 },
+  { path: '/confidentialite', priority: 0.1 },
+  { path: '/mentions-legales', priority: 0.1 },
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

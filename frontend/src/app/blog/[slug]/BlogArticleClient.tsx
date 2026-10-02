@@ -359,7 +359,7 @@ export function BlogArticleClient({ initialArticle }: { initialArticle: ArticleD
             {/* CONTENT */}
             <div
               ref={contentRef}
-              className="prose prose-neutral max-w-none text-[15px] leading-[1.8] [&_h2]:mt-9 [&_h2]:mb-3.5 [&_h2]:text-[22px] [&_h2]:font-extrabold [&_h2]:tracking-[-0.02em] [&_h3]:mt-6 [&_h3]:mb-2.5 [&_h3]:text-[17px] [&_h3]:font-bold [&_p]:mb-4.5 [&_ul]:mb-4.5 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-2"
+              className="prose prose-neutral max-w-none text-[15px] leading-[1.8] [&_h2]:mt-9 [&_h2]:mb-3.5 [&_h2]:text-[22px] [&_h2]:font-extrabold [&_h2]:tracking-[-0.02em] [&_h3]:mt-6 [&_h3]:mb-2.5 [&_h3]:text-[17px] [&_h3]:font-bold [&_p]:mb-4.5 [&_ul]:mb-4.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-4.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-2 [&_a]:text-brand [&_a]:underline"
               // contentHtml is sanitized server-side at write time (admin-only
               // write path, see lib/server/blog/sanitize.ts) — never re-sanitized
               // here, never populated from unmoderated user input.

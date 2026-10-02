@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
+import { LEGAL_PAGES } from '@/lib/legal';
+import { SOCIAL_PROFILES } from '@/lib/seo/site';
 
 function InertFooterLink({ children }: { children: React.ReactNode }) {
   return (
@@ -24,10 +26,16 @@ const PLATFORM_LINKS: { label: string; href: string | null }[] = [
 ];
 const COUNTRY_LINKS = ['Bénin', 'Togo', "Côte d'Ivoire", 'Sénégal'];
 const HELP_LINKS: { label: string; href: string | null }[] = [
-  { label: "Centre d'aide", href: null },
-  { label: 'FAQ', href: null },
-  { label: 'Politique de confidentialité', href: null },
+  { label: 'À propos', href: '/a-propos' },
+  { label: "Conditions d'utilisation", href: '/cgu' },
+  { label: 'Politique de confidentialité', href: '/confidentialite' },
   { label: 'Contact', href: '/contact' },
+];
+
+const SOCIAL_LINKS = [
+  { label: 'f', title: 'Facebook', href: SOCIAL_PROFILES[0] },
+  { label: 'ig', title: 'Instagram', href: SOCIAL_PROFILES[1] },
+  { label: 'x', title: 'X (Twitter)', href: SOCIAL_PROFILES[2] },
 ];
 
 export function PublicFooter() {
@@ -44,14 +52,18 @@ export function PublicFooter() {
               et publier des annonces fiables.
             </p>
             <div className="mt-[18px] flex items-center gap-2.5">
-              {['f', 'in', 'x'].map((label) => (
-                <span
-                  key={label}
-                  title="Bientôt disponible"
-                  className="flex h-[34px] w-[34px] cursor-not-allowed items-center justify-center rounded-full bg-white/[0.08] text-[13px] font-bold select-none"
+              {SOCIAL_LINKS.map((s) => (
+                <a
+                  key={s.label}
+                  href={s.href}
+                  title={s.title}
+                  aria-label={`Habitat-Afrik sur ${s.title}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white/[0.08] text-[13px] font-bold"
                 >
-                  {label}
-                </span>
+                  {s.label}
+                </a>
               ))}
             </div>
           </div>
@@ -93,10 +105,12 @@ export function PublicFooter() {
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-[18px] text-xs text-white/52">
-          <p>© 2025 HABITAT-AFRIK. Tous droits réservés.</p>
+          <p>© {new Date().getFullYear()} HABITAT-AFRIK. Tous droits réservés.</p>
           <div className="flex flex-wrap items-center gap-4">
-            {['FR', 'EN', 'Conditions', 'Confidentialité'].map((l) => (
-              <span key={l}>{l}</span>
+            {LEGAL_PAGES.map((l) => (
+              <Link key={l.href} href={l.href} className="text-white/52">
+                {l.label}
+              </Link>
             ))}
           </div>
         </div>
