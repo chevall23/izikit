@@ -15,15 +15,11 @@ vi.mock('@/lib/server/outbox', () => ({
 vi.mock('@/lib/server/outbox/nudge', () => ({
   nudgeOutbox: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock('@/lib/server/auth/dummy-bcrypt', () => ({
-  dummyBcryptCompare: vi.fn().mockResolvedValue(undefined),
-}));
 vi.mock('@/lib/server/auth/hibp', () => ({
   isPwned: vi.fn().mockResolvedValue(false),
 }));
 
 import { POST } from './route';
-import { dummyBcryptCompare } from '@/lib/server/auth/dummy-bcrypt';
 import { isPwned } from '@/lib/server/auth/hibp';
 import { enqueueOutbox } from '@/lib/server/outbox';
 import { nudgeOutbox } from '@/lib/server/outbox/nudge';
@@ -97,28 +93,33 @@ describe('POST /api/auth/signup', () => {
     expect(nudgeOutbox).toHaveBeenCalledWith('signup');
   });
 
-  it('returns identical 201 + dummy-bcrypts on existing email (enumeration-resist)', async () => {
-    prismaMock.user.findFirst.mockResolvedValue({ id: 'u-existing' } as never);
+  it('returns 409 EMAIL_ALREADY_USED when the email belongs to an existing account', async () => {
+    prismaMock.user.findFirst.mockResolvedValue({
+      email: 'existing@example.com',
+      phone: '+22900000000',
+    } as never);
 
     const res = await POST(makeReq(baseBody({ email: 'existing@example.com' })));
-    expect(res.status).toBe(201);
-    const body = await res.json();
-    expect(body).toEqual({ ok: true });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe('EMAIL_ALREADY_USED');
 
-    expect(dummyBcryptCompare).toHaveBeenCalledTimes(1);
     expect(prismaMock.user.create).not.toHaveBeenCalled();
     expect(prismaMock.verificationCode.create).not.toHaveBeenCalled();
     expect(enqueueOutbox).not.toHaveBeenCalled();
     expect(nudgeOutbox).not.toHaveBeenCalled();
   });
 
-  it('returns identical 201 + dummy-bcrypts on existing phone (enumeration-resist)', async () => {
-    prismaMock.user.findFirst.mockResolvedValue({ id: 'u-existing' } as never);
+  it('returns 409 PHONE_ALREADY_USED when only the phone belongs to an existing account', async () => {
+    prismaMock.user.findFirst.mockResolvedValue({
+      email: 'someone-else@example.com',
+      phone: '+22967000099',
+    } as never);
 
     const res = await POST(makeReq(baseBody({ phone: '+22967000099' })));
-    expect(res.status).toBe(201);
-    expect(dummyBcryptCompare).toHaveBeenCalledTimes(1);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe('PHONE_ALREADY_USED');
     expect(prismaMock.user.create).not.toHaveBeenCalled();
+    expect(enqueueOutbox).not.toHaveBeenCalled();
   });
 
   it('rejects banned passwords with PASSWORD_BANNED before user lookup', async () => {

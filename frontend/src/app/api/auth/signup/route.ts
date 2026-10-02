@@ -1,11 +1,10 @@
 // AUTH-01 — POST /api/auth/signup
 //
-// Enumeration-resistant: returns identical 201 { ok: true } whether the
-// email/phone is new or already exists (D-22). Genuinely new users get a
-// User row (with name/phone/accountType from the Register screen), an
-// EMAIL_VERIFY VerificationCode, and an outbox email event — all in one tx.
-// Existing-email-or-phone branch runs `dummyBcryptCompare` so the request
-// takes ~the same time as the new-user branch (timing parity).
+// New users get a User row (with name/phone/accountType from the Register
+// screen), an EMAIL_VERIFY VerificationCode, and an outbox email event — all
+// in one tx. An email or phone already linked to an account returns 409
+// EMAIL_ALREADY_USED / PHONE_ALREADY_USED (deliberately NOT
+// enumeration-resistant — see step 4).
 //
 // Login stays phone-based (see /api/auth/login), but verification is still
 // by email — reuses the existing VerificationCode/outbox pipeline as-is
@@ -27,7 +26,6 @@ import { log } from '@/lib/server/observability/log';
 import { hashPassword, generateVerificationCode } from '@/lib/server/auth';
 import { isBanned } from '@/lib/server/auth/banned-passwords';
 import { isPwned } from '@/lib/server/auth/hibp';
-import { dummyBcryptCompare } from '@/lib/server/auth/dummy-bcrypt';
 import { enqueueOutbox } from '@/lib/server/outbox';
 import { nudgeOutbox } from '@/lib/server/outbox/nudge';
 
@@ -110,17 +108,30 @@ export async function POST(req: NextRequest): Promise<Response> {
     const rateFail = await limiter.check(req, email);
     if (rateFail) return rateFail;
 
-    // 4. Existing-email-or-phone branch — return identical 201 with timing
-    //    parity (D-22). `phone` is unique too (login identifier), so a
-    //    duplicate there needs the same enumeration-resistant treatment.
+    // 4. Existing-email-or-phone branch — product decision (2026-10-02): tell
+    //    the user which identifier is taken instead of a silent 201, which
+    //    stranded them on /verify-email waiting for a code that never comes
+    //    (notably owners of the ~1300 imported legacy accounts). Email wins
+    //    when both match. The rate limiter above still caps probing.
     const existing = await prisma.user.findFirst({
       where: { OR: [{ email }, { phone }] },
-      select: { id: true },
+      select: { email: true, phone: true },
     });
     if (existing) {
-      await dummyBcryptCompare(password);
-      log.info('signup duplicate (enumeration-resist)');
-      const res = NextResponse.json({ ok: true }, { status: 201 });
+      const emailTaken = existing.email === email;
+      log.info('signup duplicate', { field: emailTaken ? 'email' : 'phone' });
+      const res = NextResponse.json(
+        emailTaken
+          ? {
+              error: 'EMAIL_ALREADY_USED',
+              message: 'This email address is already linked to an account.',
+            }
+          : {
+              error: 'PHONE_ALREADY_USED',
+              message: 'This phone number is already linked to an account.',
+            },
+        { status: 409 },
+      );
       res.headers.set('x-request-id', ctx.requestId);
       return res;
     }

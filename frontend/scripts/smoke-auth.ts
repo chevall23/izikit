@@ -92,7 +92,7 @@ export async function main(): Promise<number> {
   try {
     console.log(`Smoke against ${BASE_URL} as ${TEST_EMAIL}\n`);
 
-    // 1. Signup — enumeration-resistant 201, NO cookies.
+    // 1. Signup — 201 for a fresh email, NO cookies.
     const signupRes = await fetch(`${BASE_URL}/api/auth/signup`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

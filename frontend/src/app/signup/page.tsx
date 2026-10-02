@@ -24,6 +24,10 @@ function errorMessage(err: unknown): string {
         return 'Mot de passe trop court (10 caractères minimum).';
       case 'PASSWORD_PWNED':
         return 'Ce mot de passe est apparu dans une fuite de données connue.';
+      case 'EMAIL_ALREADY_USED':
+        return 'Cette adresse e-mail est déjà liée à un compte. Connectez-vous ou utilisez « Mot de passe oublié ».';
+      case 'PHONE_ALREADY_USED':
+        return 'Ce numéro de téléphone est déjà lié à un compte. Connectez-vous ou utilisez un autre numéro.';
       case 'TOO_MANY_SIGNUP_ATTEMPTS':
         return 'Trop de tentatives. Réessayez dans quelques instants.';
       default:
