@@ -2,6 +2,7 @@
 // listing" rule. Slugs are built from structured fields (type, rooms,
 // transaction, city) — never from the free-text title, which on imported
 // listings often holds capitals, phone numbers or "1 FCFA" prices.
+import { cleanText, truncate } from './text';
 
 const TYPE_WORD: Record<string, string> = {
   VILLA: 'villa',
@@ -116,18 +117,6 @@ function formatPrice(price: number, currency: string): string {
 function priceLabel(l: Pick<ListingSeoFields, 'price' | 'currency' | 'transactionType'>) {
   if (l.price < MIN_REAL_PRICE) return null;
   return formatPrice(l.price, l.currency) + (l.transactionType === 'LOCATION' ? '/mois' : '');
-}
-
-const PHONE_RE = /\+?\d[\d\s.()-]{6,}\d/g;
-
-function cleanText(text: string): string {
-  return text.replace(PHONE_RE, '').replace(/\s+/g, ' ').trim();
-}
-
-function truncate(text: string, max: number): string {
-  if (text.length <= max) return text;
-  const cut = text.slice(0, max - 1);
-  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), max / 2)).replace(/[\s,.;:–—-]+$/, '')}…`;
 }
 
 /** Search-result title built from structured fields (the raw title stays the page's H1). */
