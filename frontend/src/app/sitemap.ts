@@ -2,6 +2,8 @@ import type { MetadataRoute } from 'next';
 import { prisma } from '@/lib/server/prisma';
 import { MIN_REAL_PRICE, listingPath } from '@/lib/seo/listing';
 import { absoluteUrl } from '@/lib/seo/site';
+import { landingPath } from '@/lib/seo/landing';
+import { landingSitemapTargets } from '@/lib/server/public/landing';
 
 // Built from the database on each request (the build has no DB access).
 export const dynamic = 'force-dynamic';
@@ -20,7 +22,7 @@ const STATIC_PAGES: { path: string; priority: number }[] = [
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [listings, agents, articles] = await Promise.all([
+  const [listings, agents, articles, landings] = await Promise.all([
     // Thin listings (placeholder price, no photo) are left out — see isThinListing.
     prisma.listing.findMany({
       where: { status: 'VERIFIED', price: { gte: MIN_REAL_PRICE }, photos: { some: {} } },
@@ -43,6 +45,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       where: { status: 'PUBLISHED' },
       select: { slug: true, updatedAt: true },
     }),
+    landingSitemapTargets(),
   ]);
 
   return [
@@ -50,6 +53,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: absoluteUrl(p.path),
       changeFrequency: 'daily' as const,
       priority: p.priority,
+    })),
+    // Two spellings of a city ("Lomé" / "Lome") share one slug and one page.
+    ...[...new Map(landings.map((t) => [landingPath(t), t])).entries()].map(([path, t]) => ({
+      url: absoluteUrl(path),
+      changeFrequency: 'daily' as const,
+      priority: t.city ? 0.7 : 0.8,
     })),
     ...listings.map((l) => ({
       url: absoluteUrl(listingPath(l)),

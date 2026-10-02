@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
 import { LEGAL_PAGES } from '@/lib/legal';
 import { SOCIAL_PROFILES } from '@/lib/seo/site';
+import { landingPath } from '@/lib/seo/landing';
 
 function InertFooterLink({ children }: { children: React.ReactNode }) {
   return (
@@ -85,7 +86,9 @@ export function PublicFooter() {
             <p className="mb-3.5 text-xs tracking-[0.12em] text-white/52 uppercase">Pays</p>
             <div className="flex flex-col gap-2.5">
               {COUNTRY_LINKS.map((l) => (
-                <InertFooterLink key={l}>{l}</InertFooterLink>
+                <Link key={l} href={landingPath({ country: l })} className="text-sm text-white/86">
+                  Immobilier {l === "Côte d'Ivoire" ? 'en' : 'au'} {l}
+                </Link>
               ))}
             </div>
           </div>
