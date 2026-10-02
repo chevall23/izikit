@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
+import { PRIVATE_PATH_PREFIXES } from './src/lib/seo/private-paths';
 
 // Static security headers applied to every response.
 // Set via next.config.ts (not middleware.ts) so the CDN edge can serve them
@@ -51,6 +52,13 @@ const config: NextConfig = {
         source: '/:path*',
         headers: securityHeaders,
       },
+      // Account / back-office pages and the JSON API never belong in search
+      // results (robots.txt also disallows the pages; this header covers
+      // URLs a crawler learns about anyway).
+      ...[...PRIVATE_PATH_PREFIXES, '/api'].map((prefix) => ({
+        source: `${prefix}/:path*`,
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
+      })),
     ];
   },
 };
