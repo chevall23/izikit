@@ -9,28 +9,10 @@ export const runtime = 'nodejs';
 
 import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
-import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/server/prisma';
+import { getPublishedArticle } from '@/lib/server/public/blog';
 import { log } from '@/lib/server/observability/log';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
-
-const ARTICLE_DETAIL_SELECT = {
-  id: true,
-  slug: true,
-  title: true,
-  excerpt: true,
-  contentHtml: true,
-  coverImageUrl: true,
-  tags: true,
-  authorName: true,
-  authorRole: true,
-  authorAvatarUrl: true,
-  status: true,
-  readTimeMinutes: true,
-  publishedAt: true,
-  viewCount: true,
-  category: { select: { slug: true, label: true, colorKey: true } },
-} as const satisfies Prisma.BlogArticleSelect;
 
 export async function GET(
   req: NextRequest,
@@ -40,11 +22,8 @@ export async function GET(
   return withRequestContext(reqCtx, async () => {
     const { slug } = await ctx.params;
 
-    const article = await prisma.blogArticle.findUnique({
-      where: { slug },
-      select: ARTICLE_DETAIL_SELECT,
-    });
-    if (!article || article.status !== 'PUBLISHED') {
+    const article = await getPublishedArticle(slug);
+    if (!article) {
       return NextResponse.json(
         { error: 'ARTICLE_NOT_FOUND', message: 'Article not found' },
         { status: 404, headers: { 'x-request-id': reqCtx.requestId } },
@@ -67,24 +46,7 @@ export async function GET(
     }
 
     return NextResponse.json(
-      {
-        id: article.id,
-        slug: article.slug,
-        title: article.title,
-        excerpt: article.excerpt,
-        contentHtml: article.contentHtml,
-        coverImageUrl: article.coverImageUrl,
-        tags: (article.tags as string[]) ?? [],
-        author: {
-          name: article.authorName,
-          role: article.authorRole,
-          avatarUrl: article.authorAvatarUrl,
-        },
-        category: article.category,
-        readTimeMinutes: article.readTimeMinutes,
-        publishedAt: article.publishedAt,
-        viewCount,
-      },
+      { ...article, viewCount },
       { status: 200, headers: { 'x-request-id': reqCtx.requestId } },
     );
   });

@@ -23,6 +23,7 @@
     "smoke:auth": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke-auth.ts",
     "drain:emails": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/drain-emails.ts",
     "import:legacy": "tsx --conditions=react-server --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/import-legacy.ts",
+    "import:legacy-blog": "tsx --conditions=react-server --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/import-legacy-blog.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
