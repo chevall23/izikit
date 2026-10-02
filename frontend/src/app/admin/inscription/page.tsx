@@ -5,7 +5,6 @@ import {
   UserPlus,
   User,
   Mail,
-  Phone,
   Lock,
   Shield,
   Eye,
@@ -17,6 +16,7 @@ import {
 } from 'lucide-react';
 import { AdminAuthCard } from '@/components/admin/AdminAuthCard';
 import { AdminField } from '@/components/admin/AdminField';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { useToast } from '@/contexts/ToastContext';
 import { api, ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -137,18 +137,20 @@ export default function AdminInscriptionPage() {
               required
             />
 
-            <AdminField
-              label="Téléphone professionnel"
-              name="phone"
-              type="tel"
-              icon={<Phone className="h-4 w-4" aria-hidden />}
-              meta="WhatsApp"
-              placeholder="+229 00 00 00 00"
-              autoComplete="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-            />
+            <div className="flex flex-col gap-2">
+              <label htmlFor="phone" className="text-[13px] font-semibold text-neutral-900">
+                Téléphone professionnel (WhatsApp)
+              </label>
+              <PhoneInput
+                id="phone"
+                name="phone"
+                required
+                value={phone}
+                onChange={setPhone}
+                boxClassName="min-h-[50px] rounded-lg"
+                inputClassName="text-[14px]"
+              />
+            </div>
 
             <AdminField
               label="Créer un mot de passe"

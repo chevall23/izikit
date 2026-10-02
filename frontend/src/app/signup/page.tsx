@@ -6,12 +6,10 @@ import { useRouter } from 'next/navigation';
 import { LogIn, Mail, Eye, EyeOff, User, Building2 } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { AuthSplitLayout } from '@/components/auth/AuthSplitLayout';
-import { PhoneField } from '@/components/ui/PhoneField';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { TextField } from '@/components/ui/TextField';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
-
-const DIAL_CODE = '+229';
 
 type AccountType = 'TENANT_BUYER' | 'OWNER_AGENT';
 
@@ -41,7 +39,7 @@ export default function SignupPage() {
   const router = useRouter();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [localNumber, setLocalNumber] = useState('');
+  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -54,7 +52,7 @@ export default function SignupPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const phone = `${DIAL_CODE}${localNumber.replace(/[\s\-()]/g, '')}`;
+      // `phone` carries its dial code; the server strips spaces (E.164).
       await api('/api/auth/signup', {
         method: 'POST',
         body: { firstName, lastName, email, phone, password, accountType },
@@ -120,16 +118,12 @@ export default function SignupPage() {
           />
         </div>
 
-        <PhoneField
-          label="Numéro de téléphone / WhatsApp"
-          flag="🇧🇯"
-          dialCode={DIAL_CODE}
-          placeholder="67 00 00 00"
-          required
-          autoComplete="tel-national"
-          value={localNumber}
-          onChange={(e) => setLocalNumber(e.target.value)}
-        />
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="signup-phone" className="text-[13px] font-medium text-neutral-700">
+            Numéro de téléphone / WhatsApp
+          </label>
+          <PhoneInput id="signup-phone" required value={phone} onChange={setPhone} />
+        </div>
 
         <TextField
           label="Adresse e-mail"

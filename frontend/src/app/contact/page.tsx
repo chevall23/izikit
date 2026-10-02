@@ -7,6 +7,7 @@ import { api, ApiError } from '@/lib/api';
 import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
 import { COUNTRY_FLAG } from '@/lib/alerts';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 
 const SUBJECTS: { value: string; label: string }[] = [
   { value: 'GENERAL', label: 'Question générale' },
@@ -181,11 +182,12 @@ export default function ContactPage() {
                     <p className="mb-1.5 text-[11px] font-semibold tracking-[0.08em] text-gray-500 uppercase">
                       Téléphone (facultatif)
                     </p>
-                    <input
+                    <PhoneInput
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+229 · Votre numéro"
-                      className="w-full rounded-lg border border-black/[0.08] bg-gray-50 px-3 py-2.5 text-[13px] outline-none placeholder:text-gray-400"
+                      onChange={setPhone}
+                      placeholder="Votre numéro"
+                      boxClassName="rounded-lg"
+                      inputClassName="px-3 py-2.5 text-[13px]"
                     />
                   </div>
                 </div>

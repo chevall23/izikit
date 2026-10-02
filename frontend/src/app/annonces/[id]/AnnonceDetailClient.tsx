@@ -54,6 +54,8 @@ import { COUNTRY_FLAG, formatDate } from '@/lib/alerts';
 
 import { listingPath } from '@/lib/seo/listing';
 import { ListingImage } from '@/components/public/ListingImage';
+import { PhoneInput } from '@/components/ui/PhoneInput';
+import { flagCodeForCountryName } from '@/components/ui/PhoneCountrySelect';
 import type { PublicListingDetail } from '@/lib/server/public/listing';
 
 const AMENITY_ICON: Record<string, typeof Waves> = {
@@ -699,13 +701,17 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
                   <p className="mb-1.5 text-[11px] font-semibold tracking-[0.08em] text-gray-500 uppercase">
                     Téléphone
                   </p>
-                  <input
-                    required
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+225 · Votre numéro"
-                    className="mb-3 w-full rounded-lg border border-black/[0.08] bg-gray-50 px-3 py-2.5 text-[13px] outline-none placeholder:text-gray-400"
-                  />
+                  <div className="mb-3">
+                    <PhoneInput
+                      required
+                      value={phone}
+                      onChange={setPhone}
+                      defaultCountry={flagCodeForCountryName(listing.country) ?? 'BJ'}
+                      placeholder="Votre numéro"
+                      boxClassName="rounded-lg"
+                      inputClassName="px-3 py-2.5 text-[13px]"
+                    />
+                  </div>
                   <p className="mb-1.5 text-[11px] font-semibold tracking-[0.08em] text-gray-500 uppercase">
                     Message
                   </p>

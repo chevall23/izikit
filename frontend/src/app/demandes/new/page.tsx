@@ -35,6 +35,7 @@ import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { api, ApiError } from '@/lib/api';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { PROPERTY_TYPE_LABEL, TRANSACTION_TYPE_LABEL, AMENITY_LABEL } from '@/lib/listings';
 import { cn } from '@/lib/utils';
 
@@ -792,13 +793,12 @@ export default function NouvelleDemandePage() {
                   >
                     Téléphone <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <PhoneInput
                     id="req-client-phone"
-                    type="tel"
                     value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                    placeholder="+225 07 00 00 00 00"
-                    className="rounded-lg border border-black/[0.08] bg-[#F9FAFB] px-3 py-2.5 text-[13px] text-neutral-900 placeholder:text-gray-400 focus:border-brand focus:outline-none"
+                    onChange={setClientPhone}
+                    boxClassName="rounded-lg"
+                    inputClassName="px-3 py-2.5 text-[13px]"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">

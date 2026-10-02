@@ -6,6 +6,28 @@ import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
+import { PhoneInput } from '@/components/ui/PhoneInput';
+
+function PhoneFieldRow({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-[13px] font-medium text-neutral-700">
+        {label}
+      </label>
+      <PhoneInput id={id} value={value} onChange={onChange} />
+    </div>
+  );
+}
 
 interface Organization {
   id: string;
@@ -155,10 +177,11 @@ export function AgencyCard({ onSaved }: { onSaved?: () => void }) {
             value={form.address}
             onChange={(e) => set('address', e.target.value)}
           />
-          <TextField
+          <PhoneFieldRow
+            id="agency-phone"
             label="Téléphone professionnel"
             value={form.phone}
-            onChange={(e) => set('phone', e.target.value)}
+            onChange={(v) => set('phone', v)}
           />
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -215,10 +238,11 @@ export function AgencyCard({ onSaved }: { onSaved?: () => void }) {
               value={form.linkedinHandle}
               onChange={(e) => set('linkedinHandle', e.target.value)}
             />
-            <TextField
+            <PhoneFieldRow
+              id="agency-whatsapp"
               label="WhatsApp Business"
               value={form.whatsappNumber}
-              onChange={(e) => set('whatsappNumber', e.target.value)}
+              onChange={(v) => set('whatsappNumber', v)}
             />
           </div>
         </div>

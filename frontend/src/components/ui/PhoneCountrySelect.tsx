@@ -4,24 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CountryFlag, type FlagCode } from './CountryFlag';
+import { DIAL_COUNTRIES } from './dial-countries';
 
-export interface DialCountry {
-  code: FlagCode;
-  name: string;
-  dial: string;
-}
-
-// The four markets come first, then common neighbours / diaspora.
-export const DIAL_COUNTRIES: DialCountry[] = [
-  { code: 'BJ', name: 'Bénin', dial: '+229' },
-  { code: 'TG', name: 'Togo', dial: '+228' },
-  { code: 'CI', name: "Côte d'Ivoire", dial: '+225' },
-  { code: 'SN', name: 'Sénégal', dial: '+221' },
-  { code: 'BF', name: 'Burkina Faso', dial: '+226' },
-  { code: 'ML', name: 'Mali', dial: '+223' },
-  { code: 'GN', name: 'Guinée', dial: '+224' },
-  { code: 'FR', name: 'France', dial: '+33' },
-];
+export { DIAL_COUNTRIES, type DialCountry } from './dial-countries';
 
 export function flagCodeForCountryName(name: string): FlagCode | null {
   return DIAL_COUNTRIES.find((c) => c.name === name)?.code ?? null;

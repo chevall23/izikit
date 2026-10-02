@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { CreditCard, Plus, Smartphone, Star, Trash2, X } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 
 type Operator = 'ORANGE_MONEY' | 'WAVE' | 'FREE_MONEY';
 
@@ -139,15 +140,23 @@ export function PaymentMethodsCard() {
                 ))}
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-[12.5px] font-medium text-neutral-700">
-              Numéro de téléphone
-              <input
+            {/* Not a wrapping <label>: a click on its text would open the country dropdown. */}
+            <div className="flex flex-col gap-1">
+              <label
+                htmlFor="payment-method-phone"
+                className="text-[12.5px] font-medium text-neutral-700"
+              >
+                Numéro de téléphone
+              </label>
+              <PhoneInput
+                id="payment-method-phone"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+229 97 12 34 56"
-                className="rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-[13.5px] text-neutral-900"
+                onChange={setPhone}
+                placeholder="97 12 34 56"
+                boxClassName="rounded-lg bg-white"
+                inputClassName="px-3 py-2 text-[13.5px]"
               />
-            </label>
+            </div>
           </div>
           <label className="flex flex-col gap-1 text-[12.5px] font-medium text-neutral-700">
             Étiquette (optionnel)
