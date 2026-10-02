@@ -19,6 +19,7 @@ import { createEmailLimiter } from '@/lib/server/middleware/rate-limit-by-email'
 import { createNotification } from '@/lib/server/notifications';
 import { listingInquiryNotification } from '@/lib/server/notifications/templates';
 import { getEmailQueue } from '@/lib/server/queues/email-queue-singleton';
+import { listingInquiryEmail } from '@/lib/server/emails/templates';
 import { log } from '@/lib/server/observability/log';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
@@ -100,16 +101,15 @@ export async function POST(
       });
       const queue = getEmailQueue();
       if (owner && queue) {
-        const subject =
-          parsed.data.type === 'VR_VISIT'
-            ? `Demande de visite VR — ${listing.title}`
-            : `Nouveau message — ${listing.title}`;
-        await queue.enqueue({
-          to: owner.email,
-          subject,
-          html: `<p>${parsed.data.name} (${parsed.data.phone}) : ${parsed.data.message}</p>`,
-          text: `${parsed.data.name} (${parsed.data.phone}): ${parsed.data.message}`,
+        const mail = listingInquiryEmail({
+          type: parsed.data.type,
+          listingTitle: listing.title,
+          name: parsed.data.name,
+          phone: parsed.data.phone,
+          ...(parsed.data.email !== undefined ? { email: parsed.data.email } : {}),
+          message: parsed.data.message,
         });
+        await queue.enqueue({ to: owner.email, ...mail });
       }
     } catch (err) {
       log.warn('listing-inquiry: notification/email dispatch failed', {

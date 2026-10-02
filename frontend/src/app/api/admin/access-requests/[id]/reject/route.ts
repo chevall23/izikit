@@ -10,6 +10,7 @@ import { prisma } from '@/lib/server/prisma';
 import { logAdminAction } from '@/lib/server/admin/audit';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { getEmailQueue } from '@/lib/server/queues/email-queue-singleton';
+import { adminAccessRejectedEmail } from '@/lib/server/emails/templates';
 import { log } from '@/lib/server/observability/log';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
@@ -89,9 +90,10 @@ export async function POST(
       if (queue) {
         await queue.enqueue({
           to: existing.email,
-          subject: 'Votre demande de compte administrateur',
-          html: `<p>Bonjour ${existing.name},</p><p>Votre demande d'accès administrateur n'a pas été retenue.${parsed.data.reason ? ` Motif : ${parsed.data.reason}` : ''}</p>`,
-          text: `Votre demande d'accès administrateur n'a pas été retenue.${parsed.data.reason ? ` Motif : ${parsed.data.reason}` : ''}`,
+          ...adminAccessRejectedEmail({
+            name: existing.name,
+            ...(parsed.data.reason ? { reason: parsed.data.reason } : {}),
+          }),
         });
       }
     } catch (err) {

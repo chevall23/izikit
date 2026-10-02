@@ -15,6 +15,7 @@ import { prisma } from '@/lib/server/prisma';
 import { logAdminAction } from '@/lib/server/admin/audit';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { getEmailQueue } from '@/lib/server/queues/email-queue-singleton';
+import { adminAccessApprovedEmail } from '@/lib/server/emails/templates';
 import { log } from '@/lib/server/observability/log';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
@@ -135,9 +136,7 @@ export async function POST(
       if (queue) {
         await queue.enqueue({
           to: existing.email,
-          subject: 'Votre demande de compte administrateur est approuvée',
-          html: `<p>Bonjour ${existing.name},</p><p>Votre demande d'accès administrateur a été approuvée. Vous pouvez maintenant vous connecter sur la page de connexion administrateur avec l'email et le mot de passe que vous avez fournis.</p>`,
-          text: `Votre demande d'accès administrateur a été approuvée. Connectez-vous avec l'email et le mot de passe fournis.`,
+          ...adminAccessApprovedEmail({ name: existing.name }),
         });
       }
     } catch (err) {

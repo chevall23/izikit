@@ -20,13 +20,14 @@
  */
 
 import type { CreateNotificationInput } from './index';
+import { formatAmount } from '../emails/templates';
 
 export function welcomeNotification(userId: string, email: string): CreateNotificationInput {
   return {
     userId,
     type: 'WELCOME',
-    title: 'Welcome!',
-    body: `Glad to have you on board, ${email}.`,
+    title: 'Bienvenue sur Habitat Afrik !',
+    body: `Ravi de vous compter parmi nous, ${email}.`,
     dedupeKey: `welcome:${userId}`,
   };
 }
@@ -44,8 +45,8 @@ export function paymentReceived(
   return {
     userId,
     type: 'PAYMENT_RECEIVED',
-    title: 'Payment received',
-    body: `Order ${orderId} for ${amount} ${currency} confirmed.`,
+    title: 'Paiement reçu',
+    body: `Votre paiement de ${formatAmount(amount, currency)} pour la commande ${orderId} est confirmé.`,
     data: { orderId, amount, currency },
     dedupeKey: `payment-received:${orderId}`,
   };

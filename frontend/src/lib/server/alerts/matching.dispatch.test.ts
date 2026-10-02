@@ -89,7 +89,7 @@ describe('runMatchingForNewRequest — channel fan-out', () => {
     expect(enqueue).toHaveBeenCalledTimes(1);
     expect(enqueue.mock.calls[0]?.[0]).toMatchObject({
       to: 'owner@example.com',
-      subject: 'Nouvelle correspondance pour "Villas à Cotonou"',
+      subject: 'Nouvelle correspondance pour votre alerte « Villas à Cotonou »',
     });
     // Best-effort immediate delivery — the cron remains the durable path.
     expect(drainOne).toHaveBeenCalledTimes(1);

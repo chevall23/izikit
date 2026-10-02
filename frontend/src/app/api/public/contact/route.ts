@@ -16,6 +16,7 @@ import { prisma } from '@/lib/server/prisma';
 import { redis } from '@/lib/server/redis';
 import { createEmailLimiter } from '@/lib/server/middleware/rate-limit-by-email';
 import { getEmailQueue } from '@/lib/server/queues/email-queue-singleton';
+import { contactMessageEmail } from '@/lib/server/emails/templates';
 import { log } from '@/lib/server/observability/log';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
@@ -72,9 +73,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       if (inboxEmail && queue) {
         await queue.enqueue({
           to: inboxEmail,
-          subject: `Nouveau message de contact — ${parsed.data.subject}`,
-          html: `<p>${parsed.data.firstName} ${parsed.data.lastName} (${parsed.data.email}) : ${parsed.data.message}</p>`,
-          text: `${parsed.data.firstName} ${parsed.data.lastName} (${parsed.data.email}): ${parsed.data.message}`,
+          ...contactMessageEmail({
+            firstName: parsed.data.firstName,
+            lastName: parsed.data.lastName,
+            email: parsed.data.email,
+            ...(parsed.data.phone !== undefined ? { phone: parsed.data.phone } : {}),
+            ...(parsed.data.country !== undefined ? { country: parsed.data.country } : {}),
+            subject: parsed.data.subject,
+            message: parsed.data.message,
+          }),
         });
       }
     } catch (err) {

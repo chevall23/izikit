@@ -18,6 +18,7 @@ import { prisma } from '@/lib/server/prisma';
 import { redis } from '@/lib/server/redis';
 import { createEmailLimiter } from '@/lib/server/middleware/rate-limit-by-email';
 import { getEmailQueue } from '@/lib/server/queues/email-queue-singleton';
+import { adminAccessCodeEmail } from '@/lib/server/emails/templates';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { log } from '@/lib/server/observability/log';
 import { hashPassword, generateVerificationCode } from '@/lib/server/auth';
@@ -123,9 +124,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       if (queue) {
         await queue.enqueue({
           to: email,
-          subject: 'Confirmez votre demande de compte administrateur',
-          html: `<p>Bonjour ${name},</p><p>Votre code de vérification est : <strong>${code}</strong></p><p>Ce code expire dans ${VERIFICATION_TTL_MIN} minutes.</p>`,
-          text: `Votre code de vérification est : ${code} (expire dans ${VERIFICATION_TTL_MIN} minutes)`,
+          ...adminAccessCodeEmail({ name, code, ttlMinutes: VERIFICATION_TTL_MIN }),
         });
       } else {
         log.warn('admin-access-request: email queue not configured, verification code not sent');

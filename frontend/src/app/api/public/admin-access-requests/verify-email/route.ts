@@ -17,6 +17,7 @@ import { prisma } from '@/lib/server/prisma';
 import { redis } from '@/lib/server/redis';
 import { createEmailLimiter } from '@/lib/server/middleware/rate-limit-by-email';
 import { getEmailQueue } from '@/lib/server/queues/email-queue-singleton';
+import { adminAccessNewRequestEmail } from '@/lib/server/emails/templates';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { log } from '@/lib/server/observability/log';
 import { VERIFICATION_CODE_REGEX, timingSafeCompare } from '@/lib/server/auth';
@@ -91,9 +92,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           superadmins.map((s) =>
             queue.enqueue({
               to: s.email,
-              subject: 'Nouvelle demande de compte administrateur',
-              html: `<p>Une nouvelle demande d'accès administrateur (${email}) attend votre validation dans le tableau de bord admin.</p>`,
-              text: `Une nouvelle demande d'accès administrateur (${email}) attend votre validation.`,
+              ...adminAccessNewRequestEmail({ requesterEmail: email }),
             }),
           ),
         );

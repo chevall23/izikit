@@ -23,6 +23,7 @@ import { createLogger } from '../logger';
 import { createNotification } from '../notifications';
 import { alertMatchNotification } from '../notifications/templates';
 import { getEmailQueue } from '../queues/email-queue-singleton';
+import { alertMatchEmail } from '../emails/templates';
 import { getSmsSender } from '../sms-singleton';
 import { getWhatsappSender } from '../whatsapp-singleton';
 import { PROPERTY_TYPE_LABEL, TRANSACTION_TYPE_LABEL } from '@/lib/listings';
@@ -84,33 +85,6 @@ const REQUEST_SELECT = {
   budgetMax: true,
   clientName: true,
 } as const;
-
-/** Minimal HTML escape for user-controlled values interpolated into email HTML. */
-function htmlEscape(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function renderAlertMatchEmailHtml(alertName: string, summary: string): string {
-  const appUrl = (process.env.APP_URL ?? '').replace(/\/+$/, '');
-  const cta = appUrl
-    ? `<p style="margin:16px 0 0"><a href="${appUrl}/alertes">Voir mes alertes secteurs</a></p>`
-    : '';
-  return [
-    `<p>Bonjour,</p>`,
-    `<p>Une nouvelle demande immobilière correspond à votre alerte secteur <strong>${htmlEscape(
-      alertName,
-    )}</strong> :</p>`,
-    `<p style="font-size:15px"><strong>${htmlEscape(summary)}</strong></p>`,
-    cta,
-  ]
-    .filter(Boolean)
-    .join('\n');
-}
 
 function priceRangesOverlap(
   aMin: number | null,
@@ -196,9 +170,7 @@ async function dispatchMatchNotifications(
       try {
         await queue.enqueue({
           to: owner.email,
-          subject: `Nouvelle correspondance pour "${alert.name}"`,
-          html: renderAlertMatchEmailHtml(alert.name, summary),
-          text: summary,
+          ...alertMatchEmail({ alertName: alert.name, summary }),
         });
         // Best-effort immediate delivery: local dev has no cron, and in
         // prod this shortens the up-to-5-min drain latency. The
