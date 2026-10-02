@@ -23,6 +23,26 @@ const TRANSACTION_WORD: Record<string, string> = {
   AUBERGE: 'auberge',
 };
 
+const TYPE_PLURAL: Record<string, string> = {
+  VILLA: 'Villas',
+  APPARTEMENT: 'Appartements',
+  PARCELLE: 'Parcelles',
+  DOMAINE: 'Domaines',
+  MAISON: 'Maisons',
+  BOUTIQUE: 'Boutiques',
+  BUREAU: 'Bureaux',
+  SALLE_FETE: 'Salles de fête',
+  SALLE_CONFERENCE: 'Salles de conférence',
+  IMMEUBLE: 'Immeubles',
+};
+
+const COUNTRY_IN: Record<string, string> = {
+  Bénin: 'au Bénin',
+  Togo: 'au Togo',
+  Sénégal: 'au Sénégal',
+  "Côte d'Ivoire": "en Côte d'Ivoire",
+};
+
 /** Below this price (FCFA) a listing is a placeholder ("1 FCFA", "0"), not a real offer. */
 export const MIN_REAL_PRICE = 1000;
 
@@ -139,6 +159,29 @@ export function listingSeoDescription(l: Omit<ListingSeoFields, 'id' | 'title'>)
     l.description ? cleanText(l.description) : null,
   ].filter(Boolean);
   return truncate(sentences.join(' '), 160);
+}
+
+export interface ListingSearchFilters {
+  propertyType?: string | undefined;
+  transactionType?: string | undefined;
+  city?: string | undefined;
+  country?: string | undefined;
+}
+
+/** Plain-French name of a listing search ("Appartements à louer à Cotonou"). */
+export function listingSearchHeading(f: ListingSearchFilters): string {
+  const type = f.propertyType ? TYPE_PLURAL[f.propertyType] : undefined;
+  const transaction = f.transactionType ? TRANSACTION_WORD[f.transactionType] : undefined;
+  const place = f.city
+    ? `à ${f.city}`
+    : f.country
+      ? (COUNTRY_IN[f.country] ?? `en ${f.country}`)
+      : undefined;
+  if (!type && !transaction && !place) {
+    return "Annonces immobilières au Bénin, au Togo, en Côte d'Ivoire et au Sénégal";
+  }
+  const head = type ?? (transaction ? 'Biens immobiliers' : 'Annonces immobilières');
+  return [head, transaction, place].filter(Boolean).join(' ');
 }
 
 /** schema.org RealEstateListing for the detail page. */

@@ -4,6 +4,7 @@ import {
   listingIdFromParam,
   listingJsonLd,
   listingPath,
+  listingSearchHeading,
   listingSeoDescription,
   listingSeoTitle,
   listingSlug,
@@ -128,6 +129,28 @@ describe('listingJsonLd', () => {
     expect(ld.url).toBe('https://habitat-afrik.com/annonces/x-cmabc123xyz');
     expect(ld.image).toEqual(['https://cdn.example/1.webp', 'https://cdn.example/2.webp']);
     expect(ld.offers).toMatchObject({ '@type': 'Offer', price: 500_000, priceCurrency: 'XOF' });
+  });
+});
+
+describe('listingSearchHeading', () => {
+  it('names the search in plain French', () => {
+    expect(listingSearchHeading({})).toBe(
+      "Annonces immobilières au Bénin, au Togo, en Côte d'Ivoire et au Sénégal",
+    );
+    expect(
+      listingSearchHeading({
+        propertyType: 'APPARTEMENT',
+        transactionType: 'LOCATION',
+        city: 'Cotonou',
+      }),
+    ).toBe('Appartements à louer à Cotonou');
+    expect(listingSearchHeading({ propertyType: 'PARCELLE', country: "Côte d'Ivoire" })).toBe(
+      "Parcelles en Côte d'Ivoire",
+    );
+    expect(listingSearchHeading({ transactionType: 'VENTE', country: 'Bénin' })).toBe(
+      'Biens immobiliers à vendre au Bénin',
+    );
+    expect(listingSearchHeading({ propertyType: 'SALLE_FETE' })).toBe('Salles de fête');
   });
 });
 
