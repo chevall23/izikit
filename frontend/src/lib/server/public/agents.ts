@@ -53,6 +53,10 @@ export async function searchPublicAgents(params: URLSearchParams) {
   const minRating = parsePositiveFloat(params.get('minRating'));
   const page = parsePage(params.get('page'));
   const limit = parseLimit(params.get('limit'));
+  // `sort=listings` ranks agents by their number of VERIFIED listings
+  // (most first) — used by the homepage "Nos agents certifiés" section and
+  // the /agents directory. Without it, agents come back newest-first.
+  const sortByListings = params.get('sort') === 'listings';
 
   // Rating average isn't a column — it's derived from AgentReview, so a
   // minRating filter can't live in the Prisma `where` directly. Compute
@@ -96,14 +100,39 @@ export async function searchPublicAgents(params: URLSearchParams) {
 
   const baseWhere = buildWhere();
 
+  // The listing count is a filtered relation count (status=VERIFIED), which
+  // Prisma's relation `_count` orderBy can't express — so rank in memory over
+  // every matching agent. Same scale tradeoff as the hero stats below.
+  async function findRowsByListingCount() {
+    const [ranked, matching] = await Promise.all([
+      prisma.listing.groupBy({
+        by: ['userId'],
+        where: { status: 'VERIFIED', user: baseWhere },
+        _count: { _all: true },
+      }),
+      prisma.user.findMany({
+        where: baseWhere,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select: AGENT_SELECT,
+      }),
+    ]);
+    const countByUser = new Map(ranked.map((r) => [r.userId, r._count._all]));
+    // Array.prototype.sort is stable: ties keep the newest-first order.
+    return matching
+      .sort((a, b) => (countByUser.get(b.id) ?? 0) - (countByUser.get(a.id) ?? 0))
+      .slice((page - 1) * limit, page * limit);
+  }
+
   const [rows, total, countryFacet, totalAgentsAll, agentCountries] = await Promise.all([
-    prisma.user.findMany({
-      where: baseWhere,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      skip: (page - 1) * limit,
-      take: limit,
-      select: AGENT_SELECT,
-    }),
+    sortByListings
+      ? findRowsByListingCount()
+      : prisma.user.findMany({
+          where: baseWhere,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          skip: (page - 1) * limit,
+          take: limit,
+          select: AGENT_SELECT,
+        }),
     prisma.user.count({ where: baseWhere }),
     prisma.user.groupBy({
       by: ['country'],

@@ -130,6 +130,44 @@ describe('GET /api/public/agents', () => {
     );
   });
 
+  it('sort=listings ranks agents by verified listing count, most first', async () => {
+    mockUserFindMany.mockReset();
+    mockUserFindMany
+      .mockResolvedValueOnce([
+        makeAgentRow({ id: 'agent-new' }),
+        makeAgentRow({ id: 'agent-top' }),
+        makeAgentRow({ id: 'agent-mid' }),
+        makeAgentRow({ id: 'agent-zero' }),
+      ] as never) // every matching agent, newest first
+      .mockResolvedValueOnce([] as never) // agentCountries
+      .mockResolvedValueOnce([] as never); // allAgentIds
+    const ranking = [
+      { userId: 'agent-top', _count: { _all: 7 } },
+      { userId: 'agent-mid', _count: { _all: 2 } },
+      { userId: 'agent-new', _count: { _all: 2 } },
+    ];
+    mockListingGroupBy.mockResolvedValue(ranking as never);
+
+    const res = await GET(makeGet('?sort=listings&limit=3'));
+    const body = await res.json();
+
+    expect(mockListingGroupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: 'VERIFIED',
+          user: expect.objectContaining({ accountType: 'OWNER_AGENT' }),
+        }),
+      }),
+    );
+    // Ties (agent-new / agent-mid, 2 each) keep newest-first order.
+    expect(body.items.map((a: { id: string }) => a.id)).toEqual([
+      'agent-top',
+      'agent-new',
+      'agent-mid',
+    ]);
+    expect(body.items.map((a: { listingCount: number }) => a.listingCount)).toEqual([7, 2, 2]);
+  });
+
   it('computes stats.fullyVerifiedPercent from agents with all 3 docs verified', async () => {
     mockLegalDocGroupBy
       .mockResolvedValueOnce([] as never) // docCounts (page)
