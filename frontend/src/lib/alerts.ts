@@ -1,3 +1,4 @@
+import { formatPrice } from './utils';
 import {
   type LucideIcon,
   Home,
@@ -81,8 +82,12 @@ export const COUNTRY_FLAG: Record<string, string> = {
   "Côte d'Ivoire": '🇨🇮',
 };
 
+/**
+ * Budget range in whole FCFA ("150 000 – 300 000 FCFA"). Never abbreviated
+ * to millions: "0.1M" / "0.0M" hid real budgets behind decimals.
+ */
 export function formatBudget(min: number | null, max: number | null): string {
-  const fmt = (n: number) => `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
+  const fmt = (n: number) => formatPrice(Math.round(n));
   if (min && max) return `${fmt(min)} – ${fmt(max)} FCFA`;
   if (min) return `À partir de ${fmt(min)} FCFA`;
   if (max) return `Jusqu'à ${fmt(max)} FCFA`;

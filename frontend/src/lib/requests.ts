@@ -68,13 +68,8 @@ export const COUNTRY_FLAG: Record<string, string> = {
   "Côte d'Ivoire": '🇨🇮',
 };
 
-export function formatBudget(min: number | null, max: number | null): string {
-  const fmt = (n: number) => `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (min && max) return `${fmt(min)} – ${fmt(max)} FCFA`;
-  if (min) return `À partir de ${fmt(min)} FCFA`;
-  if (max) return `Jusqu'à ${fmt(max)} FCFA`;
-  return 'Non précisé';
-}
+// Same budget formatting as alerts (whole FCFA, no "0.1M" decimals).
+export { formatBudget } from './alerts';
 
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR', {
