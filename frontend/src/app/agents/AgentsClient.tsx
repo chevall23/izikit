@@ -94,6 +94,7 @@ export function AgentsClient({ initialData }: { initialData: PublicAgentsRespons
     if (minRating !== null) params.set('minRating', String(minRating));
     params.set('page', String(page));
     params.set('limit', String(LIMIT));
+    params.set('sort', 'listings');
 
     api<PublicAgentsResponse>(`/api/public/agents?${params.toString()}`)
       .then((res) => {
@@ -157,8 +158,8 @@ export function AgentsClient({ initialData }: { initialData: PublicAgentsRespons
               Agents certifiés Habitat-Afrik
             </div>
             <h1 className="font-sora mb-4 text-[34px] leading-[1.06] font-extrabold tracking-[-0.05em] text-white lg:text-[56px]">
-              Des experts locaux{' '}
-              <em className="text-white/80 not-italic italic">à votre service</em>
+              Agents immobiliers <em className="text-white/80 not-italic italic">vérifiés</em> à
+              votre service
             </h1>
             <p className="mb-7 max-w-[520px] text-[15px] leading-relaxed text-white/82 lg:text-base">
               Tous nos agents sont vérifiés, certifiés et formés. Trouvez le professionnel idéal

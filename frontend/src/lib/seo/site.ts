@@ -11,11 +11,11 @@ export const SITE_URL = (process.env.APP_URL || `https://${PRODUCTION_HOST}`).re
 
 export const SITE_NAME = 'Habitat-Afrik';
 
-export const DEFAULT_TITLE =
-  "Habitat-Afrik — Annonces immobilières au Bénin, au Togo, en Côte d'Ivoire et au Sénégal";
+export const DEFAULT_TITLE = "Habitat-Afrik : immobilier au Bénin, Togo, Côte d'Ivoire, Sénégal";
 
+// Kept under ~155 characters so search results show it whole.
 export const DEFAULT_DESCRIPTION =
-  "Maisons, appartements, terrains, bureaux et boutiques à vendre ou à louer au Bénin, au Togo, en Côte d'Ivoire et au Sénégal. Des milliers d'annonces publiées par des agents immobiliers vérifiés.";
+  "Maisons, appartements, terrains et bureaux à vendre ou à louer au Bénin, au Togo, en Côte d'Ivoire et au Sénégal, publiés par des agents vérifiés.";
 
 export const BRAND_COLOR = '#376bff';
 
@@ -88,13 +88,18 @@ export interface PageSeo {
  * `openGraph` replaces the layout's whole object — so every public page
  * builds its own with the site defaults through this helper.
  */
+/** Search results cut titles around this length; the brand suffix is dropped rather than truncated. */
+const MAX_TITLE_LENGTH = 60;
+
 export function pageMetadata(p: PageSeo): Metadata {
-  const fullTitle = p.absoluteTitle ? p.title : `${p.title} | ${SITE_NAME}`;
+  const suffixed = `${p.title} | ${SITE_NAME}`;
+  const absolute = p.absoluteTitle || suffixed.length > MAX_TITLE_LENGTH;
+  const fullTitle = absolute ? p.title : suffixed;
   const images = p.image
     ? [{ url: p.image.url, ...(p.image.alt && { alt: p.image.alt }) }]
     : [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: SITE_NAME }];
   return {
-    title: p.absoluteTitle ? { absolute: p.title } : p.title,
+    title: absolute ? { absolute: p.title } : p.title,
     description: p.description,
     alternates: { canonical: p.path },
     ...(p.noindex && { robots: { index: false, follow: true } }),

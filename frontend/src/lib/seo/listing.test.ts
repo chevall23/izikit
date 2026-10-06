@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isThinListing,
+  listingHeading,
   listingIdFromParam,
   listingJsonLd,
   listingPath,
@@ -159,5 +160,18 @@ describe('isThinListing', () => {
     expect(isThinListing({ price: 1, photoCount: 5 })).toBe(true);
     expect(isThinListing({ price: 150_000, photoCount: 0 })).toBe(true);
     expect(isThinListing({ price: 150_000, photoCount: 2 })).toBe(false);
+  });
+});
+
+describe('listingHeading', () => {
+  it('builds the H1 from structured fields, without the price', () => {
+    expect(
+      listingHeading({
+        propertyType: 'APPARTEMENT',
+        transactionType: 'LOCATION',
+        city: 'Abomey-Calavi',
+        bedrooms: 1,
+      }),
+    ).toBe('Appartement 1 chambre à louer à Abomey-Calavi');
   });
 });

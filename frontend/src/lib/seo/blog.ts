@@ -6,7 +6,7 @@ export interface ArticleSeoFields {
   excerpt: string;
   contentHtml: string;
   coverImageUrl: string | null;
-  author: { name: string };
+  author: { name: string; role?: string | null; avatarUrl?: string | null };
   category: { label: string };
   tags: string[];
   publishedAt: string | null;
@@ -28,6 +28,19 @@ export function articleSeoDescription(a: Pick<ArticleSeoFields, 'excerpt' | 'con
   return truncate(cleanText(source), 160);
 }
 
+/** Team / brand bylines ("Équipe Habitat-Afrik") are an Organization, anything else a Person. */
+const ORGANIZATION_BYLINE = /équipe|equipe|rédaction|redaction|habitat[- ]?afrik/i;
+
+function articleAuthor(a: ArticleSeoFields['author']) {
+  if (ORGANIZATION_BYLINE.test(a.name)) return { '@type': 'Organization', name: a.name };
+  return {
+    '@type': 'Person',
+    name: a.name,
+    ...(a.role && { jobTitle: a.role }),
+    ...(a.avatarUrl && { image: a.avatarUrl }),
+  };
+}
+
 export function articleJsonLd(a: ArticleSeoFields, url: string, siteUrl: string) {
   return {
     '@context': 'https://schema.org',
@@ -37,7 +50,7 @@ export function articleJsonLd(a: ArticleSeoFields, url: string, siteUrl: string)
     ...(a.coverImageUrl && { image: [a.coverImageUrl] }),
     ...(a.publishedAt && { datePublished: a.publishedAt }),
     dateModified: a.updatedAt,
-    author: { '@type': 'Organization', name: a.author.name },
+    author: articleAuthor(a.author),
     publisher: { '@id': `${siteUrl}/#organization` },
     mainEntityOfPage: url,
     articleSection: a.category.label,

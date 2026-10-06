@@ -102,7 +102,7 @@ export default function DashboardPage() {
       {/* BANNER */}
       <div className="relative min-h-[190px] overflow-hidden rounded-2xl px-4 pt-5 lg:min-h-[210px] lg:px-7 lg:pt-6.5">
         <img
-          src="https://storage.googleapis.com/banani-generated-images/generated-images/d9ab3d61-12e5-405a-88d0-d06e89ea8c46.jpg"
+          src="/images/app/dashboard.webp"
           alt=""
           className="absolute inset-0 h-full w-full object-cover object-center"
         />

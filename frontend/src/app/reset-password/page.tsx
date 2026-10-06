@@ -110,7 +110,7 @@ function ResetPasswordForm() {
   if (!email) {
     return (
       <AuthSplitLayout
-        heroImageSrc="https://storage.googleapis.com/banani-generated-images/generated-images/e38fdee5-5b44-46e2-a87d-385be6b8686a.jpg"
+        heroImageSrc="/images/app/auth.webp"
         heroImageAlt="Architecture moderne ouest-africaine"
         heroTitle={<>Réinitialisation du mot de passe</>}
         heroSubtitle="Des milliers de biens vérifiés. Des agents de confiance. Une plateforme simple."
@@ -170,7 +170,7 @@ function ResetPasswordForm() {
 
   return (
     <AuthSplitLayout
-      heroImageSrc="https://storage.googleapis.com/banani-generated-images/generated-images/e38fdee5-5b44-46e2-a87d-385be6b8686a.jpg"
+      heroImageSrc="/images/app/auth.webp"
       heroImageAlt="Architecture moderne ouest-africaine"
       heroTitle={
         <>

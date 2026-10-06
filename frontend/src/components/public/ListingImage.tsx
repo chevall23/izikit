@@ -8,6 +8,11 @@ import Image from 'next/image';
 
 const OPTIMIZABLE_HOST = /^https:\/\/([a-z0-9-]+\.)*(r2\.dev|res\.cloudinary\.com)\//i;
 
+/** Local /paths and hosts declared in next.config `images.remotePatterns`. */
+export function isOptimizableImage(src: string): boolean {
+  return src.startsWith('/') || OPTIMIZABLE_HOST.test(src);
+}
+
 export function ListingImage({
   src,
   alt,
@@ -30,7 +35,7 @@ export function ListingImage({
       sizes={sizes}
       priority={priority}
       className={className}
-      unoptimized={!OPTIMIZABLE_HOST.test(src)}
+      unoptimized={!isOptimizableImage(src)}
     />
   );
 }

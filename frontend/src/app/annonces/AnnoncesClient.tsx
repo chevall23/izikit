@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
+import { PopularSearches, type PopularSearchLink } from '@/components/public/PopularSearches';
 import { InitialsAvatar } from '@/components/dashboard/InitialsAvatar';
 import { PROPERTY_TYPE_LABEL, TRANSACTION_TYPE_LABEL, formatListingPrice } from '@/lib/listings';
 import { COUNTRY_FLAG, formatDate } from '@/lib/alerts';
@@ -36,6 +37,7 @@ export interface AnnoncesInitialState {
   page: number;
   data: PublicListingsResponse | null;
   heading: string;
+  popularSearches: PopularSearchLink[];
 }
 
 const SORT_LABEL: Record<string, string> = {
@@ -944,6 +946,7 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
         </div>
       </div>
 
+      <PopularSearches links={initial.popularSearches} />
       <PublicFooter />
     </div>
   );

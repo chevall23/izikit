@@ -31,9 +31,9 @@ export function ListingCard({ listing }: { listing: PublicListingItem }) {
         <p className="text-[11px] font-semibold tracking-[0.08em] text-brand uppercase">
           {PROPERTY_TYPE_LABEL[listing.propertyType] ?? listing.propertyType}
         </p>
-        <h2 className="mt-1 line-clamp-2 text-[15px] font-bold text-neutral-900">
+        <h3 className="mt-1 line-clamp-2 text-[15px] font-bold text-neutral-900">
           <Link href={listingPath(listing)}>{listing.title}</Link>
-        </h2>
+        </h3>
         <p className="mt-1.5 flex items-center gap-1 text-[13px] text-gray-500">
           <MapPin className="h-3.5 w-3.5" aria-hidden />
           {listing.city}, {listing.country}

@@ -44,3 +44,14 @@ describe('articleJsonLd', () => {
     });
   });
 });
+
+describe('articleJsonLd author', () => {
+  it('describes a named writer as a Person with their role', () => {
+    const ld = articleJsonLd(
+      { ...article, author: { name: 'Fatou Diarra', role: 'Conseillère', avatarUrl: null } },
+      'https://habitat-afrik.com/blog/x',
+      'https://habitat-afrik.com',
+    );
+    expect(ld.author).toEqual({ '@type': 'Person', name: 'Fatou Diarra', jobTitle: 'Conseillère' });
+  });
+});

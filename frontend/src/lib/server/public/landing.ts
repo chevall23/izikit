@@ -4,8 +4,13 @@
 import 'server-only';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/server/prisma';
-import { slugify } from '@/lib/seo/listing';
-import { COUNTRY_BY_SLUG, LANDING_TRANSACTIONS, LANDING_TYPES } from '@/lib/seo/landing';
+import { listingSearchHeading, slugify } from '@/lib/seo/listing';
+import {
+  COUNTRY_BY_SLUG,
+  LANDING_TRANSACTIONS,
+  LANDING_TYPES,
+  landingPath,
+} from '@/lib/seo/landing';
 import type { PublicListingItem } from '@/lib/server/public/listings';
 
 const UNKNOWN_CITY = 'À préciser';
@@ -126,6 +131,38 @@ export async function loadLanding(f: LandingFilter, page: number) {
 
 /** Every combination with enough listings to deserve a sitemap entry. */
 export async function landingSitemapTargets(): Promise<LandingFilter[]> {
+  return (await landingCounts()).map((e) => e.filter);
+}
+
+/**
+ * The most-stocked city searches ("Appartements à louer à Cotonou"), for the
+ * "Recherches populaires" internal-linking block: city-level pages with a
+ * full offer first (the long-tail queries), padded with plain city pages.
+ */
+export async function popularLandingTargets(
+  limit = 12,
+): Promise<{ filter: LandingFilter; count: number }[]> {
+  const entries = (await landingCounts()).filter((e) => e.filter.city);
+  const byCount = (a: { count: number }, b: { count: number }) => b.count - a.count;
+  const offers = entries
+    .filter((e) => e.filter.propertyType && e.filter.transactionType)
+    .sort(byCount);
+  const cities = entries
+    .filter((e) => !e.filter.propertyType && !e.filter.transactionType)
+    .sort(byCount);
+  return [...offers.slice(0, limit - 4), ...cities.slice(0, 4)];
+}
+
+/** popularLandingTargets as ready-to-render links (label + landing URL). */
+export async function popularSearchLinks(limit = 12) {
+  return (await popularLandingTargets(limit)).map(({ filter, count }) => ({
+    href: landingPath(filter),
+    label: listingSearchHeading(filter),
+    count,
+  }));
+}
+
+async function landingCounts(): Promise<{ filter: LandingFilter; count: number }[]> {
   const groups = await prisma.listing.groupBy({
     by: ['country', 'city', 'propertyType', 'transactionType'],
     where: { status: 'VERIFIED', city: { not: UNKNOWN_CITY } },
@@ -159,5 +196,5 @@ export async function landingSitemapTargets(): Promise<LandingFilter[]> {
       }
     }
   }
-  return [...counts.values()].filter((e) => e.count >= LANDING_MIN_LISTINGS).map((e) => e.filter);
+  return [...counts.values()].filter((e) => e.count >= LANDING_MIN_LISTINGS);
 }

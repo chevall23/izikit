@@ -1,10 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { api } from '@/lib/api';
 import { COUNTRIES as COUNTRY_CITIES } from '@/lib/countries';
+import { landingPath } from '@/lib/seo/landing';
+import { listingSearchHeading } from '@/lib/seo/listing';
 
 interface Country {
   id: string;
@@ -22,37 +25,33 @@ const COUNTRIES: Country[] = [
     id: 'benin',
     flag: '🇧🇯',
     name: 'Bénin',
-    imageUrl:
-      'https://storage.googleapis.com/banani-generated-images/generated-images/c8389639-8363-4a79-9c55-cea7463cdb76.jpg',
+    imageUrl: '/images/home/benin.webp',
     copy: 'Un marché dynamique porté par les villas familiales, résidences sécurisées et terrains à fort potentiel autour de Cotonou.',
   },
   {
     id: 'togo',
     flag: '🇹🇬',
     name: 'Togo',
-    imageUrl:
-      'https://storage.googleapis.com/banani-generated-images/generated-images/7ebb9db1-34d5-45ed-91db-d424a2312f78.jpg',
+    imageUrl: '/images/home/togo.webp',
     copy: 'Une offre concentrée autour de Lomé, idéale pour les terrains, immeubles de rapport et projets résidentiels bien situés.',
   },
   {
     id: 'ci',
     flag: '🇨🇮',
     name: "Côte d'Ivoire",
-    imageUrl:
-      'https://storage.googleapis.com/banani-generated-images/generated-images/bb426b40-a88a-45e0-a37c-0021748f695c.jpg',
+    imageUrl: '/images/home/cote-d-ivoire.webp',
     copy: 'Le marché le plus actif de la plateforme, dominé par Abidjan et une forte demande sur les villas haut de gamme.',
   },
   {
     id: 'senegal',
     flag: '🇸🇳',
     name: 'Sénégal',
-    imageUrl:
-      'https://storage.googleapis.com/banani-generated-images/generated-images/7c7bae4b-fef7-4187-9493-0e89947ae7bc.jpg',
+    imageUrl: '/images/home/senegal.webp',
     copy: 'Un marché recherché pour la location longue durée, les résidences modernes et les investissements sécurisés.',
   },
 ];
 
-interface CountryFacet {
+export interface CountryFacet {
   value: string;
   count: number;
   minPrice: number | null;
@@ -68,10 +67,17 @@ function formatMinPrice(price: number): string {
   return `Dès ${price}`;
 }
 
-export function CountryDestinationsSection() {
-  const [countryFacets, setCountryFacets] = useState<CountryFacet[] | null>(null);
+// `initialFacets` comes from the server (page.tsx); the client fetch is only
+// a fallback. Cards link to the indexable /immobilier/<pays> landing pages.
+export function CountryDestinationsSection({
+  initialFacets,
+}: {
+  initialFacets: CountryFacet[] | null;
+}) {
+  const [countryFacets, setCountryFacets] = useState<CountryFacet[] | null>(initialFacets);
 
   useEffect(() => {
+    if (initialFacets !== null) return;
     let cancelled = false;
     api<PublicListingsResponse>('/api/public/listings?limit=1')
       .then((res) => {
@@ -85,7 +91,7 @@ export function CountryDestinationsSection() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialFacets]);
 
   return (
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -102,11 +108,17 @@ export function CountryDestinationsSection() {
           >
             <div className="relative h-[176px] bg-gray-100">
               <Link
-                href={`/annonces?country=${encodeURIComponent(c.name)}`}
-                aria-label={`Explorer le ${c.name}`}
+                href={landingPath({ country: c.name })}
+                aria-label={listingSearchHeading({ country: c.name })}
                 className="absolute inset-0 z-10"
               />
-              <img src={c.imageUrl} alt={c.name} className="h-full w-full object-cover" />
+              <Image
+                src={c.imageUrl}
+                alt={listingSearchHeading({ country: c.name })}
+                fill
+                sizes="(min-width: 1024px) 300px, (min-width: 640px) 50vw, 100vw"
+                className="object-cover"
+              />
               <div
                 className="pointer-events-none absolute inset-0"
                 style={{
@@ -139,10 +151,11 @@ export function CountryDestinationsSection() {
                 </div>
               </div>
               <Link
-                href={`/annonces?country=${encodeURIComponent(c.name)}`}
+                href={landingPath({ country: c.name })}
                 className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand"
               >
-                Explorer le {c.name} <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                {listingSearchHeading({ country: c.name })}{' '}
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden />
               </Link>
             </div>
           </div>

@@ -52,7 +52,7 @@ import {
 } from '@/lib/listings';
 import { COUNTRY_FLAG, formatDate } from '@/lib/alerts';
 
-import { listingPath } from '@/lib/seo/listing';
+import { listingHeading, listingPath } from '@/lib/seo/listing';
 import { ListingImage } from '@/components/public/ListingImage';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { flagCodeForCountryName } from '@/components/ui/PhoneCountrySelect';
@@ -247,7 +247,7 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
             Annonces
           </Link>
           <span className="text-gray-300">/</span>
-          <span className="font-medium text-neutral-900">{listing.title}</span>
+          <span className="font-medium text-neutral-900">{listingHeading(listing)}</span>
         </div>
       </div>
 
@@ -370,9 +370,14 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
                   </div>
                 </div>
               </div>
-              <h1 className="font-sora mb-3 text-2xl font-extrabold tracking-[-0.03em] lg:text-[26px]">
-                {listing.title}
+              {/* H1 from structured fields (uniform, keyword-rich); the agent's
+                  own title, often terse or in capitals, follows as a subtitle. */}
+              <h1 className="font-sora mb-1.5 text-2xl font-extrabold tracking-[-0.03em] lg:text-[26px]">
+                {listingHeading(listing)}
               </h1>
+              {listing.title.trim().toLowerCase() !== listingHeading(listing).toLowerCase() && (
+                <p className="mb-3 text-[15px] font-semibold text-neutral-700">{listing.title}</p>
+              )}
               <div className="mb-4.5 flex items-center gap-1.5 text-sm text-gray-500">
                 <MapPin className="h-[15px] w-[15px] flex-shrink-0 text-brand" aria-hidden />
                 {listing.city}

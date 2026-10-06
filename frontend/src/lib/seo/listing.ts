@@ -44,6 +44,11 @@ const COUNTRY_IN: Record<string, string> = {
   "Côte d'Ivoire": "en Côte d'Ivoire",
 };
 
+/** "au Bénin", "en Côte d'Ivoire" — the right French preposition for a country. */
+export function inCountry(country: string): string {
+  return COUNTRY_IN[country] ?? `en ${country}`;
+}
+
 /** Below this price (FCFA) a listing is a placeholder ("1 FCFA", "0"), not a real offer. */
 export const MIN_REAL_PRICE = 1000;
 
@@ -119,15 +124,20 @@ function priceLabel(l: Pick<ListingSeoFields, 'price' | 'currency' | 'transactio
   return formatPrice(l.price, l.currency) + (l.transactionType === 'LOCATION' ? '/mois' : '');
 }
 
-/** Search-result title built from structured fields (the raw title stays the page's H1). */
-export function listingSeoTitle(l: Omit<ListingSeoFields, 'id' | 'title' | 'description'>): string {
+/** Page H1 built from structured fields ("Appartement 1 chambre à louer à Cotonou"). */
+export function listingHeading(l: ListingSlugFields): string {
   const parts = [capitalize(TYPE_WORD[l.propertyType] ?? 'bien immobilier')];
   if (l.bedrooms && l.bedrooms > 0) parts.push(`${l.bedrooms} chambre${l.bedrooms > 1 ? 's' : ''}`);
   const transaction = TRANSACTION_WORD[l.transactionType];
   if (transaction) parts.push(transaction);
   if (l.city) parts.push(`à ${l.city}`);
+  return parts.join(' ');
+}
+
+/** Search-result title: the structured heading plus the price. */
+export function listingSeoTitle(l: Omit<ListingSeoFields, 'id' | 'title' | 'description'>): string {
   const price = priceLabel(l);
-  return parts.join(' ') + (price ? ` — ${price}` : '');
+  return listingHeading(l) + (price ? ` — ${price}` : '');
 }
 
 export function listingSeoDescription(l: Omit<ListingSeoFields, 'id' | 'title'>): string {
@@ -161,11 +171,7 @@ export interface ListingSearchFilters {
 export function listingSearchHeading(f: ListingSearchFilters): string {
   const type = f.propertyType ? TYPE_PLURAL[f.propertyType] : undefined;
   const transaction = f.transactionType ? TRANSACTION_WORD[f.transactionType] : undefined;
-  const place = f.city
-    ? `à ${f.city}`
-    : f.country
-      ? (COUNTRY_IN[f.country] ?? `en ${f.country}`)
-      : undefined;
+  const place = f.city ? `à ${f.city}` : f.country ? inCountry(f.country) : undefined;
   if (!type && !transaction && !place) {
     return "Annonces immobilières au Bénin, au Togo, en Côte d'Ivoire et au Sénégal";
   }

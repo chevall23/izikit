@@ -143,6 +143,7 @@ export default async function LandingPage({ params, searchParams }: Props) {
       </div>
 
       <main className="mx-auto max-w-[1280px] px-4 py-8 lg:px-7">
+        <h2 className="sr-only">Liste des annonces</h2>
         {data.items.length === 0 ? (
           <p className="py-16 text-center text-sm text-gray-500">
             Aucune annonce pour le moment.{' '}

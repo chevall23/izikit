@@ -1,4 +1,6 @@
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { isOptimizableImage } from '@/components/public/ListingImage';
 
 function initialsFrom(name: string | null, email: string): string {
   const source = name?.trim() || email;
@@ -39,9 +41,12 @@ export function InitialsAvatar({
 }) {
   if (avatarUrl) {
     return (
-      <img
+      <Image
         src={avatarUrl}
         alt={name ?? email}
+        width={size}
+        height={size}
+        unoptimized={!isOptimizableImage(avatarUrl)}
         className={cn('flex-shrink-0 rounded-full object-cover', className)}
         style={{ width: size, height: size }}
       />

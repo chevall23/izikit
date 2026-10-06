@@ -11,6 +11,7 @@ import {
   searchPublicListings,
   DEFAULT_LIMIT,
 } from '@/lib/server/public/listings';
+import { popularSearchLinks } from '@/lib/server/public/landing';
 import { AnnoncesClient } from './AnnoncesClient';
 
 export const dynamic = 'force-dynamic';
@@ -53,7 +54,10 @@ export default async function AnnoncesPage({ searchParams }: Props) {
     priceMin: undefined,
     priceMax: undefined,
   };
-  const data = await searchPublicListings(search).catch(() => null);
+  const [data, popularSearches] = await Promise.all([
+    searchPublicListings(search).catch(() => null),
+    popularSearchLinks().catch(() => []),
+  ]);
 
   return (
     <AnnoncesClient
@@ -67,6 +71,7 @@ export default async function AnnoncesPage({ searchParams }: Props) {
         page: q.page,
         data,
         heading: listingSearchHeading(q),
+        popularSearches,
       }}
     />
   );

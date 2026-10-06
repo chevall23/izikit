@@ -6,8 +6,10 @@ import { BadgeCheck, ShieldCheck } from 'lucide-react';
 import { api } from '@/lib/api';
 import { InitialsAvatar } from '@/components/dashboard/InitialsAvatar';
 import { COUNTRY_FLAG } from '@/lib/alerts';
+import { ListingImage } from '@/components/public/ListingImage';
+import { HOME_AGENTS_LIMIT } from './home-config';
 
-interface PublicAgentItem {
+export interface PublicAgentItem {
   id: string;
   name: string | null;
   avatarUrl: string | null;
@@ -42,12 +44,15 @@ function SideCardSkeleton() {
   );
 }
 
-export function CertifiedAgentsSection() {
-  const [agents, setAgents] = useState<PublicAgentItem[] | null>(null);
+// `initial` comes from the server (page.tsx) so the agents and their profile
+// links are in the home page HTML; the client fetch is only a fallback.
+export function CertifiedAgentsSection({ initial }: { initial: PublicAgentItem[] | null }) {
+  const [agents, setAgents] = useState<PublicAgentItem[] | null>(initial);
 
   useEffect(() => {
+    if (initial !== null) return;
     let cancelled = false;
-    api<PublicAgentsResponse>('/api/public/agents?limit=4')
+    api<PublicAgentsResponse>(`/api/public/agents?limit=${HOME_AGENTS_LIMIT}&sort=listings`)
       .then((res) => {
         if (cancelled) return;
         setAgents(res.items);
@@ -59,7 +64,7 @@ export function CertifiedAgentsSection() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initial]);
 
   if (agents === null) {
     return (
@@ -82,20 +87,21 @@ export function CertifiedAgentsSection() {
     );
   }
 
-  // "En avant" — the agent with the most real, verified listings among the
-  // fetched batch. A real activity signal rather than an editorial pick,
-  // since the data model has no featured/spotlight flag.
-  const featured = agents.reduce((best, a) => (a.listingCount > best.listingCount ? a : best));
-  const others = agents.filter((a) => a.id !== featured.id).slice(0, 3);
+  // The API returns agents ranked by verified listing count (most first), so
+  // the top one is "en avant" and the next three follow in descending order.
+  // A real activity signal rather than an editorial pick, since the data
+  // model has no featured/spotlight flag.
+  const [featured, ...rest] = agents as [PublicAgentItem, ...PublicAgentItem[]];
+  const others = rest.slice(0, 3);
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_0.9fr]">
       <div className="relative min-h-[340px] overflow-hidden rounded-[24px] border border-black/[0.06] lg:min-h-[520px]">
         {featured.avatarUrl ? (
-          <img
+          <ListingImage
             src={featured.avatarUrl}
             alt={featured.name ?? 'Agent Habitat-Afrik'}
-            className="h-full w-full object-cover"
+            sizes="(min-width: 1024px) 700px, 100vw"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-sky-500 to-sky-700">
@@ -124,7 +130,9 @@ export function CertifiedAgentsSection() {
             Agent en avant
           </p>
           <p className="font-sora mb-2 text-[28px] leading-tight font-extrabold tracking-[-0.04em] lg:text-[34px]">
-            {featured.name ?? 'Agent Habitat-Afrik'}
+            <Link href={`/agents/${featured.id}`} className="after:absolute after:inset-0">
+              {featured.name ?? 'Agent Habitat-Afrik'}
+            </Link>
           </p>
           <p className="mb-3.5 text-[15px] text-white/86">
             Agent immobilier

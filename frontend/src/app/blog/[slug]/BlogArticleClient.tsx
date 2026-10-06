@@ -24,7 +24,7 @@ import { api } from '@/lib/api';
 import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
 import { formatDate } from '@/lib/alerts';
-import { cloudinaryOptimize } from '@/lib/listings';
+import { ListingImage } from '@/components/public/ListingImage';
 
 interface ArticleCategory {
   slug: string;
@@ -345,11 +345,14 @@ export function BlogArticleClient({ initialArticle }: { initialArticle: ArticleD
 
             {/* HERO IMAGE */}
             {article.coverImageUrl ? (
-              <img
-                src={cloudinaryOptimize(article.coverImageUrl, 900)}
-                alt={article.title}
-                className="mb-9 h-[220px] w-full rounded-2xl object-cover lg:h-[420px]"
-              />
+              <div className="relative mb-9 h-[220px] w-full overflow-hidden rounded-2xl lg:h-[420px]">
+                <ListingImage
+                  src={article.coverImageUrl}
+                  alt={article.title}
+                  sizes="(min-width: 1024px) 860px, 100vw"
+                  priority
+                />
+              </div>
             ) : (
               <div className="mb-9 flex h-[220px] w-full items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-blue-50 lg:h-[420px]">
                 <Home className="h-10 w-10 text-brand/40" aria-hidden />
@@ -395,11 +398,13 @@ export function BlogArticleClient({ initialArticle }: { initialArticle: ArticleD
                       className="flex flex-col overflow-hidden rounded-xl border border-black/[0.08]"
                     >
                       {a.coverImageUrl ? (
-                        <img
-                          src={cloudinaryOptimize(a.coverImageUrl, 400)}
-                          alt={a.title}
-                          className="h-[140px] w-full object-cover"
-                        />
+                        <div className="relative h-[140px] w-full">
+                          <ListingImage
+                            src={a.coverImageUrl}
+                            alt={a.title}
+                            sizes="(min-width: 1024px) 300px, 100vw"
+                          />
+                        </div>
                       ) : (
                         <div className="flex h-[140px] w-full items-center justify-center bg-gradient-to-br from-sky-50 to-blue-50">
                           <Home className="h-6 w-6 text-brand/40" aria-hidden />

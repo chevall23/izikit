@@ -45,3 +45,21 @@ describe('agentJsonLd', () => {
     ).not.toHaveProperty('aggregateRating');
   });
 });
+
+describe('agent SEO without a city', () => {
+  const noCity = { ...agent, city: null, bio: null };
+
+  it('uses the right French preposition for the country', () => {
+    expect(agentSeoTitle(noCity)).toBe('Kofi Atta, agent immobilier au Bénin');
+    expect(agentSeoTitle({ ...noCity, country: "Côte d'Ivoire" })).toBe(
+      "Kofi Atta, agent immobilier en Côte d'Ivoire",
+    );
+  });
+
+  it('pads the description when the agent has no bio', () => {
+    const d = agentSeoDescription(noCity);
+    expect(d).toContain('au Bénin sur Habitat-Afrik.');
+    expect(d.length).toBeGreaterThan(100);
+    expect(d.length).toBeLessThanOrEqual(160);
+  });
+});

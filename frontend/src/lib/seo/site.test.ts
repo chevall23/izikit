@@ -39,6 +39,13 @@ describe('pageMetadata', () => {
     expect(m.openGraph).toMatchObject({ images: [{ url: 'https://cdn.example/1.webp' }] });
     expect(m.robots).toEqual({ index: false, follow: true });
   });
+
+  it('drops the brand suffix when it would push the title past 60 characters', () => {
+    const title = 'Appartement 1 chambre à louer à Abomey-Calavi — 60 000 FCFA/mois';
+    const m = pageMetadata({ title, description: 'Desc', path: '/annonces/x' });
+    expect(m.title).toEqual({ absolute: title });
+    expect(m.openGraph).toMatchObject({ title });
+  });
 });
 
 describe('absoluteUrl', () => {

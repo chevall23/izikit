@@ -19,10 +19,12 @@ const inter = Inter({
   display: 'swap',
 });
 
-// Headline font for the Banani "HABITATAFRIK EQUIPE" flow (login, signup, …).
+// Headline font (login, signup, home and public page titles). 700/800 are
+// loaded because headings use font-bold / font-extrabold — without them the
+// browser synthesizes a blurry faux-bold from the 600 file.
 const sora = Sora({
   subsets: ['latin'],
-  weight: ['600'],
+  weight: ['600', '700', '800'],
   variable: '--font-sora',
   display: 'swap',
 });

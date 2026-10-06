@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { listingPath } from '@/lib/seo/listing';
 import { ListingImage } from '@/components/public/ListingImage';
@@ -8,6 +8,7 @@ import { Loader2, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { PROPERTY_TYPE_LABEL, TRANSACTION_TYPE_LABEL } from '@/lib/listings';
+import { FEATURED_LISTINGS_LIMIT } from './home-config';
 
 interface PublicListingItem {
   id: string;
@@ -29,26 +30,31 @@ interface Facet {
   count: number;
 }
 
-interface PublicListingsResponse {
+export interface PublicListingsResponse {
   items: PublicListingItem[];
   facets: { propertyTypes: Facet[] };
 }
-
-const LIMIT = 6;
 
 function formatPriceParts(price: number, currency: string): { amount: string; unit: string } {
   return { amount: price.toLocaleString('fr-FR'), unit: currency === 'XOF' ? 'FCFA' : currency };
 }
 
-export function FeaturedListingsSection() {
+// `initial` is the unfiltered first batch, rendered on the server (page.tsx)
+// so the home page HTML carries real links to listings.
+export function FeaturedListingsSection({ initial }: { initial: PublicListingsResponse | null }) {
   const [propertyType, setPropertyType] = useState('');
-  const [data, setData] = useState<PublicListingsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<PublicListingsResponse | null>(initial);
+  const [loading, setLoading] = useState(initial === null);
+  const skipInitialFetch = useRef(initial !== null);
 
   useEffect(() => {
+    if (skipInitialFetch.current) {
+      skipInitialFetch.current = false;
+      return;
+    }
     let cancelled = false;
     setLoading(true);
-    const params = new URLSearchParams({ limit: String(LIMIT) });
+    const params = new URLSearchParams({ limit: String(FEATURED_LISTINGS_LIMIT) });
     if (propertyType) params.set('propertyType', propertyType);
 
     api<PublicListingsResponse>(`/api/public/listings?${params.toString()}`)
@@ -165,9 +171,9 @@ export function FeaturedListingsSection() {
                   </div>
                 </div>
                 <div className="p-[18px]">
-                  <p className="mb-2 text-[17px] leading-snug font-bold lg:text-[19px]">
-                    {listing.title}
-                  </p>
+                  <h3 className="mb-2 text-[17px] leading-snug font-bold lg:text-[19px]">
+                    <Link href={listingPath(listing)}>{listing.title}</Link>
+                  </h3>
                   <p className="mb-2 flex items-center gap-1.5 text-[13px] text-gray-500">
                     <MapPin className="h-3.5 w-3.5 flex-shrink-0" aria-hidden />
                     {listing.city}, {listing.country}

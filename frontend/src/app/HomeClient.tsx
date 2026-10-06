@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   Search,
@@ -17,9 +18,11 @@ import {
 import { cn } from '@/lib/utils';
 import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
-import { CertifiedAgentsSection } from './CertifiedAgentsSection';
-import { FeaturedListingsSection } from './FeaturedListingsSection';
-import { CountryDestinationsSection } from './CountryDestinationsSection';
+import { CertifiedAgentsSection, type PublicAgentItem } from './CertifiedAgentsSection';
+import { FeaturedListingsSection, type PublicListingsResponse } from './FeaturedListingsSection';
+import { CountryDestinationsSection, type CountryFacet } from './CountryDestinationsSection';
+import { PopularSearches, type PopularSearchLink } from '@/components/public/PopularSearches';
+import { landingPath } from '@/lib/seo/landing';
 import { MobileCountryPicker } from './MobileCountryPicker';
 import { PROPERTY_TYPE_LABEL, TRANSACTION_TYPE_LABEL } from '@/lib/listings';
 import { COUNTRIES as COUNTRY_CITIES } from '@/lib/countries';
@@ -45,15 +48,14 @@ const HOW_IT_WORKS = [
   },
 ];
 
-function InertLink({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <span title="Bientôt disponible" className={cn('cursor-not-allowed select-none', className)}>
-      {children}
-    </span>
-  );
+/** Home page data rendered on the server (page.tsx) so its HTML links to listings, agents and landing pages. */
+export interface HomeInitialData {
+  listings: (PublicListingsResponse & { facets: { countries: CountryFacet[] } }) | null;
+  agents: PublicAgentItem[] | null;
+  popularSearches: PopularSearchLink[];
 }
 
-export function HomeClient() {
+export function HomeClient({ initial }: { initial: HomeInitialData }) {
   const router = useRouter();
 
   const [searchCountry, setSearchCountry] = useState('');
@@ -87,10 +89,13 @@ export function HomeClient() {
       <section className="px-4 pt-4 pb-14 lg:px-7 lg:pt-[18px]">
         <div className="mx-auto max-w-[1280px]">
           <div className="relative min-h-[420px] overflow-hidden rounded-[28px] lg:min-h-[520px]">
-            <img
-              src="https://storage.googleapis.com/banani-generated-images/generated-images/86caad36-d7d3-4c45-974f-554d1e16d0d1.jpg"
+            <Image
+              src="/images/home/hero.webp"
               alt="Villa premium en Afrique de l'Ouest"
-              className="absolute inset-0 h-full w-full object-cover"
+              fill
+              priority
+              sizes="(min-width: 1280px) 1280px, 100vw"
+              className="object-cover"
             />
             <div
               className="absolute inset-0"
@@ -117,13 +122,14 @@ export function HomeClient() {
                   ['🇨🇮', "Côte d'Ivoire"],
                   ['🇸🇳', 'Sénégal'],
                 ].map(([flag, name]) => (
-                  <InertLink
+                  <Link
                     key={name}
-                    className="inline-flex items-center gap-2 rounded-full bg-white/12 px-3.5 py-2.5 text-[13px] font-semibold text-white backdrop-blur-sm"
+                    href={landingPath({ country: name! })}
+                    className="inline-flex items-center gap-2 rounded-full bg-white/12 px-3.5 py-2.5 text-[13px] font-semibold text-white backdrop-blur-sm hover:bg-white/20"
                   >
                     <span>{flag}</span>
                     {name}
-                  </InertLink>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -269,7 +275,7 @@ export function HomeClient() {
       {/* PREMIUM LISTINGS */}
       <section className="px-4 py-9 lg:px-7">
         <div className="mx-auto max-w-[1280px]">
-          <FeaturedListingsSection />
+          <FeaturedListingsSection initial={initial.listings} />
         </div>
       </section>
 
@@ -293,9 +299,11 @@ export function HomeClient() {
             </p>
           </div>
 
-          <CountryDestinationsSection />
+          <CountryDestinationsSection initialFacets={initial.listings?.facets.countries ?? null} />
         </div>
       </section>
+
+      <PopularSearches links={initial.popularSearches} />
 
       {/* AGENTS */}
       <section className="px-4 py-9 lg:px-7">
@@ -321,7 +329,7 @@ export function HomeClient() {
             </Link>
           </div>
 
-          <CertifiedAgentsSection />
+          <CertifiedAgentsSection initial={initial.agents} />
         </div>
       </section>
 
@@ -350,7 +358,7 @@ export function HomeClient() {
                 <p className="mb-2.5 text-xs tracking-[0.14em] text-gray-400 uppercase">
                   {step.number}
                 </p>
-                <p className="mb-2.5 text-[22px] font-bold lg:text-[24px]">{step.title}</p>
+                <h3 className="mb-2.5 text-[22px] font-bold lg:text-[24px]">{step.title}</h3>
                 <p className="mx-auto max-w-[320px] text-sm text-gray-500">{step.text}</p>
               </div>
             ))}

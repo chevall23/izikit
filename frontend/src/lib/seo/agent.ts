@@ -1,4 +1,5 @@
 // SEO helpers for public agent profiles (/agents/[id]).
+import { inCountry } from './listing';
 import { cleanText, truncate } from './text';
 
 export interface AgentSeoFields {
@@ -10,14 +11,16 @@ export interface AgentSeoFields {
   stats: { activeListings: number; reviewCount: number; ratingAvg: number | null };
 }
 
+/** "à Cotonou (Bénin)", "à Cotonou", "au Bénin" — or null when unknown. */
 function place(a: Pick<AgentSeoFields, 'city' | 'country'>): string | null {
-  if (a.city && a.country) return `${a.city} (${a.country})`;
-  return a.city ?? a.country;
+  if (a.city && a.country) return `à ${a.city} (${a.country})`;
+  if (a.city) return `à ${a.city}`;
+  return a.country ? inCountry(a.country) : null;
 }
 
 export function agentSeoTitle(a: AgentSeoFields): string {
   const where = place(a);
-  const role = where ? `agent immobilier à ${where}` : 'agent immobilier';
+  const role = where ? `agent immobilier ${where}` : 'agent immobilier';
   return a.name ? `${a.name}, ${role}` : role.charAt(0).toUpperCase() + role.slice(1);
 }
 
@@ -27,9 +30,13 @@ export function agentSeoDescription(a: AgentSeoFields): string {
   const where = place(a);
   const lead =
     `${n} annonce${n > 1 ? 's' : ''} immobilière${n > 1 ? 's' : ''} de ${who}` +
-    (where ? ` à ${where}` : '') +
+    (where ? ` ${where}` : '') +
     ' sur Habitat-Afrik.';
-  return truncate([lead, a.bio ? cleanText(a.bio) : null].filter(Boolean).join(' '), 160);
+  // Without a bio the lead alone is too thin for a search snippet.
+  const more = a.bio
+    ? cleanText(a.bio)
+    : 'Agent vérifié : consultez ses biens à vendre ou à louer et contactez cet agent directement.';
+  return truncate(`${lead} ${more}`, 160);
 }
 
 export function agentJsonLd(a: AgentSeoFields, url: string) {

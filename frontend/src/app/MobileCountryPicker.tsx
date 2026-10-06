@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { landingPath } from '@/lib/seo/landing';
 
 const STAR = 'M0,-1 L0.588,0.809 L-0.951,-0.309 L0.951,-0.309 L-0.588,0.809 Z';
 
@@ -51,14 +52,13 @@ const FLAGS: { name: string; flag: React.ReactNode }[] = [
 export function MobileCountryPicker() {
   return (
     <section className="px-4 pb-6 lg:hidden">
-      <h2 className="mb-4 font-sora text-[20px] font-bold tracking-[-0.02em]">
-        Choisissez un pays
-      </h2>
+      {/* Visual label, not a document heading — the page outline stays on the content sections. */}
+      <p className="mb-4 font-sora text-[20px] font-bold tracking-[-0.02em]">Choisissez un pays</p>
       <ul className="grid grid-cols-4 gap-2">
         {FLAGS.map((f) => (
           <li key={f.name}>
             <Link
-              href={`/annonces?country=${encodeURIComponent(f.name)}`}
+              href={landingPath({ country: f.name })}
               className="flex flex-col items-center gap-2"
             >
               <span className="relative block h-[60px] w-[60px] overflow-hidden rounded-full shadow-[0_2px_8px_rgba(15,23,42,0.18)] ring-2 ring-white">

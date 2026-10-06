@@ -8,15 +8,15 @@ import { AgentsClient } from './AgentsClient';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = pageMetadata({
-  title: 'Agents immobiliers vérifiés au Bénin, au Togo, en Côte d’Ivoire et au Sénégal',
+  title: "Agents immobiliers vérifiés en Afrique de l'Ouest",
   description:
-    "Trouvez un agent immobilier de confiance : profils vérifiés, avis clients et annonces en cours à Cotonou, Lomé, Abidjan, Dakar et partout en Afrique de l'Ouest.",
+    'Trouvez un agent immobilier de confiance à Cotonou, Lomé, Abidjan ou Dakar : profils vérifiés, avis clients et annonces en cours.',
   path: '/agents',
 });
 
 export default async function AgentsPage() {
-  const data = await searchPublicAgents(new URLSearchParams({ page: '1', limit: '9' })).catch(
-    () => null,
-  );
+  const data = await searchPublicAgents(
+    new URLSearchParams({ page: '1', limit: '9', sort: 'listings' }),
+  ).catch(() => null);
   return <AgentsClient initialData={data} />;
 }
