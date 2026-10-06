@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -270,6 +270,27 @@ export default function NouvelleDemandePage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState('');
+
+  // Prefill from the home page "Vous ne trouvez pas ?" card
+  // (?transactionType=&propertyType=&country=&city=&budgetMax=&phone=).
+  // Read once after mount: the page is statically rendered.
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const t = sp.get('transactionType');
+    if (t && t in TRANSACTION_TYPE_ICON) setTransaction(t as Transaction);
+    const p = sp.get('propertyType');
+    if (p && p in PROPERTY_TYPE_ICON) handlePropertyTypeChange(p as PropertyType);
+    const country = COUNTRIES.find((c) => c.name === sp.get('country'));
+    if (country) {
+      setPays(country.name);
+      const city = sp.get('city');
+      setVille(city && country.cities.includes(city) ? city : (country.cities[0] ?? ''));
+    }
+    const budget = Number(sp.get('budgetMax'));
+    if (Number.isFinite(budget) && budget > 0) setBudgetMax(String(Math.round(budget)));
+    const phone = sp.get('phone')?.trim();
+    if (phone) setTelephone(phone.slice(0, 40));
+  }, []); // one-shot prefill on mount
 
   const availableCities = COUNTRIES.find((c) => c.name === pays)?.cities ?? [];
   const phoneCountry: FlagCode = phoneCountryCode ?? flagCodeForCountryName(pays) ?? 'BJ';
