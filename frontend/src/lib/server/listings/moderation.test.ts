@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import {
   approveListing,
   rejectListing,
@@ -9,14 +9,14 @@ import {
 
 function makeDb(): ModerationClient & {
   listing: {
-    findUnique: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
-    delete: ReturnType<typeof vi.fn>;
+    findUnique: Mock<ModerationClient['listing']['findUnique']>;
+    update: Mock<ModerationClient['listing']['update']>;
+    delete: Mock<ModerationClient['listing']['delete']>;
   };
 } {
   return {
     listing: {
-      findUnique: vi.fn(),
+      findUnique: vi.fn<ModerationClient['listing']['findUnique']>(),
       update: vi.fn(async (args: { data: Record<string, unknown> }) => ({
         id: 'l1',
         ...args.data,

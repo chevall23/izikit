@@ -24,7 +24,8 @@
     "drain:emails": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/drain-emails.ts",
     "import:legacy": "tsx --conditions=react-server --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/import-legacy.ts",
     "import:legacy-blog": "tsx --conditions=react-server --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/import-legacy-blog.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "migrate:private-documents": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/migrate-private-documents.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.699.0",
@@ -63,7 +64,8 @@
     "tailwindcss": "^4.3.0",
     "tsx": "^4.19.2",
     "typescript": "^6.0.3",
-    "vitest": "^3.2.4",
-    "vitest-mock-extended": "^3.1.1"
+    "vite": "^7.3.7",
+    "vitest": "^4.1.11",
+    "vitest-mock-extended": "^5.1.1"
   }
 }
