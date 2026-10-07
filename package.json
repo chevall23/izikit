@@ -4,7 +4,7 @@
   "private": true,
   "description": "Solo-dev SaaS monolith starter — Next.js 16 (full-stack: API routes + Server Actions) + Prisma + Auth (cookie/CSRF/JWT) — fork via gh repo create --template",
   "engines": {
-    "node": ">=20",
+    "node": ">=20.19",
     "pnpm": ">=9"
   },
   "packageManager": "pnpm@9.15.0",
