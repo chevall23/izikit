@@ -106,7 +106,8 @@ const PatchBody = z.object({
   city: z.string().trim().max(120).optional(),
   country: z.string().trim().max(120).optional(),
   bio: z.string().trim().max(1000).optional(),
-  avatarUrl: z.string().trim().url().max(2000).optional(),
+  // https only: rejects javascript:/data:/http: values rendered as <img src>.
+  avatarUrl: z.string().trim().url().startsWith('https://').max(2000).optional(),
 });
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {

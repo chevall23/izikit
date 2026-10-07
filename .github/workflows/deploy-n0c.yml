@@ -102,12 +102,20 @@ jobs:
         env:
           N0C_SSH_KEY: ${{ secrets.N0C_SSH_KEY }}
           N0C_SSH_PORT: ${{ vars.N0C_SSH_PORT || '5022' }}
+          # Pinned server host key (output of `ssh-keyscan -p <port> <host>`).
+          # When set, a spoofed server is rejected instead of trusted on first use.
+          N0C_SSH_KNOWN_HOSTS: ${{ secrets.N0C_SSH_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
           printf '%s\n' "$N0C_SSH_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          ssh-keyscan -p "$N0C_SSH_PORT" -H "${{ secrets.N0C_SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          if [ -n "${N0C_SSH_KNOWN_HOSTS:-}" ]; then
+            printf '%s\n' "$N0C_SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+          else
+            echo "::warning::N0C_SSH_KNOWN_HOSTS secret not set — trusting the host key on first use"
+            ssh-keyscan -p "$N0C_SSH_PORT" -H "${{ secrets.N0C_SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          fi
 
       - name: Ensure app root exists
         env:

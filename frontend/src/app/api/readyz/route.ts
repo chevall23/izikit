@@ -2,8 +2,13 @@
  * Readiness probe — "this instance is fit to serve traffic".
  * Pings DB and (if configured) Redis. Returns 503 if either is down so
  * the load balancer routes traffic away until they recover.
+ *
+ * Anonymous callers only get { ok, time } + the status code. The per-check
+ * details (latency, raw driver error messages that can name hosts) need
+ * `Authorization: Bearer ${CRON_SECRET}`.
  */
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
+import { verifyCronSecret } from '@/lib/server/cron/auth';
 import { prisma } from '@/lib/server/prisma';
 import { redis } from '@/lib/server/redis';
 
@@ -21,7 +26,7 @@ async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const checks: Record<string, { ok: boolean; latencyMs?: number; error?: string }> = {};
   let allOk = true;
 
@@ -55,8 +60,9 @@ export async function GET() {
     }
   }
 
+  const detailed = verifyCronSecret(req) === null;
   return NextResponse.json(
-    { ok: allOk, time: new Date().toISOString(), checks },
+    { ok: allOk, time: new Date().toISOString(), ...(detailed && { checks }) },
     { status: allOk ? 200 : 503 },
   );
 }

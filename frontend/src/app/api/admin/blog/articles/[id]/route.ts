@@ -80,11 +80,11 @@ const UpdateBody = z.object({
   excerpt: z.string().trim().min(1).max(400).optional(),
   contentHtml: z.string().trim().min(1).max(50_000).optional(),
   categoryId: z.string().trim().min(1).optional(),
-  coverImageUrl: z.string().trim().url().max(500).nullable().optional(),
+  coverImageUrl: z.string().trim().url().startsWith('https://').max(500).nullable().optional(),
   tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
   authorName: z.string().trim().min(1).max(120).optional(),
   authorRole: z.string().trim().max(120).nullable().optional(),
-  authorAvatarUrl: z.string().trim().url().max(500).nullable().optional(),
+  authorAvatarUrl: z.string().trim().url().startsWith('https://').max(500).nullable().optional(),
   status: z.enum(STATUSES).optional(),
   isFeatured: z.boolean().optional(),
 });

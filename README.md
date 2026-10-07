@@ -162,7 +162,7 @@ Les fichiers uploadés renvoient une URL R2 (`R2_PUBLIC_URL/<key>`) servie direc
 | Méthode | Path          | Réponse                                            |
 | ------- | ------------- | -------------------------------------------------- |
 | GET     | `/api/health` | `{ ok: true, time }` (liveness)                    |
-| GET     | `/api/readyz` | `{ ok, db, redis }` (readiness, 503 si l'un tombe) |
+| GET     | `/api/readyz` | `{ ok, time }` (readiness, 503 si la base ou Redis tombe) — détail par service avec `Authorization: Bearer $CRON_SECRET` |
 
 Shapes complètes des requêtes/réponses : lis les route handlers sous [`frontend/src/app/api/`](frontend/src/app/api/). Les route handlers SONT le contrat.
 

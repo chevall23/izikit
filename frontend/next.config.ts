@@ -6,10 +6,26 @@ import { PRIVATE_PATH_PREFIXES } from './src/lib/seo/private-paths';
 // Set via next.config.ts (not middleware.ts) so the CDN edge can serve them
 // from cache without invoking a function — zero per-request latency.
 //
-// CSP is intentionally NOT included here. App Router pages need a per-request
-// nonce (server-rendered) for inline scripts; ship CSP via middleware.ts when
-// the first frontend page lands. For now, the API-only surface doesn't render
-// HTML and doesn't need CSP.
+// CSP ships in two layers (see securityHeaders): an enforced policy limited
+// to directives that cannot break a page, and the full policy as
+// Report-Only. A strict script-src would need a per-request nonce
+// (middleware) — revisit once the Report-Only violations are understood.
+const REPORT_ONLY_CSP = [
+  "default-src 'self'",
+  // 'unsafe-inline': Next's inline bootstrap + the analytics snippets (no nonce yet).
+  "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://*.google-analytics.com https://connect.facebook.net",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.ingest.sentry.io https://*.ingest.de.sentry.io https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://www.facebook.com https://connect.facebook.net",
+  // Google Maps embeds on listing / agent pages.
+  'frame-src https://www.google.com https://www.googletagmanager.com',
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+  "base-uri 'self'",
+].join('; ');
+
 const securityHeaders = [
   {
     key: 'Strict-Transport-Security',
@@ -23,10 +39,22 @@ const securityHeaders = [
     value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
   },
   { key: 'X-DNS-Prefetch-Control', value: 'off' },
+  // Enforced CSP: only the directives that cannot break a page (no framing
+  // of our pages, no plugins, no <base> hijack, no mixed content).
+  {
+    key: 'Content-Security-Policy',
+    value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; upgrade-insecure-requests",
+  },
+  // Full policy in observation mode: browsers report violations (DevTools
+  // console) without blocking anything. GTM injects third-party tags, so
+  // watch the reports before promoting this to the enforced header.
+  { key: 'Content-Security-Policy-Report-Only', value: REPORT_ONLY_CSP },
 ];
 
 const config: NextConfig = {
   reactStrictMode: true,
+  // Don't advertise the framework in an X-Powered-By header.
+  poweredByHeader: false,
   // Standalone output bundles a self-contained server.js + minimal node_modules
   // into .next/standalone. Consumed by the PlanetHoster N0C deployment: the
   // Passenger entrypoint (repo-root app.js) requires ./frontend/server.js from

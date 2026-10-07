@@ -60,9 +60,28 @@ export interface EmailLimiter {
   refund(req: NextRequest, email: string | null): Promise<void>;
 }
 
-function clientIp(req: NextRequest): string {
+// Loopback / private / link-local ranges: hops of our own infrastructure
+// (LiteSpeed → Passenger), never the visitor.
+const INTERNAL_IP =
+  /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1$|f[cd][0-9a-f]{2}:|fe80:|::ffff:(127|10|192\.168)\.)/i;
+
+/**
+ * The client can put anything at the START of X-Forwarded-For (proxies only
+ * append), so the leftmost entry is attacker-controlled — rotating it would
+ * bypass every IP bucket. Walk from the RIGHT instead and take the first
+ * non-internal address: the one our edge proxy appended.
+ */
+export function clientIp(req: NextRequest): string {
   const xff = req.headers.get('x-forwarded-for');
-  if (xff) return xff.split(',')[0]!.trim();
+  if (xff) {
+    const hops = xff
+      .split(',')
+      .map((h) => h.trim())
+      .filter(Boolean);
+    const external = [...hops].reverse().find((h) => !INTERNAL_IP.test(h));
+    const ip = external ?? hops[0];
+    if (ip) return ip;
+  }
   const real = req.headers.get('x-real-ip');
   if (real) return real;
   return 'unknown';

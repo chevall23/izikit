@@ -147,7 +147,7 @@ describe('PATCH /api/listings/[id]', () => {
     },
   );
 
-  it('lets the owner edit a REJECTED listing and re-submit it straight to VERIFIED', async () => {
+  it('sends a re-submitted REJECTED listing back to PENDING (admin review), keeping the rejection reason', async () => {
     prismaMock.listing.findUnique.mockResolvedValueOnce(
       makeDraft({
         status: 'REJECTED',
@@ -161,16 +161,14 @@ describe('PATCH /api/listings/[id]', () => {
       }) as never,
     );
     prismaMock.listingPhoto.count.mockResolvedValueOnce(1 as never);
-    prismaMock.listing.update.mockResolvedValueOnce(makeDraft({ status: 'VERIFIED' }) as never);
+    prismaMock.listing.update.mockResolvedValueOnce(makeDraft({ status: 'PENDING' }) as never);
     const { req, ctx } = makePatch('l1', { publish: true });
     const res = await PATCH(req, ctx);
     expect(res.status).toBe(200);
     const args = prismaMock.listing.update.mock.calls[0]?.[0];
-    expect(args?.data?.status).toBe('VERIFIED');
-    expect(args?.data?.rejectionReason).toBeNull();
-    expect(args?.data?.rejectedAt).toBeNull();
-    expect(args?.data?.moderatedById).toBeNull();
-    expect(args?.data?.moderatedAt).toBeNull();
+    expect(args?.data?.status).toBe('PENDING');
+    expect(args?.data).not.toHaveProperty('rejectionReason');
+    expect(args?.data).not.toHaveProperty('moderatedById');
   });
 
   it('saves a partial draft without requiring every field (publish: false)', async () => {

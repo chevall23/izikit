@@ -521,11 +521,18 @@ export function ListingForm({ mode }: { mode: ListingFormMode }) {
       }
       if (aborted) return;
 
-      await api(`/api/listings/${listingId}`, {
+      const res = await api<{ listing: { status: string } }>(`/api/listings/${listingId}`, {
         method: 'PATCH',
         body: { ...buildFieldsPayload(), publish: true },
       });
-      toast(isLiveEdit ? 'Modifications enregistrées.' : 'Annonce publiée avec succès.', 'success');
+      toast(
+        res.listing.status === 'PENDING'
+          ? 'Annonce envoyée en validation : elle sera visible après vérification par notre équipe.'
+          : isLiveEdit
+            ? 'Modifications enregistrées.'
+            : 'Annonce publiée avec succès.',
+        'success',
+      );
       router.push('/listings');
     } catch (e) {
       if (e instanceof ApiError && e.code === 'PUBLISH_REQUIREMENTS_NOT_MET') {

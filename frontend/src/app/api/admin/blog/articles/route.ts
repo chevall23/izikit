@@ -97,11 +97,11 @@ const CreateBody = z.object({
   excerpt: z.string().trim().min(1).max(400),
   contentHtml: z.string().trim().min(1).max(50_000),
   categoryId: z.string().trim().min(1),
-  coverImageUrl: z.string().trim().url().max(500).optional(),
+  coverImageUrl: z.string().trim().url().startsWith('https://').max(500).optional(),
   tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
   authorName: z.string().trim().min(1).max(120),
   authorRole: z.string().trim().max(120).optional(),
-  authorAvatarUrl: z.string().trim().url().max(500).optional(),
+  authorAvatarUrl: z.string().trim().url().startsWith('https://').max(500).optional(),
   status: z.enum(STATUSES).default('DRAFT'),
   isFeatured: z.boolean().default(false),
 });

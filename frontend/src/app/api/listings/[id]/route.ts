@@ -15,6 +15,9 @@
 //     Missing requirements come back as 400 `PUBLISH_REQUIREMENTS_NOT_MET`
 //     with a `missing` array the frontend maps to inline field errors.
 //
+//     Exception: a listing an admin REJECTED goes back to PENDING (admin
+//     review) on publish instead — a rejection is never undone by the owner.
+//
 //     ⚠️ Trust trade-off: this skips `lib/server/listings/moderation.ts`'s
 //     approve/reject flow entirely for the publish path — any signed-in
 //     user can put a live, publicly-searchable listing up with zero human
@@ -251,13 +254,19 @@ export async function PATCH(
         ...(fields.bathrooms !== undefined && { bathrooms: fields.bathrooms }),
         ...(fields.kitchens !== undefined && { kitchens: fields.kitchens }),
         ...(fields.amenities !== undefined && { amenities: fields.amenities }),
-        ...(publish && {
-          status: 'VERIFIED',
-          rejectionReason: null,
-          rejectedAt: null,
-          moderatedById: null,
-          moderatedAt: null,
-        }),
+        // A listing an admin REJECTED goes back to PENDING (admin review,
+        // rejection reason kept for the moderator) instead of self-publishing
+        // — otherwise a rejection could be undone with one click.
+        ...(publish &&
+          (existing.status === 'REJECTED'
+            ? { status: 'PENDING' }
+            : {
+                status: 'VERIFIED',
+                rejectionReason: null,
+                rejectedAt: null,
+                moderatedById: null,
+                moderatedAt: null,
+              })),
       },
       select: LISTING_SELECT,
     });
