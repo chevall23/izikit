@@ -18,7 +18,9 @@ export type OAuthErrorCode =
   | 'OAUTH_STATE_MISMATCH'
   | 'OAUTH_CODE_EXCHANGE_FAILED'
   | 'OAUTH_PROVIDER_DISABLED'
-  | 'OAUTH_GENERIC';
+  | 'OAUTH_GENERIC'
+  | 'ACCOUNT_SUSPENDED'
+  | 'OAUTH_EMAIL_IN_USE';
 
 export const OAUTH_ERROR_CODES: readonly OAuthErrorCode[] = [
   'GOOGLE_EMAIL_NOT_VERIFIED',
@@ -26,6 +28,8 @@ export const OAUTH_ERROR_CODES: readonly OAuthErrorCode[] = [
   'OAUTH_CODE_EXCHANGE_FAILED',
   'OAUTH_PROVIDER_DISABLED',
   'OAUTH_GENERIC',
+  'ACCOUNT_SUSPENDED',
+  'OAUTH_EMAIL_IN_USE',
 ] as const;
 
 interface RedirectOpts {

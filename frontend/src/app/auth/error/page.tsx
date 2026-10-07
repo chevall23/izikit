@@ -9,6 +9,8 @@
 //   OAUTH_CODE_EXCHANGE_FAILED
 //   OAUTH_PROVIDER_DISABLED
 //   OAUTH_GENERIC
+//   ACCOUNT_SUSPENDED
+//   OAUTH_EMAIL_IN_USE
 //
 // Unknown / missing codes fall back to a generic message.
 'use client';
@@ -26,6 +28,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   OAUTH_PROVIDER_DISABLED:
     'La connexion via Google n’est pas activée sur ce serveur. Contactez le support.',
   OAUTH_GENERIC: 'Une erreur inattendue est survenue pendant la connexion. Réessayez.',
+  ACCOUNT_SUSPENDED: 'Ce compte est suspendu. Contactez le support pour plus d’informations.',
+  OAUTH_EMAIL_IN_USE:
+    'Un compte protégé par un mot de passe existe déjà avec cette adresse e-mail. Connectez-vous avec votre e-mail et votre mot de passe.',
 };
 
 function AuthErrorBody() {

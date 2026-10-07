@@ -231,6 +231,24 @@ describe('GET /api/auth/oauth/google/callback', () => {
     expect(mockCreateNotification).not.toHaveBeenCalled();
   });
 
+  it('ACCOUNT_SUSPENDED: a suspended returning user gets no session cookies', async () => {
+    await seedCookie('app-oauth-state', STATE);
+    await seedCookie('app-oauth-pkce', PKCE);
+    prismaMock.oAuthAccount.findUnique.mockResolvedValue({ userId: 'u-susp' } as never);
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: 'u-susp',
+      email: 'a@b.com',
+      tokenVersion: 3,
+      status: 'SUSPENDED',
+    } as never);
+
+    const res = await GET(makeReq({ code: 'c', state: STATE }));
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('/auth/error?code=ACCOUNT_SUSPENDED');
+    expect(mockSetAuthCookies).not.toHaveBeenCalled();
+    expect(mockSetCsrfCookie).not.toHaveBeenCalled();
+  });
+
   it('D-02 create path: brand-new user → $transaction creates User + OAuthAccount; createNotification dispatched with welcomeNotification', async () => {
     await seedCookie('app-oauth-state', STATE);
     await seedCookie('app-oauth-pkce', PKCE);

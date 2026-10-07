@@ -65,13 +65,18 @@ export async function requireAuth(authHeader?: string | null): Promise<AuthConte
   const payloadVersion = payload.tokenVersion ?? 0;
   const user = await prisma.user.findUnique({
     where: { id: payload.sub },
-    select: { id: true, email: true, tokenVersion: true },
+    select: { id: true, email: true, tokenVersion: true, status: true },
   });
   if (!user) {
     return NextResponse.json({ error: 'Account not found' }, { status: 401 });
   }
   if (user.tokenVersion !== payloadVersion) {
     return NextResponse.json({ error: 'Session expired' }, { status: 401 });
+  }
+  // Suspension also bumps tokenVersion; this covers any token minted before
+  // that bump landed (same 403 code as POST /api/auth/login).
+  if (user.status === 'SUSPENDED') {
+    return NextResponse.json({ error: 'ACCOUNT_SUSPENDED' }, { status: 403 });
   }
   return { user: { sub: user.id, email: user.email } };
 }
@@ -96,10 +101,10 @@ export async function optionalAuth(authHeader?: string | null): Promise<AuthCont
   const user = await prisma.user
     .findUnique({
       where: { id: payload.sub },
-      select: { id: true, email: true, tokenVersion: true },
+      select: { id: true, email: true, tokenVersion: true, status: true },
     })
     .catch(() => null);
-  if (!user || user.tokenVersion !== payloadVersion) return null;
+  if (!user || user.tokenVersion !== payloadVersion || user.status === 'SUSPENDED') return null;
   return { user: { sub: user.id, email: user.email } };
 }
 

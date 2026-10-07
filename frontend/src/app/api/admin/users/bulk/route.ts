@@ -71,7 +71,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return { kind: 'SUSPEND_REQUIRES_SUPERADMIN' as const };
         }
 
-        await tx.user.update({ where: { id }, data: { status: targetStatus } });
+        // Suspending bumps tokenVersion: every live session dies at once.
+        await tx.user.update({
+          where: { id },
+          data: {
+            status: targetStatus,
+            ...(targetStatus === 'SUSPENDED' && { tokenVersion: { increment: 1 } }),
+          },
+        });
         return { kind: 'OK' as const };
       });
 

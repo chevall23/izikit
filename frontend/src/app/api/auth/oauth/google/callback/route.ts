@@ -179,13 +179,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // ───── Issue session cookies (mirrors verify-email/route.ts) ──────────
     const u = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, tokenVersion: true },
+      select: { id: true, email: true, tokenVersion: true, status: true },
     });
     if (!u) {
       // Defensive — should never happen since we just created/linked.
       await clearEphemeralCookies();
       log.error('oauth.callback: user disappeared after create', { userId });
       return redirectToAuthError('OAUTH_GENERIC', redirectOpts);
+    }
+    // Same rule as password login: a suspended account gets no session.
+    if (u.status === 'SUSPENDED') {
+      await clearEphemeralCookies();
+      log.warn('oauth.callback: suspended account refused', { userId: u.id });
+      return redirectToAuthError('ACCOUNT_SUSPENDED', redirectOpts);
     }
     const access = await createAccessToken({
       sub: u.id,

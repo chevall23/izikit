@@ -13,7 +13,9 @@
 //      have no separate email_verified flag to check, unlike Google's OIDC)
 //   7. Find-or-create:
 //      a. OAuthAccount.findUnique({ provider_providerAccountId }) — returning user
-//      b. else User.findUnique({ email }) — silent linking; leave User.name/avatarUrl untouched
+//      b. else User.findUnique({ email }) — silent linking onto a password-less
+//         account only (a password account → OAUTH_EMAIL_IN_USE, since Facebook
+//         has no email_verified flag); leave User.name/avatarUrl untouched
 //      c. else $transaction → User + OAuthAccount; isNewUser = true
 //   8. setAuthCookies(access, refresh) + setCsrfCookie()
 //   9. If isNewUser: createNotification(prisma, welcomeNotification(userId, email))
@@ -140,10 +142,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const normalizedEmail = profile.email.toLowerCase();
       const existingByEmail = await prisma.user.findUnique({
         where: { email: normalizedEmail },
-        select: { id: true },
+        select: { id: true, passwordHash: true },
       });
+      if (existingByEmail?.passwordHash) {
+        // Facebook gives no email_verified flag, so the email alone is not
+        // proof of ownership: never auto-link onto a password-protected
+        // account (account-takeover vector). The owner signs in with their
+        // password instead.
+        await clearEphemeralCookies();
+        log.warn('oauth.facebook.callback: email already used by a password account', {
+          userId: existingByEmail.id,
+        });
+        return redirectToAuthError('OAUTH_EMAIL_IN_USE', redirectOpts);
+      }
       if (existingByEmail) {
-        // Silent linking — leave User.name/avatarUrl untouched (mirrors Google).
+        // Silent linking onto a password-less (social-only) account — leave
+        // User.name/avatarUrl untouched (mirrors Google).
         await prisma.oAuthAccount.create({
           data: {
             userId: existingByEmail.id,
@@ -182,13 +196,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // ───── Issue session cookies ───────────────────────────────────────────
     const u = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, tokenVersion: true },
+      select: { id: true, email: true, tokenVersion: true, status: true },
     });
     if (!u) {
       // Defensive — should never happen since we just created/linked.
       await clearEphemeralCookies();
       log.error('oauth.facebook.callback: user disappeared after create', { userId });
       return redirectToAuthError('OAUTH_GENERIC', redirectOpts);
+    }
+    // Same rule as password login: a suspended account gets no session.
+    if (u.status === 'SUSPENDED') {
+      await clearEphemeralCookies();
+      log.warn('oauth.facebook.callback: suspended account refused', { userId: u.id });
+      return redirectToAuthError('ACCOUNT_SUSPENDED', redirectOpts);
     }
     const access = await createAccessToken({
       sub: u.id,

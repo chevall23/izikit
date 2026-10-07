@@ -96,7 +96,11 @@ export async function PATCH(
 
       const updated = await tx.user.update({
         where: { id },
-        data: { status: parsed.data.status },
+        // Suspending bumps tokenVersion: every live session dies at once.
+        data: {
+          status: parsed.data.status,
+          ...(parsed.data.status === 'SUSPENDED' && { tokenVersion: { increment: 1 } }),
+        },
         select: { id: true, status: true },
       });
 
