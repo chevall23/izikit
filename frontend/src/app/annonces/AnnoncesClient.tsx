@@ -25,6 +25,7 @@ import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
 import { PopularSearches, type PopularSearchLink } from '@/components/public/PopularSearches';
 import { InitialsAvatar } from '@/components/dashboard/InitialsAvatar';
+import { PropertyRequestTeaser } from '@/components/public/PropertyRequestTeaser';
 import {
   LISTINGS_PAGE_SIZE,
   PROPERTY_TYPE_LABEL,
@@ -740,7 +741,13 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
             ) : items.length === 0 ? (
               <div className="flex flex-col items-center gap-2 rounded-2xl border border-black/[0.06] py-14 text-center">
                 <p className="text-sm font-medium text-neutral-700">Aucune annonce ne correspond</p>
-                <p className="text-xs text-gray-400">Essayez d&apos;élargir vos filtres.</p>
+                <p className="text-xs text-gray-400">
+                  Essayez d&apos;élargir vos filtres, ou{' '}
+                  <a href="#demande" className="font-semibold text-brand underline">
+                    déposez une demande
+                  </a>{' '}
+                  : les agents viendront à vous.
+                </p>
               </div>
             ) : view === 'grid' ? (
               <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:grid-cols-3">
@@ -948,6 +955,13 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
           </div>
         </div>
       </div>
+
+      {/* Visitors who did not find their property: turn them into a request,
+          seeded with the filters they searched with. */}
+      <PropertyRequestTeaser
+        key={[propertyType, transactionType, country, city, priceMax].join('|')}
+        defaults={{ propertyType, transactionType, country, city, budget: priceMax }}
+      />
 
       <PopularSearches links={initial.popularSearches} />
       <PublicFooter />

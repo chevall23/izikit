@@ -46,6 +46,7 @@ import {
   PhoneCountrySelect,
   flagCodeForCountryName,
 } from '@/components/ui/PhoneCountrySelect';
+import { parsePhoneValue } from '@/components/ui/dial-countries';
 import { PROPERTY_TYPE_LABEL, TRANSACTION_TYPE_LABEL, AMENITY_LABEL } from '@/lib/listings';
 
 type Step = 1 | 2 | 3;
@@ -288,8 +289,14 @@ export default function NouvelleDemandePage() {
     }
     const budget = Number(sp.get('budgetMax'));
     if (Number.isFinite(budget) && budget > 0) setBudgetMax(String(Math.round(budget)));
+    // Full number with its dial code ("+228 90 12 34 56"): split it back
+    // into the country picker and the local part.
     const phone = sp.get('phone')?.trim();
-    if (phone) setTelephone(phone.slice(0, 40));
+    if (phone) {
+      const parsed = parsePhoneValue(phone, flagCodeForCountryName(country?.name ?? '') ?? 'BJ');
+      setPhoneCountryCode(parsed.code);
+      setTelephone(parsed.local.slice(0, 40));
+    }
   }, []); // one-shot prefill on mount
 
   const availableCities = COUNTRIES.find((c) => c.name === pays)?.cities ?? [];

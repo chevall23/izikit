@@ -9,7 +9,8 @@ import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, ChevronDown, Send } from 'lucide-react';
 import { COUNTRIES } from '@/lib/countries';
-import { DIAL_COUNTRIES, flagCodeForCountryName } from '@/components/ui/PhoneCountrySelect';
+import { flagCodeForCountryName } from '@/components/ui/PhoneCountrySelect';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 
 const PROPERTY_OPTIONS: { value: string; label: string }[] = [
   { value: 'VILLA', label: 'une villa' },
@@ -81,17 +82,52 @@ function countryOfCity(city: string): string {
   return COUNTRIES.find((c) => c.cities.includes(city))?.name ?? 'Bénin';
 }
 
-export function PropertyRequestTeaser() {
+/** Picks a sentence city from a free-text city and/or a country filter. */
+function initialCity(city: string | undefined, country: string | undefined): string {
+  const wanted = city?.trim().toLowerCase();
+  if (wanted) {
+    for (const c of COUNTRIES) {
+      const match = c.cities.find((ci) => ci.toLowerCase() === wanted);
+      if (match) return match;
+    }
+  }
+  return COUNTRIES.find((c) => c.name === country)?.cities[0] ?? 'Cotonou';
+}
+
+function pick(options: { value: string }[], value: string | undefined, fallback: string): string {
+  return options.some((o) => o.value === value) ? value! : fallback;
+}
+
+export interface PropertyRequestTeaserDefaults {
+  propertyType?: string;
+  transactionType?: string;
+  country?: string;
+  city?: string;
+  budget?: string;
+}
+
+/**
+ * `defaults` seeds the sentence (e.g. from the /annonces search filters);
+ * values the sentence cannot express are ignored. Read once on mount — pass a
+ * changing `key` to reseed.
+ */
+export function PropertyRequestTeaser({
+  defaults = {},
+}: {
+  defaults?: PropertyRequestTeaserDefaults;
+}) {
   const router = useRouter();
-  const [propertyType, setPropertyType] = useState('VILLA');
-  const [city, setCity] = useState('Cotonou');
-  const [transactionType, setTransactionType] = useState('VENTE');
-  const [budget, setBudget] = useState('');
+  const [propertyType, setPropertyType] = useState(() =>
+    pick(PROPERTY_OPTIONS, defaults.propertyType, 'VILLA'),
+  );
+  const [city, setCity] = useState(() => initialCity(defaults.city, defaults.country));
+  const [transactionType, setTransactionType] = useState(() =>
+    pick(TRANSACTION_OPTIONS, defaults.transactionType, 'VENTE'),
+  );
+  const [budget, setBudget] = useState(() => (defaults.budget ?? '').replace(/[^\d\s]/g, ''));
   const [phone, setPhone] = useState('');
 
   const country = countryOfCity(city);
-  const dial =
-    DIAL_COUNTRIES.find((c) => c.code === flagCodeForCountryName(country))?.dial ?? '+229';
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -105,7 +141,7 @@ export function PropertyRequestTeaser() {
   }
 
   return (
-    <section className="px-4 py-9 lg:px-7">
+    <section id="demande" className="scroll-mt-24 px-4 py-9 lg:px-7">
       <div className="mx-auto grid max-w-[1280px] grid-cols-1 items-center gap-8 rounded-[28px] bg-neutral-900 px-6 py-10 text-white lg:grid-cols-[1.1fr_0.9fr] lg:gap-12 lg:px-14 lg:py-14">
         <div>
           <p className="mb-3 text-xs font-bold tracking-[0.16em] text-sky-400 uppercase">
@@ -179,7 +215,7 @@ export function PropertyRequestTeaser() {
                 placeholder="votre budget"
                 value={budget}
                 onChange={(e) => setBudget(e.target.value.replace(/[^\d\s]/g, ''))}
-                className={`${BLANK} w-[8.5rem] cursor-text placeholder:text-brand/60`}
+                className={`${BLANK} w-[10rem] cursor-text placeholder:text-brand/60`}
               />
               <span className="text-[15px] text-gray-500"> FCFA</span>
             </span>
@@ -191,19 +227,15 @@ export function PropertyRequestTeaser() {
           >
             Numéro WhatsApp
           </label>
-          <div className="mb-5 flex items-center rounded-xl border border-black/[0.1] focus-within:border-brand">
-            <span className="border-r border-black/[0.08] px-3.5 py-3 text-sm font-semibold text-gray-600">
-              {dial}
-            </span>
-            <input
+          <div className="mb-5">
+            <PhoneInput
               id="teaser-phone"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel-national"
-              placeholder="01 23 45 67"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="min-w-0 flex-1 bg-transparent px-3.5 py-3 text-sm outline-none placeholder:text-gray-400"
+              onChange={setPhone}
+              defaultCountry={flagCodeForCountryName(country) ?? 'BJ'}
+              placeholder="01 23 45 67"
+              boxClassName="rounded-xl"
+              inputClassName="px-3.5 py-3 text-sm"
             />
           </div>
 

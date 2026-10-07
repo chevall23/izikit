@@ -24,7 +24,7 @@ import { CountryDestinationsSection, type CountryFacet } from './CountryDestinat
 import { PopularSearches, type PopularSearchLink } from '@/components/public/PopularSearches';
 import { landingPath } from '@/lib/seo/landing';
 import { MobileCountryPicker } from './MobileCountryPicker';
-import { PropertyRequestTeaser } from './PropertyRequestTeaser';
+import { PropertyRequestTeaser } from '@/components/public/PropertyRequestTeaser';
 import { PROPERTY_TYPE_LABEL, TRANSACTION_TYPE_LABEL } from '@/lib/listings';
 import { COUNTRIES as COUNTRY_CITIES } from '@/lib/countries';
 

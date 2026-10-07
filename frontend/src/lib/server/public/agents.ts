@@ -7,8 +7,9 @@ import 'server-only';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/server/prisma';
 import { LEGAL_DOCUMENT_TYPE_COUNT } from '@/lib/server/users/enrich';
+import { AGENTS_PAGE_SIZE } from '@/lib/agents';
 
-const DEFAULT_LIMIT = 9;
+const DEFAULT_LIMIT = AGENTS_PAGE_SIZE;
 const MAX_LIMIT = 24;
 
 function parsePage(raw: string | null): number {

@@ -19,16 +19,16 @@ import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
+import { PropertyRequestTeaser } from '@/components/public/PropertyRequestTeaser';
 import { InitialsAvatar } from '@/components/dashboard/InitialsAvatar';
 import { COUNTRY_FLAG } from '@/lib/alerts';
 import { PROPERTY_TYPE_LABEL } from '@/lib/listings';
+import { AGENTS_PAGE_SIZE } from '@/lib/agents';
 
 import type { PublicAgentsResult as PublicAgentsResponse } from '@/lib/server/public/agents';
 
 const MIN_RATING_OPTIONS = [4.5, 4.0, 3.5] as const;
 const SPECIALTY_OPTIONS = Object.entries(PROPERTY_TYPE_LABEL) as [string, string][];
-
-const LIMIT = 9;
 
 type TabKey = 'tous' | 'vente' | 'location' | 'terrain';
 
@@ -93,7 +93,7 @@ export function AgentsClient({ initialData }: { initialData: PublicAgentsRespons
     else if (specialty) params.set('propertyType', specialty);
     if (minRating !== null) params.set('minRating', String(minRating));
     params.set('page', String(page));
-    params.set('limit', String(LIMIT));
+    params.set('limit', String(AGENTS_PAGE_SIZE));
     params.set('sort', 'listings');
 
     api<PublicAgentsResponse>(`/api/public/agents?${params.toString()}`)
@@ -473,7 +473,11 @@ export function AgentsClient({ initialData }: { initialData: PublicAgentsRespons
               </div>
             ) : items.length === 0 ? (
               <div className="rounded-2xl border border-black/[0.06] bg-gray-50 p-10 text-center text-sm text-gray-500">
-                Aucun agent ne correspond à ces critères.
+                Aucun agent ne correspond à ces critères.{' '}
+                <a href="#demande" className="font-semibold text-brand underline">
+                  Déposez une demande
+                </a>{' '}
+                : les agents viendront à vous.
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
@@ -536,7 +540,9 @@ export function AgentsClient({ initialData }: { initialData: PublicAgentsRespons
                           </span>
                         </div>
                       </div>
-                      <p className="text-[13px] leading-relaxed">
+                      {/* Clamped to 3 lines and always 3 lines tall, so the
+                          buttons line up across the grid. */}
+                      <p className="line-clamp-3 min-h-[4.875em] text-[13px] leading-relaxed">
                         {a.bio ?? 'Cet agent n’a pas encore ajouté de description.'}
                       </p>
                       <div className="grid grid-cols-2 gap-2">
@@ -621,6 +627,13 @@ export function AgentsClient({ initialData }: { initialData: PublicAgentsRespons
           </div>
         </div>
       </section>
+
+      {/* Visitors who did not find the right agent: turn them into a request,
+          seeded with the country / specialty they filtered on. */}
+      <PropertyRequestTeaser
+        key={`${country}|${specialty}`}
+        defaults={{ country, propertyType: specialty }}
+      />
 
       <PublicFooter />
     </div>
