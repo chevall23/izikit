@@ -23,7 +23,7 @@
 // refuse to boot the whole app whenever storage is unconfigured (dev / CI).
 // Lazy-init handles `?? ''` empty-as-absent directly.
 import 'server-only';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 
 /**
@@ -159,6 +159,83 @@ export async function uploadBuffer(
   };
 }
 
+// ── Private bucket (sensitive documents) ──────────────────────────────
+// Legal / KYC documents and listing title deeds must never sit behind a
+// public URL. They go to a second, non-public bucket (R2_PRIVATE_BUCKET_NAME,
+// same account + credentials) and are only ever streamed back through an
+// authenticated route. Stored rows carry `url = 'private:<key>'`.
+
+export const PRIVATE_URL_PREFIX = 'private:';
+
+function privateBucketName(): string {
+  return process.env.R2_PRIVATE_BUCKET_NAME ?? '';
+}
+
+let _privateClient: S3Client | null = null;
+
+function configurePrivate(): { client: S3Client; bucket: string } {
+  const accountId = process.env.R2_ACCOUNT_ID ?? '';
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID ?? '';
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY ?? '';
+  const bucket = privateBucketName();
+  if (!accountId || !accessKeyId || !secretAccessKey || !bucket) {
+    throw new StorageNotConfiguredError();
+  }
+  _privateClient ??= new S3Client({
+    region: 'auto',
+    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+  return { client: _privateClient, bucket };
+}
+
+/** True when R2_PRIVATE_BUCKET_NAME (and the R2 credentials) are set. */
+export function isPrivateStorageConfigured(): boolean {
+  try {
+    configurePrivate();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Upload to the private bucket. Images are re-encoded like public uploads. */
+export async function uploadPrivateBuffer(
+  keyBase: string,
+  body: Buffer,
+  contentType: string,
+): Promise<{ key: string; bytes: number }> {
+  const { client, bucket } = configurePrivate();
+  const {
+    body: finalBody,
+    contentType: finalContentType,
+    ext,
+  } = await optimizeIfImage(body, contentType);
+  const key = `${keyBase}${ext}`;
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: finalBody,
+      ContentType: finalContentType,
+    }),
+  );
+  return { key, bytes: finalBody.length };
+}
+
+/** Read an object back from the private bucket (for the authenticated file routes). */
+export async function getPrivateObject(
+  key: string,
+): Promise<{ body: Uint8Array; contentType: string }> {
+  const { client, bucket } = configurePrivate();
+  const res = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  if (!res.Body) throw new Error('empty object body');
+  return {
+    body: await res.Body.transformToByteArray(),
+    contentType: res.ContentType ?? 'application/octet-stream',
+  };
+}
+
 /**
  * Test-only escape hatch — clears the cached configuration so a test can
  * mutate `process.env.R2_*` and re-trigger lazy init. Never call this from
@@ -170,4 +247,5 @@ export function __resetStorageSingleton(): void {
   _client = null;
   _bucket = null;
   _publicUrl = null;
+  _privateClient = null;
 }

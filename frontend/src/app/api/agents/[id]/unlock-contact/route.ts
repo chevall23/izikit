@@ -16,6 +16,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
+import { InsufficientTokensError, assertBalanceNotNegative } from '@/lib/server/token-wallet';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
 const UNLOCK_COST_TOKENS = 1;
@@ -80,25 +81,39 @@ export async function POST(
       );
     }
 
-    await prisma.$transaction(async (tx) => {
-      const updatedWallet = await tx.tokenWallet.update({
-        where: { userId: auth.user.sub },
-        data: { balance: { decrement: UNLOCK_COST_TOKENS } },
-        select: { balance: true },
+    try {
+      await prisma.$transaction(async (tx) => {
+        const updatedWallet = await tx.tokenWallet.update({
+          where: { userId: auth.user.sub },
+          data: { balance: { decrement: UNLOCK_COST_TOKENS } },
+          select: { balance: true },
+        });
+        // A concurrent spend may have passed the up-front check too.
+        assertBalanceNotNegative(updatedWallet);
+        await tx.tokenTransaction.create({
+          data: {
+            userId: auth.user.sub,
+            type: 'USAGE',
+            amount: -UNLOCK_COST_TOKENS,
+            balanceAfter: updatedWallet.balance,
+            description: 'Déblocage du contact agent',
+          },
+        });
+        await tx.agentContactUnlock.create({
+          data: { userId: auth.user.sub, agentId },
+        });
       });
-      await tx.tokenTransaction.create({
-        data: {
-          userId: auth.user.sub,
-          type: 'USAGE',
-          amount: -UNLOCK_COST_TOKENS,
-          balanceAfter: updatedWallet.balance,
-          description: 'Déblocage du contact agent',
+    } catch (err) {
+      if (!(err instanceof InsufficientTokensError)) throw err;
+      return NextResponse.json(
+        {
+          error: 'INSUFFICIENT_TOKENS',
+          message: 'Not enough tokens to unlock this contact',
+          required: UNLOCK_COST_TOKENS,
         },
-      });
-      await tx.agentContactUnlock.create({
-        data: { userId: auth.user.sub, agentId },
-      });
-    });
+        { status: 422, headers: { 'x-request-id': reqCtx.requestId } },
+      );
+    }
 
     return NextResponse.json(
       { unlocked: true, charged: true },

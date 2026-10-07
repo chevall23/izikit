@@ -33,9 +33,12 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { documentHref, legalDocumentFilePath } from '@/lib/server/upload/sensitive-documents';
 import { prisma } from '@/lib/server/prisma';
-import { StorageNotConfiguredError, uploadBuffer } from '@/lib/server/upload/storage-client';
+import { StorageNotConfiguredError } from '@/lib/server/upload/storage-client';
+import { uploadSensitiveDocument } from '@/lib/server/upload/sensitive-documents';
 import { sanitizeFilename } from '@/lib/server/upload/sanitize-filename';
+import { InsufficientTokensError, assertBalanceNotNegative } from '@/lib/server/token-wallet';
 import { verifyMagicBytes } from '@/lib/server/upload/sniff';
 import { enqueueOutbox } from '@/lib/server/outbox';
 import { LEGAL_DOCUMENT_TYPES, type LegalDocumentType } from '../route';
@@ -169,7 +172,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       const publicId = `legal-documents/${auth.user.sub}/${type}-${randomUUID()}`;
       try {
-        const up = await uploadBuffer(publicId, buf, file.type);
+        const up = await uploadSensitiveDocument(publicId, buf, file.type);
         uploaded.push({
           type,
           filename: sanitizeFilename(file.name),
@@ -192,73 +195,89 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      const documents = [];
-      for (const u of uploaded) {
-        const row = await tx.legalDocument.upsert({
-          where: { userId_type: { userId: auth.user.sub, type: u.type } },
-          create: {
+    let result: { documents: unknown[]; balance: number };
+    try {
+      result = await prisma.$transaction(async (tx) => {
+        const documents = [];
+        for (const u of uploaded) {
+          const row = await tx.legalDocument.upsert({
+            where: { userId_type: { userId: auth.user.sub, type: u.type } },
+            create: {
+              userId: auth.user.sub,
+              type: u.type,
+              status: 'PENDING',
+              key: u.publicId,
+              url: u.secureUrl,
+              filename: u.filename,
+              mimeType: u.mimeType,
+              sizeBytes: u.bytes,
+            },
+            update: {
+              status: 'PENDING',
+              key: u.publicId,
+              url: u.secureUrl,
+              filename: u.filename,
+              mimeType: u.mimeType,
+              sizeBytes: u.bytes,
+              rejectionReason: null,
+            },
+            select: {
+              id: true,
+              type: true,
+              status: true,
+              url: true,
+              filename: true,
+              mimeType: true,
+              sizeBytes: true,
+              expiresAt: true,
+              rejectionReason: true,
+              createdAt: true,
+            },
+          });
+          documents.push({ ...row, url: documentHref(row.url, legalDocumentFilePath(row.id)) });
+        }
+
+        const newWallet = await tx.tokenWallet.update({
+          where: { userId: auth.user.sub },
+          data: { balance: { decrement: cost } },
+        });
+        // A concurrent spend may have passed the up-front check too.
+        assertBalanceNotNegative(newWallet);
+        await tx.tokenTransaction.create({
+          data: {
             userId: auth.user.sub,
-            type: u.type,
-            status: 'PENDING',
-            key: u.publicId,
-            url: u.secureUrl,
-            filename: u.filename,
-            mimeType: u.mimeType,
-            sizeBytes: u.bytes,
-          },
-          update: {
-            status: 'PENDING',
-            key: u.publicId,
-            url: u.secureUrl,
-            filename: u.filename,
-            mimeType: u.mimeType,
-            sizeBytes: u.bytes,
-            rejectionReason: null,
-          },
-          select: {
-            type: true,
-            status: true,
-            url: true,
-            filename: true,
-            mimeType: true,
-            sizeBytes: true,
-            expiresAt: true,
-            rejectionReason: true,
-            createdAt: true,
+            type: 'USAGE',
+            amount: -cost,
+            balanceAfter: newWallet.balance,
+            description: `Vérification documents légaux (${cost} document${cost > 1 ? 's' : ''})`,
           },
         });
-        documents.push(row);
-      }
 
-      const newWallet = await tx.tokenWallet.update({
-        where: { userId: auth.user.sub },
-        data: { balance: { decrement: cost } },
+        const adminEmail = process.env.LEGAL_DOCUMENTS_ADMIN_EMAIL;
+        if (adminEmail) {
+          await enqueueOutbox(tx, {
+            kind: 'email.legal_documents_submitted',
+            payload: {
+              to: adminEmail,
+              userEmail: auth.user.email,
+              types: uploaded.map((u) => u.type),
+            },
+          });
+        }
+
+        return { documents, balance: newWallet.balance };
       });
-      await tx.tokenTransaction.create({
-        data: {
-          userId: auth.user.sub,
-          type: 'USAGE',
-          amount: -cost,
-          balanceAfter: newWallet.balance,
-          description: `Vérification documents légaux (${cost} document${cost > 1 ? 's' : ''})`,
+    } catch (err) {
+      if (!(err instanceof InsufficientTokensError)) throw err;
+      return NextResponse.json(
+        {
+          code: 'INSUFFICIENT_TOKENS',
+          message: `Solde de jetons insuffisant : ${cost} requis`,
+          required: cost,
         },
-      });
-
-      const adminEmail = process.env.LEGAL_DOCUMENTS_ADMIN_EMAIL;
-      if (adminEmail) {
-        await enqueueOutbox(tx, {
-          kind: 'email.legal_documents_submitted',
-          payload: {
-            to: adminEmail,
-            userEmail: auth.user.email,
-            types: uploaded.map((u) => u.type),
-          },
-        });
-      }
-
-      return { documents, balance: newWallet.balance };
-    });
+        { status: 422, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
 
     return NextResponse.json(
       { documents: result.documents, balance: result.balance },

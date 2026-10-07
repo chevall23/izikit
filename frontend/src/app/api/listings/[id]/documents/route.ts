@@ -15,7 +15,12 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { prisma } from '@/lib/server/prisma';
-import { StorageNotConfiguredError, uploadBuffer } from '@/lib/server/upload/storage-client';
+import { StorageNotConfiguredError } from '@/lib/server/upload/storage-client';
+import {
+  documentHref,
+  listingDocumentFilePath,
+  uploadSensitiveDocument,
+} from '@/lib/server/upload/sensitive-documents';
 import { sanitizeFilename } from '@/lib/server/upload/sanitize-filename';
 import { verifyMagicBytes } from '@/lib/server/upload/sniff';
 
@@ -123,7 +128,7 @@ export async function POST(
 
     let uploaded;
     try {
-      uploaded = await uploadBuffer(publicId, buf, file.type);
+      uploaded = await uploadSensitiveDocument(publicId, buf, file.type);
     } catch (e) {
       if (e instanceof StorageNotConfiguredError) {
         return NextResponse.json(
@@ -159,6 +164,7 @@ export async function POST(
         rejectionReason: null,
       },
       select: {
+        id: true,
         type: true,
         status: true,
         url: true,
@@ -170,7 +176,7 @@ export async function POST(
     });
 
     return NextResponse.json(
-      { document: row },
+      { document: { ...row, url: documentHref(row.url, listingDocumentFilePath(id, row.id)) } },
       { status: 201, headers: { 'x-request-id': reqCtx.requestId } },
     );
   });

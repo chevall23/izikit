@@ -24,8 +24,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { documentHref, legalDocumentFilePath } from '@/lib/server/upload/sensitive-documents';
 import { prisma } from '@/lib/server/prisma';
-import { StorageNotConfiguredError, uploadBuffer } from '@/lib/server/upload/storage-client';
+import { StorageNotConfiguredError } from '@/lib/server/upload/storage-client';
+import { uploadSensitiveDocument } from '@/lib/server/upload/sensitive-documents';
 import { sanitizeFilename } from '@/lib/server/upload/sanitize-filename';
 import { verifyMagicBytes } from '@/lib/server/upload/sniff';
 
@@ -48,6 +50,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const rows = await prisma.legalDocument.findMany({
       where: { userId: auth.user.sub },
       select: {
+        id: true,
         type: true,
         status: true,
         url: true,
@@ -59,7 +62,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         createdAt: true,
       },
     });
-    const byType = new Map(rows.map((r) => [r.type, r]));
+    // Private documents are exposed through the authenticated file route.
+    const byType = new Map(
+      rows.map((r) => [r.type, { ...r, url: documentHref(r.url, legalDocumentFilePath(r.id)) }]),
+    );
 
     const documents = LEGAL_DOCUMENT_TYPES.map((type) => ({
       type,
@@ -177,7 +183,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     let uploaded;
     try {
-      uploaded = await uploadBuffer(publicId, buf, file.type);
+      uploaded = await uploadSensitiveDocument(publicId, buf, file.type);
     } catch (e) {
       if (e instanceof StorageNotConfiguredError) {
         return NextResponse.json(
@@ -215,6 +221,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         rejectionReason: null,
       },
       select: {
+        id: true,
         type: true,
         status: true,
         url: true,
@@ -228,7 +235,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
 
     return NextResponse.json(
-      { document: row },
+      { document: { ...row, url: documentHref(row.url, legalDocumentFilePath(row.id)) } },
       { status: 201, headers: { 'x-request-id': ctx.requestId } },
     );
   });

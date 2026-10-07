@@ -11,6 +11,11 @@ import { mockStorageClient } from '@/test-utils/storage-mock';
 const cl = mockStorageClient();
 
 vi.mock('@/lib/server/upload/storage-client', () => ({
+  // Private bucket unset → uploadSensitiveDocument falls back to uploadBuffer.
+  PRIVATE_URL_PREFIX: 'private:',
+  isPrivateStorageConfigured: vi.fn(() => false),
+  uploadPrivateBuffer: vi.fn(),
+  getPrivateObject: vi.fn(),
   uploadBuffer: vi.fn((publicId: string, body: Buffer) => cl.uploadBuffer(publicId, body)),
   StorageNotConfiguredError: class StorageNotConfiguredError extends Error {
     constructor() {
@@ -101,8 +106,18 @@ describe('GET /api/legal-documents', () => {
 
   it('merges uploaded rows and computes stats', async () => {
     findMany.mockResolvedValueOnce([
-      { type: 'ID_CARD', status: 'VERIFIED' },
-      { type: 'RCCM', status: 'PENDING' },
+      {
+        id: 'd1',
+        type: 'ID_CARD',
+        status: 'VERIFIED',
+        url: 'private:legal-documents/u/ID_CARD-1.pdf',
+      },
+      {
+        id: 'd2',
+        type: 'RCCM',
+        status: 'PENDING',
+        url: 'https://pub.r2.dev/legal-documents/u/RCCM-1.pdf',
+      },
     ] as never);
     const { GET } = await import('./route');
     const res = await GET(makeGetReq() as never);
@@ -110,6 +125,10 @@ describe('GET /api/legal-documents', () => {
     expect(body.stats).toEqual({ verified: 1, pending: 1, missing: 1, total: 3 });
     const idCard = body.documents.find((d: { type: string }) => d.type === 'ID_CARD');
     expect(idCard.document.status).toBe('VERIFIED');
+    // Private file → authenticated route; legacy public row → unchanged URL.
+    expect(idCard.document.url).toBe('/api/legal-documents/d1/file');
+    const rccm = body.documents.find((d: { type: string }) => d.type === 'RCCM');
+    expect(rccm.document.url).toBe('https://pub.r2.dev/legal-documents/u/RCCM-1.pdf');
   });
 
   it('no auth returns 401', async () => {

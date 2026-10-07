@@ -118,6 +118,15 @@ describe('POST /api/agents/[id]/unlock-contact', () => {
     expect(res.status).toBe(422);
   });
 
+  it('422 when a concurrent spend drained the wallet between the check and the debit', async () => {
+    txClient.tokenWallet.update.mockResolvedValueOnce({ balance: -1 }); // atomic decrement went negative
+    const res = await POST(makePost(), ctx);
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe('INSUFFICIENT_TOKENS');
+    expect(txClient.tokenTransaction.create).not.toHaveBeenCalled();
+    expect(txClient.agentContactUnlock.create).not.toHaveBeenCalled();
+  });
+
   it('debits 1 token and records the unlock on first purchase', async () => {
     const res = await POST(makePost(), ctx);
     expect(res.status).toBe(201);

@@ -9,6 +9,11 @@ import { mockStorageClient } from '@/test-utils/storage-mock';
 const cl = mockStorageClient();
 
 vi.mock('@/lib/server/upload/storage-client', () => ({
+  // Private bucket unset → uploadSensitiveDocument falls back to uploadBuffer.
+  PRIVATE_URL_PREFIX: 'private:',
+  isPrivateStorageConfigured: vi.fn(() => false),
+  uploadPrivateBuffer: vi.fn(),
+  getPrivateObject: vi.fn(),
   uploadBuffer: vi.fn((publicId: string, body: Buffer) => cl.uploadBuffer(publicId, body)),
   StorageNotConfiguredError: class StorageNotConfiguredError extends Error {
     constructor() {

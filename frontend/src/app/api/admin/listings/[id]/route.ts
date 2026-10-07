@@ -21,6 +21,18 @@ import {
 } from '@/lib/server/listings/moderation';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { documentHref, listingDocumentFilePath } from '@/lib/server/upload/sensitive-documents';
+
+/** Private documents are served through the authenticated file route. */
+function withDocumentHrefs<D extends { id: string; url: string }>(
+  listingId: string,
+  docs: D[],
+): D[] {
+  return docs.map((d) => ({
+    ...d,
+    url: documentHref(d.url, listingDocumentFilePath(listingId, d.id)),
+  }));
+}
 
 const PROPERTY_TYPES = [
   'VILLA',
@@ -130,6 +142,7 @@ export async function GET(
       {
         listing: {
           ...rest,
+          documents: withDocumentHrefs(rest.id, rest.documents),
           owner: {
             id: user.id,
             name: user.name,
@@ -211,6 +224,7 @@ export async function PATCH(
       {
         listing: {
           ...rest,
+          documents: withDocumentHrefs(rest.id, rest.documents),
           owner: { id: user.id, name: user.name, email: user.email, phone: user.phone },
         },
       },

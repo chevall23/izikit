@@ -20,6 +20,7 @@ import { requireAdmin } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { documentHref, legalDocumentFilePath } from '@/lib/server/upload/sensitive-documents';
 import {
   computeUserType,
   computeDisplayStatus,
@@ -146,7 +147,7 @@ export async function GET(
                 id: d.id,
                 type: d.type,
                 status: d.status,
-                url: d.url,
+                url: documentHref(d.url, legalDocumentFilePath(d.id)),
                 createdAt: d.createdAt,
               })),
             }
