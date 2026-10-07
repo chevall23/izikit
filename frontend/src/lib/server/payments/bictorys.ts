@@ -369,7 +369,12 @@ export function createBictorysProvider(env: BictorysEnv): BictorysProviderHandle
 
     verifySignature(rawBody, headers) {
       // DEV ONLY escape hatch.
-      if (process.env.SMOKE_BYPASS_WEBHOOK_VERIFY === '1') {
+      // Hard-disabled in production: a stray env line must never turn off
+      // signature checks on real-money webhooks.
+      if (
+        process.env.SMOKE_BYPASS_WEBHOOK_VERIFY === '1' &&
+        process.env.NODE_ENV !== 'production'
+      ) {
         logger.warn(
           '[bictorys] !! SMOKE_BYPASS_WEBHOOK_VERIFY=1 — webhook signature ACCEPTED unconditionally. NEVER set this in production.',
         );

@@ -12,6 +12,8 @@ import type { MonerooWebhookPayload } from '@/lib/server/payments/moneroo';
 export interface MonerooFixtureOpts {
   status?: 'success' | 'failed' | 'cancelled';
   paymentId?: string;
+  /** Amount reported by Moneroo (default 40 000). */
+  amount?: number;
   webhookSecret?: string;
   /** Corrupt the signature to simulate a tampered/invalid delivery. */
   badSignature?: boolean;
@@ -33,7 +35,7 @@ export function monerooFixture(opts: MonerooFixtureOpts = {}): {
     event,
     data: {
       id: opts.paymentId ?? 'py_test_001',
-      amount: 40_000,
+      amount: opts.amount ?? 40_000,
       currency: 'XOF',
       status,
     },

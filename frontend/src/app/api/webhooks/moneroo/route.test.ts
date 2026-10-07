@@ -6,6 +6,7 @@ const create = vi.fn();
 const update = vi.fn();
 const orderFindFirst = vi.fn();
 const orderUpdate = vi.fn();
+const orderUpdateMany = vi.fn();
 const outboxCreate = vi.fn();
 const subscriptionUpsert = vi.fn();
 const tokenWalletUpsert = vi.fn();
@@ -14,7 +15,7 @@ const tokenTransactionCreate = vi.fn();
 const $transaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>, _opts?: unknown) =>
   fn({
     webhookLog: { findUnique, create, update },
-    order: { findFirst: orderFindFirst, update: orderUpdate },
+    order: { findFirst: orderFindFirst, update: orderUpdate, updateMany: orderUpdateMany },
     outboxEvent: { create: outboxCreate },
     subscription: { upsert: subscriptionUpsert },
     tokenWallet: { upsert: tokenWalletUpsert },
@@ -35,6 +36,8 @@ beforeEach(() => {
   update.mockReset();
   orderFindFirst.mockReset();
   orderUpdate.mockReset();
+  orderUpdateMany.mockReset();
+  orderUpdateMany.mockResolvedValue({ count: 1 });
   outboxCreate.mockReset();
   subscriptionUpsert.mockReset();
   tokenWalletUpsert.mockReset();
@@ -114,7 +117,10 @@ describe('POST /api/webhooks/moneroo', () => {
     const { POST } = await import('./route');
     const { req } = monerooFixtureRequest({ status: 'failed' });
     await POST(req);
-    expect(orderUpdate).toHaveBeenCalledWith({ where: { id: 'o2' }, data: { status: 'FAILED' } });
+    expect(orderUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'o2', status: 'PENDING' },
+      data: { status: 'FAILED' },
+    });
   });
 
   it('cancelled status is treated as failed', async () => {
@@ -123,7 +129,68 @@ describe('POST /api/webhooks/moneroo', () => {
     const { POST } = await import('./route');
     const { req } = monerooFixtureRequest({ status: 'cancelled' });
     await POST(req);
-    expect(orderUpdate).toHaveBeenCalledWith({ where: { id: 'o3' }, data: { status: 'FAILED' } });
+    expect(orderUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'o3', status: 'PENDING' },
+      data: { status: 'FAILED' },
+    });
+  });
+
+  it('onPaid does not fulfill an order that is already PAID (second "paid" event)', async () => {
+    findUnique.mockResolvedValueOnce(null);
+    orderFindFirst.mockResolvedValueOnce({
+      id: 'o1',
+      userId: 'u1',
+      customerEmail: 'a@b.com',
+      amount: 40_000,
+      currency: 'XOF',
+      metadata: { kind: 'token_purchase', packKey: 'STANDARD' },
+    });
+    orderUpdateMany.mockResolvedValueOnce({ count: 0 }); // status no longer payable
+    const { POST } = await import('./route');
+    const { req } = monerooFixtureRequest({ status: 'success' });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect(tokenWalletUpsert).not.toHaveBeenCalled();
+    expect(outboxCreate).not.toHaveBeenCalled();
+  });
+
+  it('onPaid refuses a payment whose amount differs from the order', async () => {
+    findUnique.mockResolvedValueOnce(null);
+    orderFindFirst.mockResolvedValueOnce({
+      id: 'o1',
+      userId: 'u1',
+      customerEmail: 'a@b.com',
+      amount: 40_000,
+      currency: 'XOF',
+      metadata: { kind: 'token_purchase', packKey: 'STANDARD' },
+    });
+    const { POST } = await import('./route');
+    const { req } = monerooFixtureRequest({ status: 'success', amount: 100 });
+    await POST(req);
+    expect(orderUpdateMany).not.toHaveBeenCalled();
+    expect(tokenWalletUpsert).not.toHaveBeenCalled();
+  });
+
+  it('onPaid only moves a payable status to PAID', async () => {
+    findUnique.mockResolvedValueOnce(null);
+    orderFindFirst.mockResolvedValueOnce({
+      id: 'o1',
+      userId: 'u1',
+      customerEmail: 'a@b.com',
+      amount: 40_000,
+      currency: 'XOF',
+      metadata: { kind: 'token_purchase', packKey: 'STANDARD' },
+    });
+    tokenWalletUpsert.mockResolvedValue({ userId: 'u1', balance: 150 });
+    const { POST } = await import('./route');
+    const { req } = monerooFixtureRequest({ status: 'success' });
+    await POST(req);
+    expect(orderUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'o1', status: { in: ['PENDING', 'EXPIRED', 'FAILED'] } },
+        data: expect.objectContaining({ status: 'PAID' }),
+      }),
+    );
   });
 
   it('exports runtime=nodejs and dynamic=force-dynamic', async () => {

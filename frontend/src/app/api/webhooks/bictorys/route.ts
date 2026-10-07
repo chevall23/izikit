@@ -28,7 +28,12 @@ export const dynamic = 'force-dynamic';
 import 'server-only';
 import { createWebhookHandler } from '@/lib/server/webhook/handler';
 import { bictorysWebhookProvider } from '@/lib/server/webhook/bictorys';
-import { fulfillPaidOrder } from '@/lib/server/payments/fulfill-order';
+import {
+  markOrderFailed,
+  markOrderPaid,
+  markOrderRefunded,
+  readAmount,
+} from '@/lib/server/payments/order-transitions';
 import { prisma } from '@/lib/server/prisma';
 
 export const POST = createWebhookHandler({
@@ -44,21 +49,13 @@ export const POST = createWebhookHandler({
     });
     if (!order) return {}; // unknown charge — log + drop (no DB row to update)
 
-    const paymentMethod = payload.payment_method ? String(payload.payment_method) : null;
-
-    await tx.order.update({
-      where: { id: order.id },
-      data: {
-        status: 'PAID',
-        paidAt: new Date(),
-        ...(paymentMethod !== null ? { paymentMethod } : {}),
-      },
+    // Guarded transition: PAID at most once, amount checked against the
+    // order, fulfillment (subscription / token wallet / outbox emits) only
+    // when this event actually moved the row — see order-transitions.ts.
+    await markOrderPaid(tx, order, {
+      paidAmount: readAmount(payload.amount),
+      paymentMethod: payload.payment_method ? String(payload.payment_method) : null,
     });
-
-    // Subscription activation / token-wallet crediting / outbox emits are
-    // provider-agnostic — shared with the Moneroo webhook route so the two
-    // never drift. Runs inside this same Serializable tx.
-    await fulfillPaidOrder(tx, order);
 
     return {};
   },
@@ -70,10 +67,7 @@ export const POST = createWebhookHandler({
       where: { providerChargeId: externalRef },
     });
     if (!order) return {};
-    await tx.order.update({
-      where: { id: order.id },
-      data: { status: 'REFUNDED' },
-    });
+    await markOrderRefunded(tx, order.id);
     // No outbox emit in v1 — `notification.refund_received` kind is not
     // declared in outbox/types.ts (RESEARCH §"Pattern 1" + A6). Adding it
     // would touch the PROTECTED dispatcher; deferred to a follow-up phase.
@@ -87,10 +81,7 @@ export const POST = createWebhookHandler({
       where: { providerChargeId: externalRef },
     });
     if (!order) return {};
-    await tx.order.update({
-      where: { id: order.id },
-      data: { status: 'FAILED' },
-    });
+    await markOrderFailed(tx, order.id);
     return {};
   },
 });

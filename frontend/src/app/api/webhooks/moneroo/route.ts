@@ -26,7 +26,11 @@ export const dynamic = 'force-dynamic';
 import 'server-only';
 import { createWebhookHandler } from '@/lib/server/webhook/handler';
 import { monerooWebhookProvider } from '@/lib/server/webhook/moneroo';
-import { fulfillPaidOrder } from '@/lib/server/payments/fulfill-order';
+import {
+  markOrderFailed,
+  markOrderPaid,
+  readAmount,
+} from '@/lib/server/payments/order-transitions';
 import { prisma } from '@/lib/server/prisma';
 
 export const POST = createWebhookHandler({
@@ -42,12 +46,9 @@ export const POST = createWebhookHandler({
     });
     if (!order) return {}; // unknown charge — log + drop (no DB row to update)
 
-    await tx.order.update({
-      where: { id: order.id },
-      data: { status: 'PAID', paidAt: new Date() },
-    });
-
-    await fulfillPaidOrder(tx, order);
+    // Guarded transition: PAID at most once, amount checked against the
+    // order — see order-transitions.ts.
+    await markOrderPaid(tx, order, { paidAmount: readAmount(payload.data?.amount) });
 
     return {};
   },
@@ -59,10 +60,7 @@ export const POST = createWebhookHandler({
       where: { providerChargeId: externalRef },
     });
     if (!order) return {};
-    await tx.order.update({
-      where: { id: order.id },
-      data: { status: 'FAILED' },
-    });
+    await markOrderFailed(tx, order.id);
     return {};
   },
 });

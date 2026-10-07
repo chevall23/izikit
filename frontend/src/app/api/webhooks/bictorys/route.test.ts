@@ -6,6 +6,7 @@ const create = vi.fn();
 const update = vi.fn();
 const orderFindFirst = vi.fn();
 const orderUpdate = vi.fn();
+const orderUpdateMany = vi.fn();
 const outboxCreate = vi.fn();
 const subscriptionUpsert = vi.fn();
 const tokenWalletUpsert = vi.fn();
@@ -14,7 +15,7 @@ const tokenTransactionCreate = vi.fn();
 const $transaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>, _opts?: unknown) =>
   fn({
     webhookLog: { findUnique, create, update },
-    order: { findFirst: orderFindFirst, update: orderUpdate },
+    order: { findFirst: orderFindFirst, update: orderUpdate, updateMany: orderUpdateMany },
     outboxEvent: { create: outboxCreate },
     subscription: { upsert: subscriptionUpsert },
     tokenWallet: { upsert: tokenWalletUpsert },
@@ -36,6 +37,8 @@ beforeEach(() => {
   update.mockReset();
   orderFindFirst.mockReset();
   orderUpdate.mockReset();
+  orderUpdateMany.mockReset();
+  orderUpdateMany.mockResolvedValue({ count: 1 });
   outboxCreate.mockReset();
   subscriptionUpsert.mockReset();
   tokenWalletUpsert.mockReset();
