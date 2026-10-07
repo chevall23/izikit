@@ -1,3 +1,10 @@
+/**
+ * Listings per page on /annonces — shared by the server render, the client
+ * refetches and the GET /api/public/listings default. 18 = six rows of the
+ * 3-column grid (nine of the 2-column tablet grid).
+ */
+export const LISTINGS_PAGE_SIZE = 18;
+
 export interface Listing {
   id: string;
   title: string;

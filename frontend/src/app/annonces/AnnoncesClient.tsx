@@ -25,12 +25,15 @@ import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
 import { PopularSearches, type PopularSearchLink } from '@/components/public/PopularSearches';
 import { InitialsAvatar } from '@/components/dashboard/InitialsAvatar';
-import { PROPERTY_TYPE_LABEL, TRANSACTION_TYPE_LABEL, formatListingPrice } from '@/lib/listings';
+import {
+  LISTINGS_PAGE_SIZE,
+  PROPERTY_TYPE_LABEL,
+  TRANSACTION_TYPE_LABEL,
+  formatListingPrice,
+} from '@/lib/listings';
 import { COUNTRY_FLAG, formatDate } from '@/lib/alerts';
 
 import type { PublicListingsResult as PublicListingsResponse } from '@/lib/server/public/listings';
-
-const LIMIT = 9;
 
 export interface AnnoncesInitialState {
   filters: { country: string; city: string; propertyType: string; transactionType: string };
@@ -237,7 +240,7 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
     if (priceMax) params.set('priceMax', priceMax);
     if (sort !== 'recent') params.set('sort', sort);
     params.set('page', String(page));
-    params.set('limit', String(LIMIT));
+    params.set('limit', String(LISTINGS_PAGE_SIZE));
 
     api<PublicListingsResponse>(`/api/public/listings?${params.toString()}`)
       .then((res) => {

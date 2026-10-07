@@ -93,16 +93,16 @@ describe('GET /api/public/listings', () => {
     );
   });
 
-  it('defaults to page 1 / limit 9, and computes totalPages', async () => {
-    prismaMock.listing.count.mockResolvedValueOnce(19 as never);
+  it('defaults to page 1 / limit 18, and computes totalPages', async () => {
+    prismaMock.listing.count.mockResolvedValueOnce(37 as never);
     const res = await GET(makeGet());
     const body = await res.json();
     expect(prismaMock.listing.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 0, take: 9 }),
+      expect.objectContaining({ skip: 0, take: 18 }),
     );
     expect(body.page).toBe(1);
-    expect(body.limit).toBe(9);
-    expect(body.total).toBe(19);
+    expect(body.limit).toBe(18);
+    expect(body.total).toBe(37);
     expect(body.totalPages).toBe(3);
   });
 

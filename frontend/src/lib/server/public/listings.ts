@@ -5,8 +5,9 @@
 import 'server-only';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/server/prisma';
+import { LISTINGS_PAGE_SIZE } from '@/lib/listings';
 
-export const DEFAULT_LIMIT = 9;
+export const DEFAULT_LIMIT = LISTINGS_PAGE_SIZE;
 const MAX_LIMIT = 24;
 
 export interface ListingSearch {
