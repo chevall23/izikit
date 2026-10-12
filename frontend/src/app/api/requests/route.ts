@@ -22,6 +22,8 @@ import { clampLimit, cursorWhere, decodeCursor, buildPage } from '@/lib/server/p
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { runMatchingForNewRequest } from '@/lib/server/alerts/matching';
 import { createLogger } from '@/lib/server/logger';
+import { requestBodyIssues } from '@/lib/request-validation';
+import { assessRequestTrust } from '@/lib/server/requests/trust';
 
 const log = createLogger();
 
@@ -92,27 +94,38 @@ const FINANCINGS = ['Comptant', 'Crédit', 'Les deux'] as const;
 const DELAYS = ['Immédiat', '1–3 mois', '3–6 mois', 'Flexible'] as const;
 const CLIENT_TYPES = ['Particulier', 'Entreprise'] as const;
 
-const CreateBody = z.object({
-  transactionType: z.enum(TRANSACTION_TYPES),
-  propertyType: z.enum(PROPERTY_TYPES),
-  country: z.string().trim().min(1).max(120),
-  city: z.string().trim().min(1).max(120),
-  bedrooms: z.string().trim().min(1).max(40).optional(),
-  salons: z.string().trim().min(1).max(40).optional(),
-  surfaceM2: z.number().int().positive().optional(),
-  capacity: z.number().int().positive().optional(),
-  amenities: z.array(z.string().max(40)).max(30).default([]),
-  priority: z.enum(PRIORITIES).default('Normale'),
-  budgetMin: z.number().int().nonnegative().optional(),
-  budgetMax: z.number().int().nonnegative().optional(),
-  financing: z.enum(FINANCINGS),
-  delay: z.enum(DELAYS),
-  clientName: z.string().trim().min(1).max(200),
-  clientPhone: z.string().trim().min(1).max(40),
-  clientEmail: z.string().trim().email().max(200).optional(),
-  clientType: z.enum(CLIENT_TYPES).default('Particulier'),
-  source: z.string().trim().max(80).optional(),
-});
+const CreateBody = z
+  .object({
+    transactionType: z.enum(TRANSACTION_TYPES),
+    propertyType: z.enum(PROPERTY_TYPES),
+    country: z.string().trim().min(1).max(120),
+    city: z.string().trim().min(1).max(120),
+    bedrooms: z.string().trim().min(1).max(40).optional(),
+    salons: z.string().trim().min(1).max(40).optional(),
+    surfaceM2: z.number().int().positive().optional(),
+    capacity: z.number().int().positive().optional(),
+    amenities: z.array(z.string().max(40)).max(30).default([]),
+    priority: z.enum(PRIORITIES).default('Normale'),
+    budgetMin: z.number().int().nonnegative().optional(),
+    budgetMax: z.number().int().nonnegative().optional(),
+    financing: z.enum(FINANCINGS),
+    delay: z.enum(DELAYS),
+    clientName: z.string().trim().min(1).max(200),
+    clientPhone: z.string().trim().min(1).max(40),
+    clientEmail: z.string().trim().email().max(200).optional(),
+    clientType: z.enum(CLIENT_TYPES).default('Particulier'),
+    source: z.string().trim().max(80).optional(),
+  })
+  .superRefine((b, ctx) => {
+    // The wizard's required fields (see lib/request-validation.ts).
+    for (const issue of requestBodyIssues({
+      ...b,
+      surface: b.surfaceM2,
+      clientPhone: b.clientPhone,
+    })) {
+      ctx.addIssue({ code: 'custom', path: [issue.field], message: issue.message });
+    }
+  });
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const ctx = makeRequestContext(req.headers);
@@ -132,9 +145,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const data = parsed.data;
+    const trust = await assessRequestTrust(prisma, {
+      clientName: data.clientName,
+      clientPhone: data.clientPhone,
+      clientEmail: data.clientEmail,
+      transactionType: data.transactionType,
+      propertyType: data.propertyType,
+      country: data.country,
+      city: data.city,
+      budgetMin: data.budgetMin,
+      budgetMax: data.budgetMax,
+    });
+
     const propertyRequest = await prisma.propertyRequest.create({
       data: {
         userId: auth.user.sub,
+        trustStatus: trust.status,
+        trustScore: trust.score,
+        trustFlags: trust.flags,
+        ...(trust.phoneKey !== null && { clientPhoneKey: trust.phoneKey }),
         transactionType: data.transactionType,
         propertyType: data.propertyType,
         country: data.country,
@@ -159,17 +188,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
 
     try {
-      await runMatchingForNewRequest(prisma, {
-        id: propertyRequest.id,
-        userId: auth.user.sub,
-        transactionType: data.transactionType,
-        propertyType: data.propertyType,
-        country: data.country,
-        city: data.city,
-        budgetMin: data.budgetMin ?? null,
-        budgetMax: data.budgetMax ?? null,
-        clientName: data.clientName,
-      });
+      if (trust.status === 'TRUSTED') {
+        await runMatchingForNewRequest(prisma, {
+          id: propertyRequest.id,
+          userId: auth.user.sub,
+          transactionType: data.transactionType,
+          propertyType: data.propertyType,
+          country: data.country,
+          city: data.city,
+          budgetMin: data.budgetMin ?? null,
+          budgetMax: data.budgetMax ?? null,
+          clientName: data.clientName,
+        });
+      }
     } catch (err) {
       log.warn('requests: matching failed for new request', {
         requestId: propertyRequest.id,

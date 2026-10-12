@@ -759,8 +759,19 @@ model PropertyRequest {
 
   matchedByAlerts AlertMatch[]
 
+  // Fiabilité de la demande (voir lib/server/requests/trust.ts). Une demande
+  // REVIEW ou REJECTED n'est jamais proposée aux agents (correspondance avec
+  // les alertes, liste publique) tant qu'un admin ne l'a pas approuvée.
+  trustStatus   String @default("TRUSTED") // TRUSTED | REVIEW | REJECTED
+  trustScore    Int    @default(100) // 0–100
+  trustFlags    Json   @default("[]") // string[] — signaux détectés
+  // 8 derniers chiffres du téléphone, pour détecter les doublons / le spam.
+  clientPhoneKey String?
+
   @@index([userId, createdAt])
   @@index([status])
+  @@index([trustStatus])
+  @@index([clientPhoneKey, createdAt])
 }
 
 // ───────────────────────────────────────────────────────────────────────

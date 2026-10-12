@@ -26,6 +26,8 @@ import { createEmailLimiter } from '@/lib/server/middleware/rate-limit-by-email'
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { runMatchingForNewRequest } from '@/lib/server/alerts/matching';
 import { createLogger } from '@/lib/server/logger';
+import { requestBodyIssues } from '@/lib/request-validation';
+import { assessRequestTrust } from '@/lib/server/requests/trust';
 
 const log = createLogger();
 
@@ -47,30 +49,39 @@ const DELAYS = ['Immédiat', '1–3 mois', '3–6 mois', 'Flexible'] as const;
 const PRIORITIES = ['Urgent', 'Normale', 'Basse'] as const;
 const CLIENT_TYPES = ['Particulier', 'Entreprise'] as const;
 
-const Body = z.object({
-  transactionType: z.enum(TRANSACTION_TYPES),
-  propertyType: z.enum(PROPERTY_TYPES),
-  country: z.string().trim().min(1).max(120),
-  city: z.string().trim().min(1).max(120),
-  landmark: z.string().trim().max(200).optional(),
-  bedrooms: z.string().trim().min(1).max(40).optional(),
-  salons: z.string().trim().min(1).max(40).optional(),
-  surfaceMin: z.number().int().positive().optional(),
-  surfaceMax: z.number().int().positive().optional(),
-  capacity: z.number().int().positive().optional(),
-  amenities: z.array(z.string().max(40)).max(30).default([]),
-  priority: z.enum(PRIORITIES).optional(),
-  budgetMin: z.number().int().nonnegative().optional(),
-  budgetMax: z.number().int().nonnegative().optional(),
-  financing: z.enum(FINANCINGS),
-  delay: z.enum(DELAYS),
-  clientName: z.string().trim().min(1).max(200),
-  clientPhone: z.string().trim().min(1).max(40),
-  clientEmail: z.string().trim().email().max(200).optional(),
-  clientType: z.enum(CLIENT_TYPES).optional(),
-  source: z.string().trim().max(80).optional(),
-  notes: z.string().trim().max(4000).optional(),
-});
+const Body = z
+  .object({
+    transactionType: z.enum(TRANSACTION_TYPES),
+    propertyType: z.enum(PROPERTY_TYPES),
+    country: z.string().trim().min(1).max(120),
+    city: z.string().trim().min(1).max(120),
+    landmark: z.string().trim().max(200).optional(),
+    bedrooms: z.string().trim().min(1).max(40).optional(),
+    salons: z.string().trim().min(1).max(40).optional(),
+    surfaceMin: z.number().int().positive().optional(),
+    surfaceMax: z.number().int().positive().optional(),
+    capacity: z.number().int().positive().optional(),
+    amenities: z.array(z.string().max(40)).max(30).default([]),
+    priority: z.enum(PRIORITIES).optional(),
+    budgetMin: z.number().int().nonnegative().optional(),
+    budgetMax: z.number().int().nonnegative().optional(),
+    financing: z.enum(FINANCINGS),
+    delay: z.enum(DELAYS),
+    clientName: z.string().trim().min(1).max(200),
+    clientPhone: z.string().trim().min(1).max(40),
+    clientEmail: z.string().trim().email().max(200).optional(),
+    clientType: z.enum(CLIENT_TYPES).optional(),
+    source: z.string().trim().max(80).optional(),
+    notes: z.string().trim().max(4000).optional(),
+    // Honeypot: hidden in the form, a human never fills it (see lib/server/requests/trust.ts).
+    website: z.string().max(200).optional(),
+  })
+  .superRefine((b, ctx) => {
+    // The wizard's required fields (see lib/request-validation.ts).
+    for (const issue of requestBodyIssues({ ...b, surface: b.surfaceMin ?? b.surfaceMax })) {
+      ctx.addIssue({ code: 'custom', path: [issue.field], message: issue.message });
+    }
+  });
 
 const limiter = createEmailLimiter(redis ? { redis } : {}, {
   bucket: 'public-property-request',
@@ -106,9 +117,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
     if (data.notes) notesParts.push(data.notes);
 
+    // Trust assessment: a doubtful request is saved but kept away from agents
+    // until an admin approves it. The response is the same either way, so a bot
+    // learns nothing from it.
+    const trust = await assessRequestTrust(prisma, {
+      clientName: data.clientName,
+      clientPhone: data.clientPhone,
+      clientEmail: data.clientEmail,
+      transactionType: data.transactionType,
+      propertyType: data.propertyType,
+      country: data.country,
+      city: data.city,
+      budgetMin: data.budgetMin,
+      budgetMax: data.budgetMax,
+      honeypot: data.website,
+    });
+
     const propertyRequest = await prisma.propertyRequest.create({
       data: {
         userId: null,
+        trustStatus: trust.status,
+        trustScore: trust.score,
+        trustFlags: trust.flags,
+        ...(trust.phoneKey !== null && { clientPhoneKey: trust.phoneKey }),
         transactionType: data.transactionType,
         propertyType: data.propertyType,
         country: data.country,
@@ -135,17 +166,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
 
     try {
-      await runMatchingForNewRequest(prisma, {
-        id: propertyRequest.id,
-        userId: null,
-        transactionType: data.transactionType,
-        propertyType: data.propertyType,
-        country: data.country,
-        city: data.city,
-        budgetMin: data.budgetMin ?? null,
-        budgetMax: data.budgetMax ?? null,
-        clientName: data.clientName,
-      });
+      if (trust.status === 'TRUSTED') {
+        await runMatchingForNewRequest(prisma, {
+          id: propertyRequest.id,
+          userId: null,
+          transactionType: data.transactionType,
+          propertyType: data.propertyType,
+          country: data.country,
+          city: data.city,
+          budgetMin: data.budgetMin ?? null,
+          budgetMax: data.budgetMax ?? null,
+          clientName: data.clientName,
+        });
+      }
     } catch (err) {
       log.warn('public-property-request: matching failed for new request', {
         requestId: propertyRequest.id,
@@ -165,7 +198,9 @@ const RECENT_REQUESTS_LIMIT = 6;
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const ctx = makeRequestContext(req.headers);
   return withRequestContext(ctx, async () => {
+    // Only trusted requests are shown (see lib/server/requests/trust.ts).
     const items = await prisma.propertyRequest.findMany({
+      where: { trustStatus: 'TRUSTED' },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: RECENT_REQUESTS_LIMIT,
       select: {

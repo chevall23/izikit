@@ -188,6 +188,59 @@ describe('PATCH /api/admin/property-requests/[id]', () => {
     expect(body.notifiedAgents).toBe(3);
   });
 
+  it('approves a doubtful request: sets TRUSTED, releases it to the agents and audits', async () => {
+    mockRematch.mockResolvedValueOnce(2);
+    prismaMock.propertyRequest.findUnique
+      .mockResolvedValueOnce({ ...existingRow, trustStatus: 'REVIEW' } as never)
+      .mockResolvedValueOnce({ ...detailRow, trustStatus: 'TRUSTED' } as never);
+    const { req, ctx } = call('PATCH', 'r1', { trustStatus: 'TRUSTED' });
+    const res = await PATCH(req, ctx);
+    expect(res.status).toBe(200);
+    expect(prismaMock.propertyRequest.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { trustStatus: 'TRUSTED' } }),
+    );
+    expect(mockRematch).toHaveBeenCalledWith(prismaMock, expect.objectContaining({ id: 'r1' }));
+    expect(prismaMock.alertMatch.deleteMany).not.toHaveBeenCalled();
+    expect((await res.json()).notifiedAgents).toBe(2);
+    expect(mockLog).toHaveBeenCalledWith(
+      prismaMock,
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          trustStatus: 'TRUSTED',
+          previousTrustStatus: 'REVIEW',
+        }),
+      }),
+    );
+  });
+
+  it('rejects a request: pulls it back from agents already matched, no matching run', async () => {
+    prismaMock.propertyRequest.findUnique
+      .mockResolvedValueOnce({ ...existingRow, trustStatus: 'TRUSTED' } as never)
+      .mockResolvedValueOnce({ ...detailRow, trustStatus: 'REJECTED' } as never);
+    const { req, ctx } = call('PATCH', 'r1', { trustStatus: 'REJECTED' });
+    const res = await PATCH(req, ctx);
+    expect(res.status).toBe(200);
+    expect(prismaMock.alertMatch.deleteMany).toHaveBeenCalledWith({
+      where: { propertyRequestId: 'r1' },
+    });
+    expect(mockRematch).not.toHaveBeenCalled();
+  });
+
+  it('400s on an unknown trustStatus', async () => {
+    const { req, ctx } = call('PATCH', 'r1', { trustStatus: 'MAYBE' });
+    expect((await PATCH(req, ctx)).status).toBe(400);
+  });
+
+  it('does nothing when the trustStatus is unchanged', async () => {
+    prismaMock.propertyRequest.findUnique
+      .mockResolvedValueOnce({ ...existingRow, trustStatus: 'TRUSTED' } as never)
+      .mockResolvedValueOnce(detailRow as never);
+    const { req, ctx } = call('PATCH', 'r1', { trustStatus: 'TRUSTED' });
+    await PATCH(req, ctx);
+    expect(prismaMock.propertyRequest.update).not.toHaveBeenCalled();
+    expect(mockRematch).not.toHaveBeenCalled();
+  });
+
   it('still returns 200 with notifiedAgents 0 when matching throws', async () => {
     mockRematch.mockRejectedValueOnce(new Error('boom'));
     prismaMock.propertyRequest.findUnique

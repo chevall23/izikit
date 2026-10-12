@@ -74,6 +74,9 @@ const DETAIL_SELECT = {
   status: true,
   createdAt: true,
   updatedAt: true,
+  trustStatus: true,
+  trustScore: true,
+  trustFlags: true,
   user: { select: { id: true, name: true, email: true, phone: true } },
 } as const;
 
@@ -122,6 +125,8 @@ const PatchBody = z
   .object({
     status: z.enum(STATUSES).optional(),
     rematch: z.boolean().optional(),
+    // Admin decision on a doubtful request: approve (TRUSTED), park (REVIEW) or reject.
+    trustStatus: z.enum(['TRUSTED', 'REVIEW', 'REJECTED']).optional(),
     transactionType: z.enum(TRANSACTION_TYPES).optional(),
     propertyType: z.enum(PROPERTY_TYPES).optional(),
     country: z.string().trim().min(1).max(120).optional(),
@@ -167,7 +172,7 @@ export async function PATCH(
         { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
-    const { status, rematch, ...fields } = parsed.data;
+    const { status, rematch, trustStatus, ...fields } = parsed.data;
 
     const existing = await prisma.propertyRequest.findUnique({
       where: { id },
@@ -175,6 +180,7 @@ export async function PATCH(
         id: true,
         userId: true,
         status: true,
+        trustStatus: true,
         transactionType: true,
         propertyType: true,
         country: true,
@@ -198,13 +204,23 @@ export async function PATCH(
       if (v !== undefined) data[k] = v;
     }
     if (status && status !== existing.status) data.status = status;
+    const trustChanged = trustStatus !== undefined && trustStatus !== existing.trustStatus;
+    if (trustChanged) data.trustStatus = trustStatus;
+    // Approving a doubtful request releases it to the agents (alert matching).
+    const becameTrusted = trustChanged && trustStatus === 'TRUSTED';
 
     if (Object.keys(data).length > 0) {
       await prisma.propertyRequest.update({ where: { id }, data });
     }
 
+    // Demoting a request pulls it back from the agents who were already matched.
+    if (trustChanged && trustStatus !== 'TRUSTED') {
+      await prisma.alertMatch.deleteMany({ where: { propertyRequestId: id } });
+    }
+
+    const doMatch = rematch === true || becameTrusted;
     let notifiedAgents: number | null = null;
-    if (rematch) {
+    if (doMatch) {
       const merged = { ...existing, ...data } as typeof existing;
       try {
         notifiedAgents = await runMatchingForNewRequest(prisma, {
@@ -227,7 +243,7 @@ export async function PATCH(
       }
     }
 
-    const editedFields = Object.keys(data).filter((k) => k !== 'status');
+    const editedFields = Object.keys(data).filter((k) => k !== 'status' && k !== 'trustStatus');
     await logAdminAction(prisma, {
       actorId: auth.admin.id,
       action: 'property_request.update',
@@ -237,8 +253,9 @@ export async function PATCH(
         ...(status && status !== existing.status
           ? { status, previousStatus: existing.status }
           : {}),
+        ...(trustChanged ? { trustStatus, previousTrustStatus: existing.trustStatus } : {}),
         ...(editedFields.length > 0 ? { fields: editedFields } : {}),
-        ...(rematch ? { rematch: true, notifiedAgents } : {}),
+        ...(doMatch ? { rematch: true, notifiedAgents } : {}),
       },
     });
 
@@ -246,7 +263,7 @@ export async function PATCH(
     return NextResponse.json(
       {
         request: serialize(row as DetailRow),
-        ...(rematch ? { notifiedAgents } : {}),
+        ...(doMatch ? { notifiedAgents } : {}),
       },
       { headers: { 'x-request-id': reqCtx.requestId } },
     );

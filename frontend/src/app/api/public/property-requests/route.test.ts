@@ -32,8 +32,13 @@ const validBody = {
   city: 'Abidjan',
   financing: 'Comptant',
   delay: 'Immédiat',
+  bedrooms: '3 chambres',
+  salons: '1 salon',
+  budgetMin: 80_000_000,
+  budgetMax: 200_000_000,
   clientName: 'Awa Diop',
-  clientPhone: '0700000000',
+  clientPhone: '+225 07 48 29 61 53',
+  clientEmail: 'awa.diop@gmail.com',
 };
 
 beforeEach(() => {
@@ -49,6 +54,36 @@ describe('POST /api/public/property-requests', () => {
   it('400s on invalid body', async () => {
     const res = await POST(makePost({ transactionType: 'VENTE' }));
     expect(res.status).toBe(400);
+  });
+
+  it.each([
+    ['the budget', { budgetMin: undefined, budgetMax: undefined }],
+    ['the maximum budget', { budgetMax: undefined }],
+    ['the email', { clientEmail: undefined }],
+    ['bedrooms and salons on a villa', { bedrooms: undefined, salons: undefined }],
+  ])('400s when %s is missing', async (_label, patch) => {
+    const res = await POST(makePost({ ...validBody, ...patch }));
+    expect(res.status).toBe(400);
+    expect(prismaMock.propertyRequest.create).not.toHaveBeenCalled();
+  });
+
+  it('400s when the maximum budget is below the minimum', async () => {
+    const res = await POST(makePost({ ...validBody, budgetMin: 200, budgetMax: 100 }));
+    expect(res.status).toBe(400);
+  });
+
+  it('400s on an implausible phone number or name', async () => {
+    expect((await POST(makePost({ ...validBody, clientPhone: '12' }))).status).toBe(400);
+    expect((await POST(makePost({ ...validBody, clientName: '12345' }))).status).toBe(400);
+  });
+
+  it('requires the surface for land and the capacity for halls', async () => {
+    const land = { ...validBody, propertyType: 'PARCELLE', bedrooms: undefined, salons: undefined };
+    expect((await POST(makePost(land))).status).toBe(400);
+    expect((await POST(makePost({ ...land, surfaceMin: 600 }))).status).toBe(201);
+    const hall = { ...land, propertyType: 'SALLE_FETE' };
+    expect((await POST(makePost(hall))).status).toBe(400);
+    expect((await POST(makePost({ ...hall, capacity: 200 }))).status).toBe(201);
   });
 
   it('creates the request with userId=null and source="Site web"', async () => {
@@ -77,6 +112,46 @@ describe('POST /api/public/property-requests', () => {
         }),
       }),
     );
+  });
+
+  it('stores the trust assessment with the request and the phone key', async () => {
+    await POST(makePost(validBody));
+    expect(prismaMock.propertyRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          trustStatus: 'TRUSTED',
+          trustScore: 100,
+          trustFlags: [],
+          clientPhoneKey: '48296153',
+        }),
+      }),
+    );
+  });
+
+  it('saves a doubtful request for review and keeps it away from agents', async () => {
+    const res = await POST(
+      makePost({
+        ...validBody,
+        clientPhone: '+225 00 00 00 00 00',
+        clientEmail: 'x@mailinator.com',
+      }),
+    );
+    expect(res.status).toBe(201);
+    expect(prismaMock.propertyRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ trustStatus: 'REVIEW', trustFlags: expect.any(Array) }),
+      }),
+    );
+    expect(runMatchingForNewRequest).not.toHaveBeenCalled();
+  });
+
+  it('answers a bot (honeypot filled) like a normal visitor but marks it REJECTED', async () => {
+    const res = await POST(makePost({ ...validBody, website: 'http://spam.example' }));
+    expect(res.status).toBe(201);
+    expect(prismaMock.propertyRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ trustStatus: 'REJECTED' }) }),
+    );
+    expect(runMatchingForNewRequest).not.toHaveBeenCalled();
   });
 
   it('runs alert matching for the new request', async () => {

@@ -36,6 +36,7 @@ const ROW_SELECT = {
   budgetMin: true,
   budgetMax: true,
   clientName: true,
+  trustStatus: true,
 } as const;
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -71,6 +72,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     let notifiedAgents = 0;
 
     for (const row of rows) {
+      // A doubtful request must be approved (trust) before it can reach agents.
+      if (action === 'transmit' && row.trustStatus !== 'TRUSTED') {
+        failed.push(row.id);
+        continue;
+      }
       try {
         if (row.status !== targetStatus) {
           await prisma.propertyRequest.update({

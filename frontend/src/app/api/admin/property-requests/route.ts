@@ -58,7 +58,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       ? { AND: [filterWhere, cursorWhere(cursor)] }
       : filterWhere;
 
-    const [rows, all, enAttente, enCours, cloturee] = await Promise.all([
+    const [rows, all, enAttente, enCours, cloturee, toReview] = await Promise.all([
       prisma.propertyRequest.findMany({
         where: listWhere,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -76,6 +76,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           budgetMax: true,
           priority: true,
           status: true,
+          trustStatus: true,
+          trustScore: true,
           createdAt: true,
           user: { select: { id: true, name: true } },
         },
@@ -84,6 +86,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       prisma.propertyRequest.count({ where: { ...countsWhere, status: 'EN_ATTENTE' } }),
       prisma.propertyRequest.count({ where: { ...countsWhere, status: 'EN_COURS' } }),
       prisma.propertyRequest.count({ where: { ...countsWhere, status: 'CLOTUREE' } }),
+      // Requests waiting for an admin decision (doubtful, hidden from agents).
+      prisma.propertyRequest.count({ where: { ...countsWhere, trustStatus: 'REVIEW' } }),
     ]);
 
     const page = buildPage(rows as { id: string; createdAt: Date }[], limit);
@@ -100,12 +104,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       budgetMax: r.budgetMax,
       priority: r.priority,
       status: r.status,
+      trustStatus: r.trustStatus,
+      trustScore: r.trustScore,
       createdAt: r.createdAt,
       owner: r.user ? { id: r.user.id, name: r.user.name } : null,
     }));
 
     return NextResponse.json(
-      { items, nextCursor: page.nextCursor, counts: { all, enAttente, enCours, cloturee } },
+      {
+        items,
+        nextCursor: page.nextCursor,
+        counts: { all, enAttente, enCours, cloturee, toReview },
+      },
       { headers: { 'x-request-id': ctx.requestId } },
     );
   });

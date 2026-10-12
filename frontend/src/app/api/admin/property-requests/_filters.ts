@@ -44,6 +44,7 @@ export function buildRequestFilterWhere(sp: URLSearchParams): Prisma.PropertyReq
     ...(sp.get('propertyType') ? { propertyType: sp.get('propertyType')! } : {}),
     ...(sp.get('transactionType') ? { transactionType: sp.get('transactionType')! } : {}),
     ...(sp.get('priority') ? { priority: sp.get('priority')! } : {}),
+    ...(sp.get('trust') ? { trustStatus: sp.get('trust')! } : {}),
     ...(minBudget != null ? { budgetMin: { gte: minBudget } } : {}),
     ...(maxBudget != null ? { budgetMax: { lte: maxBudget } } : {}),
     ...(createdAt ? { createdAt } : {}),

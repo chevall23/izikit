@@ -119,6 +119,8 @@ export async function findMatchingRequestsForAlert(
 ): Promise<RequestForMatching[]> {
   const candidates = await prisma.propertyRequest.findMany({
     where: {
+      // Doubtful requests stay hidden from agents until an admin approves them.
+      trustStatus: 'TRUSTED',
       transactionType: alert.transactionType,
       country: alert.country,
       city: { in: alertCities(alert) },

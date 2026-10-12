@@ -50,3 +50,29 @@ export const TXN_LABEL: Record<string, string> = {
 export function labelOr(map: Record<string, string>, key: string): string {
   return map[key] ?? key;
 }
+
+// Trust assessment (lib/server/requests/trust.ts): doubtful requests wait here
+// for an admin decision and are hidden from agents until approved.
+export const TRUST_LABEL: Record<string, string> = {
+  TRUSTED: 'Fiable',
+  REVIEW: 'À vérifier',
+  REJECTED: 'Rejetée',
+};
+
+export const TRUST_TONE: Record<string, AdminStatusTone> = {
+  TRUSTED: 'success',
+  REVIEW: 'warning',
+  REJECTED: 'danger',
+};
+
+export const TRUST_FLAG_LABEL: Record<string, string> = {
+  HONEYPOT: 'Champ piège rempli (robot probable)',
+  PHONE_PATTERN: 'Numéro de téléphone suspect (chiffres répétés ou suite)',
+  DISPOSABLE_EMAIL: 'Adresse e-mail jetable',
+  EMAIL_PATTERN: 'Adresse e-mail factice ou de test',
+  NAME_JUNK: 'Nom fantaisiste ou de test',
+  NAME_SINGLE: 'Nom en un seul mot',
+  BUDGET_IMPLAUSIBLE: 'Budget incohérent avec le marché',
+  DUPLICATE: 'Même recherche déjà envoyée avec ce numéro cette semaine',
+  PHONE_FLOOD: 'Plus de 3 demandes avec ce numéro en 24 h',
+};

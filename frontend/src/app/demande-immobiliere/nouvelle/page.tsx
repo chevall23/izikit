@@ -40,6 +40,8 @@ import { api, ApiError } from '@/lib/api';
 import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
 import { COUNTRIES } from '@/lib/countries';
+import { RequestErrorSummary } from '@/components/public/RequestErrorSummary';
+import { firstInvalidStep, validateStep, type RequestDraft } from '@/lib/request-validation';
 import type { FlagCode } from '@/components/ui/CountryFlag';
 import {
   DIAL_COUNTRIES,
@@ -271,6 +273,11 @@ export default function NouvelleDemandePage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  // Set once the visitor tries to move on with missing fields; from then on the
+  // summary of the current step updates live as the fields are filled in.
+  const [showErrors, setShowErrors] = useState(false);
+  // Honeypot: invisible to people, tempting for bots (see lib/server/requests/trust.ts).
+  const [website, setWebsite] = useState('');
 
   // Prefill from the home page "Vous ne trouvez pas ?" card
   // (?transactionType=&propertyType=&country=&city=&budgetMax=&phone=).
@@ -329,8 +336,46 @@ export default function NouvelleDemandePage() {
     return 'pending';
   }
 
+  function buildDraft(): RequestDraft {
+    return {
+      propertyType,
+      country: pays,
+      city: ville,
+      surface: surfaceMin,
+      capacity,
+      bedrooms: chambres,
+      salons,
+      priority,
+      budgetMin,
+      budgetMax,
+      financing,
+      delay,
+      clientName,
+      phone: telephone.trim() ? `${phoneDial} ${telephone.trim()}` : '',
+      email,
+      clientType,
+      source,
+    };
+  }
+
+  /** Moves to the next step only when the current one is complete. */
+  function goNext(from: 1 | 2) {
+    if (Object.keys(validateStep(from, buildDraft())).length > 0) {
+      setShowErrors(true);
+      return;
+    }
+    setShowErrors(false);
+    setStep((from + 1) as Step);
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    const invalidStep = firstInvalidStep(buildDraft());
+    if (invalidStep) {
+      setShowErrors(true);
+      setStep(invalidStep);
+      return;
+    }
     if (!consentContact || !consentData) return;
 
     setSubmitting(true);
@@ -370,6 +415,7 @@ export default function NouvelleDemandePage() {
           clientName: clientName.trim(),
           clientPhone: `${phoneDial} ${telephone.trim()}`,
           ...(email.trim() && { clientEmail: email.trim() }),
+          ...(website.trim() && { website: website.trim() }),
           clientType,
           source,
         },
@@ -385,6 +431,8 @@ export default function NouvelleDemandePage() {
       setSubmitting(false);
     }
   }
+
+  const stepErrors = showErrors ? validateStep(step, buildDraft()) : {};
 
   return (
     <div className="bg-white text-neutral-900">
@@ -540,7 +588,7 @@ export default function NouvelleDemandePage() {
 
                     {showSurfaceField && (
                       <div className="mb-6">
-                        <FieldLabel>Superficie min. souhaitée (m²)</FieldLabel>
+                        <FieldLabel required>Superficie min. souhaitée (m²)</FieldLabel>
                         <div className="flex items-center gap-2 rounded-lg border-[1.5px] border-black/[0.1] bg-gray-50 px-3.5 py-2.5">
                           <Ruler className="h-[15px] w-[15px] text-gray-400" aria-hidden />
                           <input
@@ -557,7 +605,7 @@ export default function NouvelleDemandePage() {
 
                     {showCapacityField && (
                       <div className="mb-6">
-                        <FieldLabel>Nombre de places</FieldLabel>
+                        <FieldLabel required>Nombre de places</FieldLabel>
                         <div className="flex items-center gap-2 rounded-lg border-[1.5px] border-black/[0.1] bg-gray-50 px-3.5 py-2.5">
                           <Users className="h-[15px] w-[15px] text-gray-400" aria-hidden />
                           <input
@@ -575,7 +623,7 @@ export default function NouvelleDemandePage() {
                     {showRoomField && (
                       <div className="mb-6 grid grid-cols-1 gap-4.5 sm:grid-cols-2">
                         <div>
-                          <FieldLabel>Chambres min.</FieldLabel>
+                          <FieldLabel required>Chambres min.</FieldLabel>
                           <Select value={chambres} onChange={setChambres}>
                             {BEDROOMS_OPTIONS.map((o) => (
                               <option key={o} value={o}>
@@ -585,7 +633,7 @@ export default function NouvelleDemandePage() {
                           </Select>
                         </div>
                         <div>
-                          <FieldLabel>Nombre de salon</FieldLabel>
+                          <FieldLabel required>Nombre de salon</FieldLabel>
                           <Select value={salons} onChange={setSalons}>
                             {SALONS_OPTIONS.map((o) => (
                               <option key={o} value={o}>
@@ -642,6 +690,8 @@ export default function NouvelleDemandePage() {
                       </div>
                     </div>
 
+                    <RequestErrorSummary errors={stepErrors} />
+
                     <div className="mt-8 flex items-center justify-between gap-4">
                       <Link
                         href="/demande-immobiliere"
@@ -652,7 +702,7 @@ export default function NouvelleDemandePage() {
                       </Link>
                       <button
                         type="button"
-                        onClick={() => setStep(2)}
+                        onClick={() => goNext(1)}
                         className="inline-flex items-center gap-2 rounded-full bg-brand px-7 py-3 text-sm font-bold text-white"
                       >
                         Étape suivante : Budget
@@ -725,7 +775,7 @@ export default function NouvelleDemandePage() {
                     <hr className="my-7 border-black/[0.06]" />
 
                     <div className="mb-2 max-w-[260px]">
-                      <FieldLabel>Délai de recherche souhaité</FieldLabel>
+                      <FieldLabel required>Délai de recherche souhaité</FieldLabel>
                       <Select value={delay} onChange={(v) => setDelay(v as Delay)}>
                         {DELAY_OPTIONS.map((d) => (
                           <option key={d} value={d}>
@@ -734,6 +784,8 @@ export default function NouvelleDemandePage() {
                         ))}
                       </Select>
                     </div>
+
+                    <RequestErrorSummary errors={stepErrors} />
 
                     <div className="mt-8 flex items-center justify-between gap-4">
                       <button
@@ -746,7 +798,7 @@ export default function NouvelleDemandePage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setStep(3)}
+                        onClick={() => goNext(2)}
                         className="inline-flex items-center gap-2 rounded-full bg-brand px-7 py-3 text-sm font-bold text-white"
                       >
                         Étape suivante : Contact
@@ -758,6 +810,19 @@ export default function NouvelleDemandePage() {
 
                 {step === 3 && (
                   <form onSubmit={submit}>
+                    <div aria-hidden className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+                      <label>
+                        Ne pas remplir ce champ
+                        <input
+                          type="text"
+                          name="website"
+                          tabIndex={-1}
+                          autoComplete="off"
+                          value={website}
+                          onChange={(e) => setWebsite(e.target.value)}
+                        />
+                      </label>
+                    </div>
                     <h2 className="font-sora mb-1.5 text-[22px] font-extrabold tracking-[-0.03em]">
                       Étape 3 — Vos coordonnées
                     </h2>
@@ -782,11 +847,12 @@ export default function NouvelleDemandePage() {
 
                     <div className="mb-6 grid grid-cols-1 gap-4.5 sm:grid-cols-2">
                       <div>
-                        <FieldLabel>Email</FieldLabel>
+                        <FieldLabel required>Email</FieldLabel>
                         <div className="flex items-center gap-2.5 rounded-lg border-[1.5px] border-black/[0.1] bg-gray-50 px-3.5 py-2.5">
                           <Mail className="h-4 w-4 flex-shrink-0 text-gray-400" aria-hidden />
                           <input
                             type="email"
+                            required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="vous@email.com"
@@ -817,7 +883,7 @@ export default function NouvelleDemandePage() {
                     <hr className="my-7 border-black/[0.06]" />
 
                     <div className="mb-6">
-                      <FieldLabel>Type de client</FieldLabel>
+                      <FieldLabel required>Type de client</FieldLabel>
                       <div className="flex flex-wrap gap-2.5">
                         <Pill
                           selected={clientType === 'Particulier'}
@@ -837,7 +903,7 @@ export default function NouvelleDemandePage() {
                     </div>
 
                     <div className="mb-6 max-w-[300px]">
-                      <FieldLabel>Comment nous avez-vous connu ?</FieldLabel>
+                      <FieldLabel required>Comment nous avez-vous connu ?</FieldLabel>
                       <Select value={source} onChange={setSource}>
                         {SOURCE_OPTIONS.map((s) => (
                           <option key={s} value={s}>
@@ -875,6 +941,8 @@ export default function NouvelleDemandePage() {
                     </div>
 
                     {submitError && <p className="mb-4 text-xs text-red-500">{submitError}</p>}
+
+                    <RequestErrorSummary errors={stepErrors} />
 
                     <div className="mt-8 flex items-center justify-between gap-4">
                       <button

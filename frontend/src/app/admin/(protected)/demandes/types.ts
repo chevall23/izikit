@@ -24,6 +24,9 @@ export interface RequestDetail {
   source: string | null;
   notes: string | null;
   status: string;
+  trustStatus: string;
+  trustScore: number;
+  trustFlags: string[];
   createdAt: string;
   updatedAt: string;
   assignedAgent: { id: string; name: string | null; email: string } | null;

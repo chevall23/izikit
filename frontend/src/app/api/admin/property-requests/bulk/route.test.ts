@@ -35,10 +35,11 @@ function post(body?: unknown): NextRequest {
   });
 }
 
-const row = (id: string, status = 'EN_ATTENTE') => ({
+const row = (id: string, status = 'EN_ATTENTE', trustStatus = 'TRUSTED') => ({
   id,
   userId: null,
   status,
+  trustStatus,
   transactionType: 'VENTE',
   propertyType: 'VILLA',
   country: 'CI',
@@ -103,6 +104,19 @@ describe('POST /api/admin/property-requests/bulk', () => {
     expect(prismaMock.propertyRequest.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { status: 'EN_COURS' } }),
     );
+  });
+
+  it('never transmits a doubtful request: it counts as failed and is left untouched', async () => {
+    prismaMock.propertyRequest.findMany.mockResolvedValueOnce([
+      row('r1', 'EN_ATTENTE', 'REVIEW'),
+      row('r2'),
+    ] as never);
+    mockRematch.mockResolvedValueOnce(1);
+    const body = await (await POST(post({ action: 'transmit', ids: ['r1', 'r2'] }))).json();
+    expect(mockRematch).toHaveBeenCalledTimes(1);
+    expect(prismaMock.propertyRequest.update).toHaveBeenCalledTimes(1);
+    expect(body.failed).toContain('r1');
+    expect(body.ok).toEqual(['r2']);
   });
 
   it('skips the status write when a row is already at the target status', async () => {

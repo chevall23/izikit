@@ -8,6 +8,7 @@ import {
   Building,
   Tag,
   Flag,
+  ShieldCheck,
   Coins,
   CalendarDays,
   ChevronDown,
@@ -27,6 +28,7 @@ export interface Filters {
   propertyType: string;
   transactionType: string;
   priority: string;
+  trust: string;
   minBudget: string;
   maxBudget: string;
   from: string; // yyyy-mm-dd
@@ -40,6 +42,7 @@ export const EMPTY_FILTERS: Filters = {
   propertyType: '',
   transactionType: '',
   priority: '',
+  trust: '',
   minBudget: '',
   maxBudget: '',
   from: '',
@@ -66,6 +69,7 @@ export function filtersToQuery(f: Filters): string {
   add('propertyType', f.propertyType);
   add('transactionType', f.transactionType);
   add('priority', f.priority);
+  add('trust', f.trust);
   add('minBudget', f.minBudget);
   add('maxBudget', f.maxBudget);
   add('from', f.from);
@@ -201,6 +205,11 @@ function PopoverPill({
 const PROPERTY_OPTIONS = Object.entries(PROPERTY_LABEL).map(([value, label]) => ({ value, label }));
 const TXN_OPTIONS = Object.entries(TXN_LABEL).map(([value, label]) => ({ value, label }));
 const PRIORITY_OPTIONS = PRIORITIES.map((p) => ({ value: p, label: p }));
+const TRUST_OPTIONS = [
+  { value: 'REVIEW', label: 'À vérifier' },
+  { value: 'TRUSTED', label: 'Fiables' },
+  { value: 'REJECTED', label: 'Rejetées' },
+];
 
 export function DemandesFilterBar({
   value,
@@ -318,6 +327,13 @@ export function DemandesFilterBar({
         value={value.priority}
         onChange={(priority) => onChange({ ...value, priority })}
         options={PRIORITY_OPTIONS}
+      />
+      <SelectPill
+        icon={ShieldCheck}
+        label="Fiabilité"
+        value={value.trust}
+        onChange={(trust) => onChange({ ...value, trust })}
+        options={TRUST_OPTIONS}
       />
 
       <PopoverPill

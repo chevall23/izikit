@@ -41,6 +41,9 @@ import {
   PRIORITY_TONE,
   PROPERTY_LABEL,
   TXN_LABEL,
+  TRUST_LABEL,
+  TRUST_TONE,
+  TRUST_FLAG_LABEL,
   labelOr,
 } from './labels';
 
@@ -61,6 +64,8 @@ interface ListRow {
   budgetMax: number | null;
   priority: string;
   status: string;
+  trustStatus: string;
+  trustScore: number;
   createdAt: string;
   owner: { id: string; name: string | null } | null;
 }
@@ -70,6 +75,7 @@ interface Counts {
   enAttente: number;
   enCours: number;
   cloturee: number;
+  toReview: number;
 }
 
 // ── Formatters ───────────────────────────────────────────────────────────────
@@ -107,7 +113,7 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 const PER_PAGE = 20;
-const EMPTY_COUNTS: Counts = { all: 0, enAttente: 0, enCours: 0, cloturee: 0 };
+const EMPTY_COUNTS: Counts = { all: 0, enAttente: 0, enCours: 0, cloturee: 0, toReview: 0 };
 
 function countFor(counts: Counts, key: TabKey): number {
   if (key === 'all') return counts.all;
@@ -254,7 +260,11 @@ export default function AdminDemandesPage() {
   }
 
   async function mutate(
-    patch: { status?: RequestDetail['status']; rematch?: boolean },
+    patch: {
+      status?: RequestDetail['status'];
+      rematch?: boolean;
+      trustStatus?: 'TRUSTED' | 'REVIEW' | 'REJECTED';
+    },
     successMsg: (notifiedAgents: number | null) => string,
   ) {
     if (!detail || busy) return;
@@ -418,6 +428,22 @@ export default function AdminDemandesPage() {
           />
         )}
 
+        {counts.toReview > 0 && filters.trust !== 'REVIEW' && (
+          <button
+            type="button"
+            onClick={() => setFilters({ ...filters, trust: 'REVIEW' })}
+            className="flex w-full items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-[18px] py-2.5 text-left text-[13px] font-semibold text-amber-700"
+          >
+            <span>
+              {counts.toReview} demande{counts.toReview > 1 ? 's' : ''} à vérifier — masquée
+              {counts.toReview > 1 ? 's' : ''} aux agents tant qu’elle
+              {counts.toReview > 1 ? 's ne sont' : ' n’est'} pas approuvée
+              {counts.toReview > 1 ? 's' : ''}
+            </span>
+            <span className="underline">Voir</span>
+          </button>
+        )}
+
         <div className="flex flex-wrap items-center justify-between gap-3.5 border-b border-black/[0.08] px-[18px] py-4">
           <div className="flex flex-wrap items-center gap-3.5">
             <span className="font-sora text-[15px] font-bold text-neutral-900">
@@ -560,9 +586,16 @@ export default function AdminDemandesPage() {
                       {formatBudget(r.budgetMin, r.budgetMax)}
                     </td>
                     <td className="px-3 py-2.5">
-                      <AdminStatusBadge tone={STATUS_TONE[r.status] ?? 'neutral'}>
-                        {labelOr(STATUS_LABEL, r.status)}
-                      </AdminStatusBadge>
+                      <div className="flex flex-col items-start gap-1">
+                        <AdminStatusBadge tone={STATUS_TONE[r.status] ?? 'neutral'}>
+                          {labelOr(STATUS_LABEL, r.status)}
+                        </AdminStatusBadge>
+                        {r.trustStatus !== 'TRUSTED' && (
+                          <AdminStatusBadge tone={TRUST_TONE[r.trustStatus] ?? 'neutral'}>
+                            {labelOr(TRUST_LABEL, r.trustStatus)}
+                          </AdminStatusBadge>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-2.5 text-[12px] whitespace-nowrap text-gray-400">
                       {formatDate(r.createdAt)}
@@ -651,9 +684,47 @@ export default function AdminDemandesPage() {
         footer={
           !creating && detail && !editing ? (
             <>
+              {detail.trustStatus !== 'TRUSTED' && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    mutate({ trustStatus: 'TRUSTED' }, (n) =>
+                      n && n > 0
+                        ? `Demande approuvée — ${n} agent${n > 1 ? 's' : ''} notifié${n > 1 ? 's' : ''}.`
+                        : 'Demande approuvée — visible des agents.',
+                    )
+                  }
+                  className="flex h-[38px] items-center justify-center gap-2 rounded-lg bg-brand text-[14px] font-semibold text-white disabled:opacity-50"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                  Approuver la demande
+                </button>
+              )}
+              {detail.trustStatus === 'REVIEW' && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    mutate(
+                      { trustStatus: 'REJECTED' },
+                      () => 'Demande rejetée — jamais proposée aux agents.',
+                    )
+                  }
+                  className="flex h-[38px] items-center justify-center gap-2 rounded-lg bg-red-50 text-[14px] font-semibold text-red-500 disabled:opacity-50"
+                >
+                  <XCircle className="h-3.5 w-3.5" aria-hidden />
+                  Rejeter la demande
+                </button>
+              )}
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || detail.trustStatus !== 'TRUSTED'}
+                title={
+                  detail.trustStatus !== 'TRUSTED'
+                    ? 'Approuvez d’abord la demande pour la transmettre'
+                    : undefined
+                }
                 onClick={() =>
                   mutate({ status: 'EN_COURS', rematch: true }, (n) =>
                     n && n > 0
@@ -734,6 +805,32 @@ export default function AdminDemandesPage() {
                 {labelOr(STATUS_LABEL, detail.status)}
               </AdminStatusBadge>
             </div>
+
+            {(detail.trustStatus !== 'TRUSTED' || detail.trustFlags.length > 0) && (
+              <div className="rounded-xl border border-black/[0.08] bg-gray-50 p-3.5">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-[13px] font-bold text-neutral-900">Fiabilité de la demande</p>
+                  <AdminStatusBadge tone={TRUST_TONE[detail.trustStatus] ?? 'neutral'}>
+                    {`${labelOr(TRUST_LABEL, detail.trustStatus)} · ${detail.trustScore}/100`}
+                  </AdminStatusBadge>
+                </div>
+                {detail.trustFlags.length > 0 ? (
+                  <ul className="list-disc pl-5 text-[12.5px] text-neutral-700">
+                    {detail.trustFlags.map((f) => (
+                      <li key={f}>{labelOr(TRUST_FLAG_LABEL, f)}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-[12.5px] text-gray-500">Aucun signal détecté.</p>
+                )}
+                {detail.trustStatus !== 'TRUSTED' && (
+                  <p className="mt-2 text-[12px] text-gray-500">
+                    Cette demande n’est pas visible des agents (alertes, liste publique) tant
+                    qu’elle n’est pas approuvée.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div>
               <p className="mb-2.5 text-[13px] font-bold text-neutral-900">Critères de recherche</p>
