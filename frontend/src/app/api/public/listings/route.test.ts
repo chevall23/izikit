@@ -36,6 +36,7 @@ beforeEach(() => {
   prismaMock.listing.findMany.mockResolvedValue([makeRow()] as never);
   prismaMock.listing.count.mockResolvedValue(1 as never);
   mockGroupBy.mockResolvedValue([] as never);
+  vi.mocked(prismaMock.legalDocument.groupBy).mockResolvedValue([] as never);
 });
 
 describe('GET /api/public/listings', () => {
@@ -163,10 +164,24 @@ describe('GET /api/public/listings', () => {
         createdAt: '2026-08-01T00:00:00.000Z',
         primaryPhotoUrl: 'https://example.com/photo.jpg',
         photoCount: 3,
-        agent: { name: 'Kofi Atta', avatarUrl: null, seed: 'user-1' },
+        agent: { name: 'Kofi Atta', avatarUrl: null, seed: 'user-1', verified: false },
       },
     ]);
     expect(JSON.stringify(body)).not.toContain('email');
+  });
+
+  it('marks the agent verified only when all 3 legal documents are validated', async () => {
+    vi.mocked(prismaMock.legalDocument.groupBy).mockResolvedValue([
+      { userId: 'user-1', _count: { _all: 3 } },
+    ] as never);
+    const body = await (await GET(makeGet())).json();
+    expect(body.items[0].agent.verified).toBe(true);
+
+    vi.mocked(prismaMock.legalDocument.groupBy).mockResolvedValue([
+      { userId: 'user-1', _count: { _all: 2 } },
+    ] as never);
+    const partial = await (await GET(makeGet())).json();
+    expect(partial.items[0].agent.verified).toBe(false);
   });
 
   it('primaryPhotoUrl is null when the listing has no primary photo', async () => {

@@ -56,6 +56,7 @@ beforeEach(() => {
   prismaMock.listing.update.mockResolvedValue({ viewCount: 11 } as never);
   prismaMock.listing.findMany.mockResolvedValue([] as never);
   prismaMock.listingView.create.mockResolvedValue({} as never);
+  vi.mocked(prismaMock.legalDocument.groupBy).mockResolvedValue([] as never);
 });
 
 describe('GET /api/public/listings/[id]', () => {
@@ -125,8 +126,18 @@ describe('GET /api/public/listings/[id]', () => {
       avatarUrl: null,
       phone: '+22990000000',
       seed: 'user-1',
+      verified: false,
     });
     expect(JSON.stringify(body)).not.toContain('"email"');
+  });
+
+  it('marks the agent verified once all 3 legal documents are validated', async () => {
+    vi.mocked(prismaMock.legalDocument.groupBy).mockResolvedValue([
+      { userId: 'user-1', _count: { _all: 3 } },
+    ] as never);
+    const { req, ctx } = makeGet();
+    const body = await (await GET(req, ctx)).json();
+    expect(body.agent.verified).toBe(true);
   });
 
   it('parses amenities as a string array', async () => {

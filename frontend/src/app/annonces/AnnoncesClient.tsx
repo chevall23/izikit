@@ -822,10 +822,12 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
                         <span className="text-xs text-gray-500">
                           {listing.agent.name ?? 'Agent'}
                         </span>
-                        <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-500">
-                          <BadgeCheck className="h-3 w-3" aria-hidden />
-                          Vérifié
-                        </span>
+                        {listing.agent.verified && (
+                          <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-500">
+                            <BadgeCheck className="h-3 w-3" aria-hidden />
+                            Vérifié
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center justify-between gap-2 border-t border-black/[0.06] pt-2.5">
                         <p className="text-lg font-extrabold tracking-[-0.03em] text-brand">
@@ -905,10 +907,12 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
                           <span className="text-[13px] text-gray-500">
                             {listing.agent.name ?? 'Agent'}
                           </span>
-                          <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-500">
-                            <BadgeCheck className="h-3 w-3" aria-hidden />
-                            Vérifié
-                          </span>
+                          {listing.agent.verified && (
+                            <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-500">
+                              <BadgeCheck className="h-3 w-3" aria-hidden />
+                              Vérifié
+                            </span>
+                          )}
                           <span className="text-xs whitespace-nowrap text-gray-400">
                             · Publié le {formatDate(listing.createdAt)}
                           </span>

@@ -304,10 +304,12 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
                 <ImageIcon className="h-10 w-10 text-slate-300" aria-hidden />
               </div>
             )}
-            <span className="absolute top-4 left-4 z-[2] inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3.5 py-[6px] text-xs font-bold whitespace-nowrap text-white shadow-sm">
-              <BadgeCheck className="h-[13px] w-[13px]" aria-hidden />
-              Vérifié
-            </span>
+            {listing.agent.verified && (
+              <span className="absolute top-4 left-4 z-[2] inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3.5 py-[6px] text-xs font-bold whitespace-nowrap text-white shadow-sm">
+                <BadgeCheck className="h-[13px] w-[13px]" aria-hidden />
+                Vérifié
+              </span>
+            )}
             {photos.length > 1 && (
               <button
                 type="button"
@@ -368,10 +370,12 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
                     {PROPERTY_TYPE_LABEL[listing.propertyType] ?? listing.propertyType} ·{' '}
                     {TRANSACTION_TYPE_LABEL[listing.transactionType] ?? listing.transactionType}
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold whitespace-nowrap text-emerald-600">
-                    <BadgeCheck className="h-[11px] w-[11px]" aria-hidden />
-                    Annonce vérifiée
-                  </span>
+                  {listing.agent.verified && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold whitespace-nowrap text-emerald-600">
+                      <BadgeCheck className="h-[11px] w-[11px]" aria-hidden />
+                      Annonce vérifiée
+                    </span>
+                  )}
                   <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold whitespace-nowrap text-gray-500">
                     Réf. {listing.id.slice(-8).toUpperCase()}
                   </span>
@@ -581,10 +585,12 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold">{listing.agent.name ?? 'Agent'}</p>
-                  <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-[3px] text-[11px] font-semibold whitespace-nowrap text-emerald-600">
-                    <BadgeCheck className="h-[11px] w-[11px]" aria-hidden />
-                    Vérifié
-                  </span>
+                  {listing.agent.verified && (
+                    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-[3px] text-[11px] font-semibold whitespace-nowrap text-emerald-600">
+                      <BadgeCheck className="h-[11px] w-[11px]" aria-hidden />
+                      Vérifié
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -769,7 +775,9 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
                   label: 'Transaction',
                   value: TRANSACTION_TYPE_LABEL[listing.transactionType] ?? listing.transactionType,
                 },
-                { label: 'Statut', value: 'Vérifié', green: true },
+                listing.agent.verified
+                  ? { label: 'Statut', value: 'Vérifié', green: true }
+                  : { label: 'Statut', value: 'Publiée', green: false },
               ].map((m) => (
                 <div
                   key={m.label}

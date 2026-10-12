@@ -23,6 +23,8 @@ interface PublicListingItem {
   bathrooms: number | null;
   surfaceM2: number | null;
   primaryPhotoUrl: string | null;
+  /** `verified`: the agent's required legal documents are all validated. */
+  agent: { verified: boolean };
 }
 
 interface Facet {
@@ -162,10 +164,12 @@ export function FeaturedListingsSection({ initial }: { initial: PublicListingsRe
                     )}
                   </Link>
                   <div className="pointer-events-none absolute top-3.5 right-3.5 left-3.5 flex items-center justify-between gap-2">
-                    <span className="rounded-full bg-emerald-500 px-2.5 py-1 text-[11px] font-bold whitespace-nowrap text-white">
-                      ✓ Vérifié
-                    </span>
-                    <span className="rounded-full bg-black/78 px-2.5 py-1 text-[11px] font-bold whitespace-nowrap text-white">
+                    {listing.agent.verified && (
+                      <span className="rounded-full bg-emerald-500 px-2.5 py-1 text-[11px] font-bold whitespace-nowrap text-white">
+                        ✓ Vérifié
+                      </span>
+                    )}
+                    <span className="ml-auto rounded-full bg-black/78 px-2.5 py-1 text-[11px] font-bold whitespace-nowrap text-white">
                       {TRANSACTION_TYPE_LABEL[listing.transactionType] ?? listing.transactionType}
                     </span>
                   </div>

@@ -6,6 +6,7 @@ import 'server-only';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/server/prisma';
 import { LISTINGS_PAGE_SIZE } from '@/lib/listings';
+import { verifiedAgentIds } from '@/lib/server/public/agent-verification';
 
 export const DEFAULT_LIMIT = LISTINGS_PAGE_SIZE;
 const MAX_LIMIT = 24;
@@ -37,7 +38,8 @@ export interface PublicListingItem {
   createdAt: string;
   primaryPhotoUrl: string | null;
   photoCount: number;
-  agent: { name: string | null; avatarUrl: string | null; seed: string };
+  /** `verified`: all of the agent's required legal documents are validated. */
+  agent: { name: string | null; avatarUrl: string | null; seed: string; verified: boolean };
 }
 
 export interface PublicListingsResult {
@@ -170,6 +172,8 @@ export async function searchPublicListings(q: ListingSearch): Promise<PublicList
     }),
   ]);
 
+  const verifiedAgents = await verifiedAgentIds(rows.map((r) => r.user.id));
+
   const items = rows.map((r) => ({
     id: r.id,
     title: r.title,
@@ -185,7 +189,12 @@ export async function searchPublicListings(q: ListingSearch): Promise<PublicList
     createdAt: new Date(r.createdAt).toISOString(),
     primaryPhotoUrl: r.photos[0]?.url ?? null,
     photoCount: r._count.photos,
-    agent: { name: r.user.name, avatarUrl: r.user.avatarUrl, seed: r.user.id },
+    agent: {
+      name: r.user.name,
+      avatarUrl: r.user.avatarUrl,
+      seed: r.user.id,
+      verified: verifiedAgents.has(r.user.id),
+    },
   }));
 
   const toFacet = (rows: { _count: { _all: number } }[], key: string) =>

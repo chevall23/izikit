@@ -4,6 +4,7 @@
 import 'server-only';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/server/prisma';
+import { verifiedAgentIds } from '@/lib/server/public/agent-verification';
 import { listingSearchHeading, slugify } from '@/lib/seo/listing';
 import {
   COUNTRY_BY_SLUG,
@@ -94,6 +95,8 @@ export async function loadLanding(f: LandingFilter, page: number) {
     }),
   ]);
 
+  const verifiedAgents = await verifiedAgentIds(rows.map((r) => r.user.id));
+
   const items: PublicListingItem[] = rows.map((r) => ({
     id: r.id,
     title: r.title,
@@ -109,7 +112,12 @@ export async function loadLanding(f: LandingFilter, page: number) {
     createdAt: r.createdAt.toISOString(),
     primaryPhotoUrl: r.photos[0]?.url ?? null,
     photoCount: r._count.photos,
-    agent: { name: r.user.name, avatarUrl: r.user.avatarUrl, seed: r.user.id },
+    agent: {
+      name: r.user.name,
+      avatarUrl: r.user.avatarUrl,
+      seed: r.user.id,
+      verified: verifiedAgents.has(r.user.id),
+    },
   }));
 
   return {

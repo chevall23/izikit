@@ -5,6 +5,7 @@
 // also fetched by crawlers, which must not inflate the counters.
 import 'server-only';
 import { prisma } from '@/lib/server/prisma';
+import { verifiedAgentIds } from '@/lib/server/public/agent-verification';
 
 const LISTING_SELECT = {
   id: true,
@@ -66,7 +67,7 @@ export interface PublicSimilarListing {
   createdAt: string;
   primaryPhotoUrl: string | null;
   photoCount: number;
-  agent: { name: string | null; avatarUrl: string | null; seed: string };
+  agent: { name: string | null; avatarUrl: string | null; seed: string; verified: boolean };
 }
 
 export interface PublicListingDetail {
@@ -93,7 +94,13 @@ export interface PublicListingDetail {
   createdAt: string;
   updatedAt: string;
   photos: { url: string; isPrimary: boolean }[];
-  agent: { name: string | null; avatarUrl: string | null; phone: string | null; seed: string };
+  agent: {
+    name: string | null;
+    avatarUrl: string | null;
+    phone: string | null;
+    seed: string;
+    verified: boolean;
+  };
   location: { lat: number; lon: number } | null;
   similar: PublicSimilarListing[];
 }
@@ -113,6 +120,11 @@ export async function getPublicListing(id: string): Promise<PublicListingDetail 
     take: 3,
     select: SIMILAR_SELECT,
   });
+
+  const verifiedAgents = await verifiedAgentIds([
+    listing.user.id,
+    ...similarRows.map((r) => r.user.id),
+  ]);
 
   return {
     id: listing.id,
@@ -143,6 +155,7 @@ export async function getPublicListing(id: string): Promise<PublicListingDetail 
       avatarUrl: listing.user.avatarUrl,
       phone: listing.user.phone,
       seed: listing.user.id,
+      verified: verifiedAgents.has(listing.user.id),
     },
     location: null,
     similar: similarRows.map((r) => ({
@@ -158,7 +171,12 @@ export async function getPublicListing(id: string): Promise<PublicListingDetail 
       createdAt: r.createdAt.toISOString(),
       primaryPhotoUrl: r.photos[0]?.url ?? null,
       photoCount: r._count.photos,
-      agent: { name: r.user.name, avatarUrl: r.user.avatarUrl, seed: r.user.id },
+      agent: {
+        name: r.user.name,
+        avatarUrl: r.user.avatarUrl,
+        seed: r.user.id,
+        verified: verifiedAgents.has(r.user.id),
+      },
     })),
   };
 }
