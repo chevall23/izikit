@@ -1,7 +1,7 @@
 'use client';
 
-// Sticky bar pinned to the bottom of the home page: "Rien ne correspond
-// exactement ?" → straight to the request wizard, prefilled from the home
+// Sticky bar pinned to the bottom of the home page: "Pas d'annonce qui
+// correspond à votre besoin ?" → straight to the request wizard, prefilled from the home
 // search bar. It steps aside while the full "Vous ne trouvez pas ?" section
 // is on screen (same message twice), and the visitor can close it — it comes
 // back on the next page load.
@@ -51,7 +51,7 @@ export function PropertyRequestBar({ search }: { search: RequestBarSearch }) {
           </span>
           <div className="min-w-0 flex-1">
             <p className="font-sora text-[15px] leading-tight font-bold">
-              Rien ne correspond exactement ?
+              Pas d&apos;annonce qui correspond à votre besoin ?
             </p>
             <p className="mt-0.5 hidden text-[13px] leading-snug text-white/70 sm:block">
               Publiez votre demande «&nbsp;{label}&nbsp;» en 30 secondes. Les agents certifiés vous
@@ -65,8 +65,7 @@ export function PropertyRequestBar({ search }: { search: RequestBarSearch }) {
             href={href}
             className="inline-flex flex-shrink-0 items-center gap-2 rounded-full bg-brand px-4 py-2.5 text-[13px] font-semibold whitespace-nowrap text-white hover:bg-brand/90 sm:px-5 sm:text-sm"
           >
-            <span className="sm:hidden">Publier</span>
-            <span className="hidden sm:inline">Publier ma demande</span>
+            Demander
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
           <button

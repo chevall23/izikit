@@ -36,6 +36,8 @@ import { useToast } from '@/contexts/ToastContext';
 import { api, ApiError } from '@/lib/api';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { PhoneInput } from '@/components/ui/PhoneInput';
+import { RequestErrorSummary } from '@/components/public/RequestErrorSummary';
+import { firstInvalidStep, validateStep, type RequestDraft } from '@/lib/request-validation';
 import { PROPERTY_TYPE_LABEL, TRANSACTION_TYPE_LABEL, AMENITY_LABEL } from '@/lib/listings';
 import { cn } from '@/lib/utils';
 
@@ -223,6 +225,9 @@ export default function NouvelleDemandePage() {
   const { toast } = useToast();
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
+  // Set once the user tries to move on with missing fields; from then on the
+  // summary of the current step updates live as the fields are filled in.
+  const [showErrors, setShowErrors] = useState(false);
 
   // Step 1 — Informations du bien
   const [propertyType, setPropertyType] = useState<PropertyType>('VILLA');
@@ -275,15 +280,44 @@ export default function NouvelleDemandePage() {
     if (LAND_PROPERTY_TYPES.has(value)) setAmenities([]);
   }
 
-  async function onCreate() {
-    if (!country || !city) {
-      toast('Renseignez le pays et la ville avant de créer la demande.', 'error');
-      setStep(1);
+  function buildDraft(): RequestDraft {
+    return {
+      propertyType,
+      country,
+      city,
+      surface: surfaceMin,
+      capacity,
+      bedrooms,
+      salons,
+      priority,
+      budgetMin,
+      budgetMax,
+      financing,
+      delay,
+      clientName,
+      phone: clientPhone,
+      email: clientEmail,
+      clientType,
+      source,
+    };
+  }
+
+  /** Moves to the next step only when the current one is complete. */
+  function goNext(from: 1 | 2) {
+    if (Object.keys(validateStep(from, buildDraft())).length > 0) {
+      setShowErrors(true);
       return;
     }
-    if (!clientName.trim() || !clientPhone.trim()) {
-      toast('Renseignez le nom et le téléphone du client avant de créer la demande.', 'error');
-      setStep(3);
+    setShowErrors(false);
+    setStep((from + 1) as Step);
+  }
+
+  async function onCreate() {
+    const invalidStep = firstInvalidStep(buildDraft());
+    if (invalidStep) {
+      setShowErrors(true);
+      setStep(invalidStep);
+      toast('Complétez les champs obligatoires avant de créer la demande.', 'error');
       return;
     }
 
@@ -335,6 +369,8 @@ export default function NouvelleDemandePage() {
       setSubmitting(false);
     }
   }
+
+  const stepErrors = showErrors ? validateStep(step, buildDraft()) : {};
 
   return (
     <DashboardShell active="requests" searchPlaceholder="Rechercher une annonce, un contact…">
@@ -519,7 +555,7 @@ export default function NouvelleDemandePage() {
                             htmlFor="req-bedrooms"
                             className="text-[12.5px] font-semibold text-neutral-700"
                           >
-                            Nombre de chambres
+                            Nombre de chambres <span className="text-red-500">*</span>
                           </label>
                           <select
                             id="req-bedrooms"
@@ -537,7 +573,7 @@ export default function NouvelleDemandePage() {
                             htmlFor="req-salons"
                             className="text-[12.5px] font-semibold text-neutral-700"
                           >
-                            Nombre de salon
+                            Nombre de salon <span className="text-red-500">*</span>
                           </label>
                           <select
                             id="req-salons"
@@ -558,7 +594,7 @@ export default function NouvelleDemandePage() {
                           htmlFor="req-surface"
                           className="text-[12.5px] font-semibold text-neutral-700"
                         >
-                          Superficie min. (m²)
+                          Superficie min. (m²) <span className="text-red-500">*</span>
                         </label>
                         <div className="flex items-center gap-2 rounded-lg border border-black/[0.08] bg-[#F9FAFB] px-3 py-2.5">
                           <Ruler className="h-[13px] w-[13px] text-gray-400" aria-hidden />
@@ -580,7 +616,7 @@ export default function NouvelleDemandePage() {
                           htmlFor="req-capacity"
                           className="text-[12.5px] font-semibold text-neutral-700"
                         >
-                          Nombre de places
+                          Nombre de places <span className="text-red-500">*</span>
                         </label>
                         <div className="flex items-center gap-2 rounded-lg border border-black/[0.08] bg-[#F9FAFB] px-3 py-2.5">
                           <Users className="h-[13px] w-[13px] text-gray-400" aria-hidden />
@@ -675,7 +711,7 @@ export default function NouvelleDemandePage() {
                     htmlFor="req-budget-min"
                     className="text-[12.5px] font-semibold text-neutral-700"
                   >
-                    Budget minimum (FCFA)
+                    Budget minimum (FCFA) <span className="text-red-500">*</span>
                   </label>
                   <div className="flex items-center gap-2 rounded-lg border border-black/[0.08] bg-[#F9FAFB] px-3 py-2.5">
                     <Wallet className="h-[13px] w-[13px] text-gray-400" aria-hidden />
@@ -695,7 +731,7 @@ export default function NouvelleDemandePage() {
                     htmlFor="req-budget-max"
                     className="text-[12.5px] font-semibold text-neutral-700"
                   >
-                    Budget maximum (FCFA)
+                    Budget maximum (FCFA) <span className="text-red-500">*</span>
                   </label>
                   <div className="flex items-center gap-2 rounded-lg border border-black/[0.08] bg-[#F9FAFB] px-3 py-2.5">
                     <Wallet className="h-[13px] w-[13px] text-gray-400" aria-hidden />
@@ -716,7 +752,7 @@ export default function NouvelleDemandePage() {
 
               <div className="mb-4.5">
                 <label className="mb-2 block text-[12.5px] font-semibold text-neutral-700">
-                  Mode de financement
+                  Mode de financement <span className="text-red-500">*</span>
                 </label>
                 <div className="flex flex-wrap gap-2.5">
                   <OptionCard
@@ -742,7 +778,7 @@ export default function NouvelleDemandePage() {
 
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="req-delay" className="text-[12.5px] font-semibold text-neutral-700">
-                  Délai de recherche souhaité
+                  Délai de recherche souhaité <span className="text-red-500">*</span>
                 </label>
                 <select
                   id="req-delay"
@@ -806,7 +842,7 @@ export default function NouvelleDemandePage() {
                     htmlFor="req-client-email"
                     className="text-[12.5px] font-semibold text-neutral-700"
                   >
-                    Email
+                    Email <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="req-client-email"
@@ -823,7 +859,7 @@ export default function NouvelleDemandePage() {
 
               <div className="mb-4.5">
                 <label className="mb-2 block text-[12.5px] font-semibold text-neutral-700">
-                  Type de client
+                  Type de client <span className="text-red-500">*</span>
                 </label>
                 <div className="flex flex-wrap gap-2.5">
                   <OptionCard
@@ -846,7 +882,7 @@ export default function NouvelleDemandePage() {
                   htmlFor="req-source"
                   className="text-[12.5px] font-semibold text-neutral-700"
                 >
-                  Comment nous a-t-il connu ?
+                  Comment nous a-t-il connu ? <span className="text-red-500">*</span>
                 </label>
                 <select
                   id="req-source"
@@ -870,6 +906,7 @@ export default function NouvelleDemandePage() {
                 Les champs marqués <span className="text-red-500">*</span> sont obligatoires
               </span>
             </div>
+            <RequestErrorSummary errors={stepErrors} />
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 {step > 1 && (
@@ -895,7 +932,7 @@ export default function NouvelleDemandePage() {
                 {step < 3 ? (
                   <button
                     type="button"
-                    onClick={() => setStep((s) => (s + 1) as Step)}
+                    onClick={() => goNext(step as 1 | 2)}
                     className="flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2.5 text-[13px] font-semibold text-white"
                   >
                     Continuer — {step === 1 ? 'Budget' : 'Contact'}

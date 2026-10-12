@@ -20,6 +20,7 @@ import { api } from '@/lib/api';
 import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
 import { PropertyRequestTeaser } from '@/components/public/PropertyRequestTeaser';
+import { PropertyRequestBar } from '@/components/public/PropertyRequestBar';
 import { InitialsAvatar } from '@/components/dashboard/InitialsAvatar';
 import { COUNTRY_FLAG } from '@/lib/alerts';
 import { PROPERTY_TYPE_LABEL } from '@/lib/listings';
@@ -636,6 +637,12 @@ export function AgentsClient({ initialData }: { initialData: PublicAgentsRespons
       />
 
       <PublicFooter />
+
+      {/* Clears the sticky request bar so it never hides the footer. */}
+      <div aria-hidden className="h-20 bg-[#0F172A] sm:h-24" />
+      <PropertyRequestBar
+        search={{ propertyType: specialty, transactionType: '', country, city: '' }}
+      />
     </div>
   );
 }
