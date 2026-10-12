@@ -14,7 +14,6 @@ import {
   FileText,
   Flag,
   Grid2x2,
-  Heart,
   Image as ImageIcon,
   Info,
   LayoutList,
@@ -24,7 +23,6 @@ import {
   Move,
   Phone,
   Send,
-  Share2,
   ShieldCheck,
   Sparkles,
   Sun,
@@ -41,6 +39,13 @@ import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
+import { PropertyRequestPrompt } from '@/components/public/PropertyRequestPrompt';
+import {
+  LISTINGS_VIEWED_THRESHOLD,
+  hasContactedListing,
+  markListingContacted,
+  recordListingView,
+} from '@/lib/request-prompt';
 import { InitialsAvatar } from '@/components/dashboard/InitialsAvatar';
 import {
   PROPERTY_TYPE_LABEL,
@@ -112,8 +117,6 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
   // call below only records the visit (view counter) and adds the geocoded
   // location, so a failure there keeps the server-rendered data.
   const [listing, setListing] = useState<PublicListingDetail>(initialListing);
-  const [saved, setSaved] = useState(false);
-  const [shared, setShared] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
   const [heroIdx, setHeroIdx] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -146,6 +149,26 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
     };
   }, [id]);
 
+  // Request prompt: count this listing view, and note when the visitor reaches
+  // the agent (message sent, WhatsApp or phone tapped) — a visitor who did is
+  // not shown "vous n'avez pas trouvé" prompts.
+  const [viewedCount, setViewedCount] = useState(0);
+  const [contacted, setContacted] = useState(false);
+  useEffect(() => {
+    setViewedCount(recordListingView(id));
+    setContacted(hasContactedListing());
+    const onClick = (e: MouseEvent) => {
+      const link = (e.target as Element | null)?.closest?.(
+        'a[href^="https://wa.me"], a[href^="tel:"]',
+      );
+      if (!link) return;
+      markListingContacted();
+      setContacted(true);
+    };
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
+  }, [id]);
+
   useEffect(() => {
     if (!lightboxOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -169,6 +192,8 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
         body: { type: inquiryType, name, phone, message },
       });
       setSent(true);
+      markListingContacted();
+      setContacted(true);
     } catch (err) {
       setSendError(
         err instanceof ApiError && err.status === 429
@@ -193,13 +218,6 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
     } finally {
       setReportSending(false);
     }
-  }
-
-  function copyLink() {
-    navigator.clipboard.writeText(window.location.href).then(() => {
-      setShared(true);
-      setTimeout(() => setShared(false), 2000);
-    });
   }
 
   const FEATURES: { icon: typeof BedDouble; val: string | number; label: string }[] = [
@@ -234,6 +252,15 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
         ]
       : []),
   ];
+
+  // Seeds the request prompt with what this visitor was looking at.
+  const promptDefaults = {
+    propertyType: listing.propertyType,
+    transactionType: listing.transactionType,
+    country: listing.country,
+    city: listing.city,
+    budget: String(listing.price),
+  };
 
   const photos = listing.photos;
   const heroPhoto = photos[heroIdx] ?? photos[0];
@@ -281,30 +308,6 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
               <BadgeCheck className="h-[13px] w-[13px]" aria-hidden />
               Vérifié
             </span>
-            <div className="absolute top-4 right-4 z-[2] flex gap-2">
-              <button
-                type="button"
-                onClick={() => setSaved((s) => !s)}
-                className="flex items-center gap-1.5 rounded-full bg-white/92 px-3.5 py-2 text-xs font-semibold whitespace-nowrap text-neutral-900"
-              >
-                <Heart
-                  className={cn(
-                    'h-3.5 w-3.5',
-                    saved ? 'fill-red-500 text-red-500' : 'text-red-500',
-                  )}
-                  aria-hidden
-                />
-                {saved ? 'Sauvegardé' : 'Sauvegarder'}
-              </button>
-              <button
-                type="button"
-                onClick={copyLink}
-                className="flex items-center gap-1.5 rounded-full bg-white/92 px-3.5 py-2 text-xs font-semibold whitespace-nowrap text-neutral-900"
-              >
-                <Share2 className="h-3.5 w-3.5" aria-hidden />
-                {shared ? 'Lien copié !' : 'Partager'}
-              </button>
-            </div>
             {photos.length > 1 && (
               <button
                 type="button"
@@ -890,6 +893,13 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
           )}
         </div>
       </div>
+
+      <PropertyRequestPrompt
+        trigger="listings-viewed"
+        armed={viewedCount >= LISTINGS_VIEWED_THRESHOLD && !contacted}
+        defaults={promptDefaults}
+      />
+      <PropertyRequestPrompt trigger="exit-intent" armed={!contacted} defaults={promptDefaults} />
 
       <PublicFooter />
     </div>

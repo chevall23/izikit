@@ -5,7 +5,7 @@
 // number. A property request needs more than this (name, financing, delay),
 // so submitting opens the full /demande-immobiliere/nouvelle form prefilled
 // with these answers rather than publishing a half-empty request.
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, ChevronDown, Send } from 'lucide-react';
 import { COUNTRIES } from '@/lib/countries';
@@ -31,7 +31,7 @@ const TRANSACTION_OPTIONS: { value: string; label: string }[] = [
   { value: 'SEJOUR', label: 'un séjour' },
 ];
 
-const PERKS = ['Gratuit', 'Sans engagement', 'Agents vérifiés uniquement'];
+export const PERKS = ['Gratuit', 'Sans engagement', 'Agents vérifiés uniquement'];
 
 // Inline "blank" of the sentence: underlined brand-coloured text.
 const BLANK =
@@ -107,16 +107,25 @@ export interface PropertyRequestTeaserDefaults {
 }
 
 /**
+ * The fill-in-the-blanks sentence + WhatsApp number. Shared by the home
+ * "Vous ne trouvez pas ?" section and the request prompt (modal / sheet).
  * `defaults` seeds the sentence (e.g. from the /annonces search filters);
  * values the sentence cannot express are ignored. Read once on mount — pass a
- * changing `key` to reseed.
+ * changing `key` to reseed. `onSubmitted` fires right before navigating to
+ * the full request form.
  */
-export function PropertyRequestTeaser({
+export function PropertyRequestForm({
   defaults = {},
+  onSubmitted,
+  variant = 'card',
 }: {
   defaults?: PropertyRequestTeaserDefaults;
+  onSubmitted?: () => void;
+  /** 'plain' drops the white card chrome (for use inside the prompt). */
+  variant?: 'card' | 'plain';
 }) {
   const router = useRouter();
+  const phoneId = useId();
   const [propertyType, setPropertyType] = useState(() =>
     pick(PROPERTY_OPTIONS, defaults.propertyType, 'VILLA'),
   );
@@ -137,9 +146,103 @@ export function PropertyRequestTeaser({
       params.set('budgetMax', String(Math.round(budgetNum)));
     }
     if (phone.trim()) params.set('phone', phone.trim());
+    onSubmitted?.();
     router.push(`/demande-immobiliere/nouvelle?${params.toString()}`);
   }
 
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className={
+        variant === 'plain'
+          ? 'text-neutral-900'
+          : 'rounded-[20px] bg-white p-6 text-neutral-900 shadow-[0_20px_40px_rgba(0,0,0,0.25)] lg:p-8'
+      }
+    >
+      <p className="font-sora mb-6 text-[20px] leading-[1.9] lg:text-[22px]">
+        Je cherche{' '}
+        <SentenceSelect
+          label="Type de bien"
+          value={propertyType}
+          display={labelOf(PROPERTY_OPTIONS, propertyType)}
+          onChange={setPropertyType}
+        >
+          {PROPERTY_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </SentenceSelect>{' '}
+        à{' '}
+        <SentenceSelect label="Ville" value={city} display={city} onChange={setCity}>
+          {COUNTRIES.map((c) => (
+            <optgroup key={c.name} label={c.name}>
+              {c.cities.map((ci) => (
+                <option key={ci} value={ci}>
+                  {ci}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </SentenceSelect>{' '}
+        pour{' '}
+        <SentenceSelect
+          label="Transaction"
+          value={transactionType}
+          display={labelOf(TRANSACTION_OPTIONS, transactionType)}
+          onChange={setTransactionType}
+        >
+          {TRANSACTION_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </SentenceSelect>
+        , budget{' '}
+        <span className="whitespace-nowrap">
+          <input
+            aria-label="Budget maximum en FCFA"
+            inputMode="numeric"
+            placeholder="votre budget"
+            value={budget}
+            onChange={(e) => setBudget(e.target.value.replace(/[^\d\s]/g, ''))}
+            className={`${BLANK} w-[10rem] cursor-text placeholder:text-brand/60`}
+          />
+          <span className="text-[15px] text-gray-500"> FCFA</span>
+        </span>
+      </p>
+
+      <label className="mb-1.5 block text-xs font-semibold text-gray-500" htmlFor={phoneId}>
+        Numéro WhatsApp
+      </label>
+      <div className="mb-5">
+        <PhoneInput
+          id={phoneId}
+          value={phone}
+          onChange={setPhone}
+          defaultCountry={flagCodeForCountryName(country) ?? 'BJ'}
+          placeholder="01 23 45 67"
+          boxClassName="rounded-xl"
+          inputClassName="px-3.5 py-3 text-sm"
+        />
+      </div>
+
+      <button
+        type="submit"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3.5 text-sm font-semibold text-white hover:bg-brand/90"
+      >
+        <Send className="h-4 w-4" aria-hidden />
+        Publier ma demande
+      </button>
+    </form>
+  );
+}
+
+export function PropertyRequestTeaser({
+  defaults = {},
+}: {
+  defaults?: PropertyRequestTeaserDefaults;
+}) {
   return (
     <section id="demande" className="scroll-mt-24 px-4 py-9 lg:px-7">
       <div className="mx-auto grid max-w-[1280px] grid-cols-1 items-center gap-8 rounded-[28px] bg-neutral-900 px-6 py-10 text-white lg:grid-cols-[1.1fr_0.9fr] lg:gap-12 lg:px-14 lg:py-14">
@@ -164,89 +267,7 @@ export function PropertyRequestTeaser({
           </ul>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="rounded-[20px] bg-white p-6 text-neutral-900 shadow-[0_20px_40px_rgba(0,0,0,0.25)] lg:p-8"
-        >
-          <p className="font-sora mb-6 text-[20px] leading-[1.9] lg:text-[22px]">
-            Je cherche{' '}
-            <SentenceSelect
-              label="Type de bien"
-              value={propertyType}
-              display={labelOf(PROPERTY_OPTIONS, propertyType)}
-              onChange={setPropertyType}
-            >
-              {PROPERTY_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </SentenceSelect>{' '}
-            à{' '}
-            <SentenceSelect label="Ville" value={city} display={city} onChange={setCity}>
-              {COUNTRIES.map((c) => (
-                <optgroup key={c.name} label={c.name}>
-                  {c.cities.map((ci) => (
-                    <option key={ci} value={ci}>
-                      {ci}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </SentenceSelect>{' '}
-            pour{' '}
-            <SentenceSelect
-              label="Transaction"
-              value={transactionType}
-              display={labelOf(TRANSACTION_OPTIONS, transactionType)}
-              onChange={setTransactionType}
-            >
-              {TRANSACTION_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </SentenceSelect>
-            , budget{' '}
-            <span className="whitespace-nowrap">
-              <input
-                aria-label="Budget maximum en FCFA"
-                inputMode="numeric"
-                placeholder="votre budget"
-                value={budget}
-                onChange={(e) => setBudget(e.target.value.replace(/[^\d\s]/g, ''))}
-                className={`${BLANK} w-[10rem] cursor-text placeholder:text-brand/60`}
-              />
-              <span className="text-[15px] text-gray-500"> FCFA</span>
-            </span>
-          </p>
-
-          <label
-            className="mb-1.5 block text-xs font-semibold text-gray-500"
-            htmlFor="teaser-phone"
-          >
-            Numéro WhatsApp
-          </label>
-          <div className="mb-5">
-            <PhoneInput
-              id="teaser-phone"
-              value={phone}
-              onChange={setPhone}
-              defaultCountry={flagCodeForCountryName(country) ?? 'BJ'}
-              placeholder="01 23 45 67"
-              boxClassName="rounded-xl"
-              inputClassName="px-3.5 py-3 text-sm"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3.5 text-sm font-semibold text-white hover:bg-brand/90"
-          >
-            <Send className="h-4 w-4" aria-hidden />
-            Publier ma demande
-          </button>
-        </form>
+        <PropertyRequestForm defaults={defaults} />
       </div>
     </section>
   );

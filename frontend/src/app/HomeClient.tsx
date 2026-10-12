@@ -25,6 +25,8 @@ import { PopularSearches, type PopularSearchLink } from '@/components/public/Pop
 import { landingPath } from '@/lib/seo/landing';
 import { MobileCountryPicker } from './MobileCountryPicker';
 import { PropertyRequestTeaser } from '@/components/public/PropertyRequestTeaser';
+import { PropertyRequestPrompt } from '@/components/public/PropertyRequestPrompt';
+import { PropertyRequestBar } from '@/components/public/PropertyRequestBar';
 import { PROPERTY_TYPE_LABEL, TRANSACTION_TYPE_LABEL } from '@/lib/listings';
 import { COUNTRIES as COUNTRY_CITIES } from '@/lib/countries';
 
@@ -282,6 +284,8 @@ export function HomeClient({ initial }: { initial: HomeInitialData }) {
 
       {/* PROPERTY REQUEST */}
       <PropertyRequestTeaser />
+      <PropertyRequestPrompt trigger="timer" />
+      <PropertyRequestPrompt trigger="exit-intent" />
 
       {/* DESTINATIONS BY COUNTRY */}
       <section
@@ -409,6 +413,17 @@ export function HomeClient({ initial }: { initial: HomeInitialData }) {
       </section>
 
       <PublicFooter />
+
+      {/* Clears the sticky request bar so it never hides the footer. */}
+      <div aria-hidden className="h-20 bg-[#0F172A] sm:h-24" />
+      <PropertyRequestBar
+        search={{
+          propertyType: searchPropertyType,
+          transactionType: searchTransactionType,
+          country: searchCountry,
+          city: searchCity,
+        }}
+      />
     </div>
   );
 }

@@ -26,6 +26,8 @@ import { PublicFooter } from '@/components/public/PublicFooter';
 import { PopularSearches, type PopularSearchLink } from '@/components/public/PopularSearches';
 import { InitialsAvatar } from '@/components/dashboard/InitialsAvatar';
 import { PropertyRequestTeaser } from '@/components/public/PropertyRequestTeaser';
+import { PropertyRequestPrompt } from '@/components/public/PropertyRequestPrompt';
+import { PropertyRequestBar } from '@/components/public/PropertyRequestBar';
 import {
   LISTINGS_PAGE_SIZE,
   PROPERTY_TYPE_LABEL,
@@ -284,6 +286,28 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
   const setTransactionTypeFiltered = setFilterAndResetPage(setTransactionType);
 
   const items = data?.items ?? [];
+
+  // Empty-search prompt: only for a visitor who actually searched — they changed
+  // a filter here, or came from another page of the site (e.g. the home search
+  // bar). Never for a cold landing (search engine) on an empty result page.
+  const initialFiltersSig = useRef(
+    [
+      initial.filters.country,
+      initial.filters.city,
+      initial.filters.propertyType,
+      initial.filters.transactionType,
+      '',
+      '',
+    ].join('|'),
+  );
+  const [cameFromSite, setCameFromSite] = useState(false);
+  useEffect(() => {
+    setCameFromSite(document.referrer.startsWith(window.location.origin));
+  }, []);
+  const filtersChanged =
+    [country, city, propertyType, transactionType, priceMin, priceMax].join('|') !==
+    initialFiltersSig.current;
+  const promptArmed = !loading && items.length === 0 && (filtersChanged || cameFromSite);
   const total = data?.total ?? 0;
   const totalPages = data?.totalPages ?? 1;
   const countries = data?.facets.countries ?? [];
@@ -963,8 +987,22 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
         defaults={{ propertyType, transactionType, country, city, budget: priceMax }}
       />
 
+      <PropertyRequestPrompt
+        trigger="empty-search"
+        armed={promptArmed}
+        defaults={{ propertyType, transactionType, country, city, budget: priceMax }}
+      />
+      <PropertyRequestPrompt
+        trigger="exit-intent"
+        defaults={{ propertyType, transactionType, country, city, budget: priceMax }}
+      />
+
       <PopularSearches links={initial.popularSearches} />
       <PublicFooter />
+
+      {/* Clears the sticky request bar so it never hides the footer. */}
+      <div aria-hidden className="h-20 bg-[#0F172A] sm:h-24" />
+      <PropertyRequestBar search={{ propertyType, transactionType, country, city }} />
     </div>
   );
 }
