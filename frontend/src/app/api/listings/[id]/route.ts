@@ -63,6 +63,8 @@ import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { isListingEditable } from '@/lib/server/listings/editable';
+import { checkListingQuota, PUBLISHED_STATUSES } from '@/lib/server/listings/quota';
+import { getPricing } from '@/lib/server/pricing';
 
 const PROPERTY_TYPES = [
   'VILLA',
@@ -231,6 +233,26 @@ export async function PATCH(
           { error: 'PUBLISH_REQUIREMENTS_NOT_MET', missing },
           { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
         );
+      }
+
+      // Quota: an already-published listing (VERIFIED/PENDING) is already
+      // counted, so editing it never needs a free slot. DRAFT / REJECTED /
+      // HIDDEN listings do — they would become published.
+      if (!(PUBLISHED_STATUSES as readonly string[]).includes(existing.status)) {
+        const quota = await checkListingQuota(prisma, auth.user.sub, await getPricing(), {
+          excludeListingId: id,
+        });
+        if (!quota.allowed) {
+          return NextResponse.json(
+            {
+              error: 'LISTING_QUOTA_REACHED',
+              message: 'Listing limit reached for your plan.',
+              planKey: quota.planKey,
+              limit: quota.limit,
+            },
+            { status: 403, headers: { 'x-request-id': reqCtx.requestId } },
+          );
+        }
       }
     }
 

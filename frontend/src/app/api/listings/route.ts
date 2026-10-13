@@ -37,7 +37,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const cursor = decodeCursor(url.searchParams.get('cursor'));
     const notDraft = { status: { not: 'DRAFT' } } as const;
 
-    const [rows, total, verified, pending, rejected, sold] = await Promise.all([
+    const [rows, total, verified, pending, rejected, sold, hidden] = await Promise.all([
       prisma.listing.findMany({
         where: {
           userId: auth.user.sub,
@@ -70,6 +70,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       prisma.listing.count({ where: { userId: auth.user.sub, status: 'PENDING' } }),
       prisma.listing.count({ where: { userId: auth.user.sub, status: 'REJECTED' } }),
       prisma.listing.count({ where: { userId: auth.user.sub, status: 'SOLD' } }),
+      prisma.listing.count({ where: { userId: auth.user.sub, status: 'HIDDEN' } }),
     ]);
 
     // Flatten the `photos` include (single primary row, if any) into a
@@ -82,7 +83,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }));
 
     return NextResponse.json(
-      { ...buildPage(items, limit), counts: { total, verified, pending, rejected, sold } },
+      { ...buildPage(items, limit), counts: { total, verified, pending, rejected, sold, hidden } },
       { headers: { 'x-request-id': ctx.requestId } },
     );
   });

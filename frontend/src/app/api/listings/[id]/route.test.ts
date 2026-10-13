@@ -80,7 +80,20 @@ beforeEach(() => {
   prismaMock.listing.update.mockResolvedValue(makeDraft() as never);
   prismaMock.listingPhoto.count.mockResolvedValue(0 as never);
   prismaMock.listingDocument.findMany.mockResolvedValue([] as never);
+  prismaMock.listing.count.mockResolvedValue(0 as never);
+  prismaMock.subscription.findUnique.mockResolvedValue(null);
 });
+
+function publishable(status: string) {
+  return makeDraft({
+    status,
+    title: 'Villa moderne',
+    description: 'Belle villa',
+    price: 120_000_000,
+    city: 'Cotonou',
+    country: 'Bénin',
+  });
+}
 
 describe('PATCH /api/listings/[id]', () => {
   it('returns 401 when requireAuth bails', async () => {
@@ -259,6 +272,60 @@ describe('PATCH /api/listings/[id]', () => {
     expect(res.status).toBe(200);
     const args = prismaMock.listing.update.mock.calls[0]?.[0];
     expect(args?.data?.status).toBe('VERIFIED');
+  });
+
+  describe('listing quota on publish', () => {
+    it('refuses to publish a DRAFT at the plan limit with 403 LISTING_QUOTA_REACHED', async () => {
+      prismaMock.listing.findUnique.mockResolvedValueOnce(publishable('DRAFT') as never);
+      prismaMock.listingPhoto.count.mockResolvedValueOnce(1 as never);
+      prismaMock.listing.count.mockResolvedValue(3 as never);
+      const { req, ctx } = makePatch('l1', { publish: true });
+      const res = await PATCH(req, ctx);
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body).toMatchObject({ error: 'LISTING_QUOTA_REACHED', planKey: 'FREE', limit: 3 });
+      expect(prismaMock.listing.update).not.toHaveBeenCalled();
+    });
+
+    it('publishes a DRAFT below the plan limit', async () => {
+      prismaMock.listing.findUnique.mockResolvedValueOnce(publishable('DRAFT') as never);
+      prismaMock.listingPhoto.count.mockResolvedValueOnce(1 as never);
+      prismaMock.listing.count.mockResolvedValue(2 as never);
+      const { req, ctx } = makePatch('l1', { publish: true });
+      const res = await PATCH(req, ctx);
+      expect(res.status).toBe(200);
+      expect(prismaMock.listing.update.mock.calls[0]?.[0]?.data?.status).toBe('VERIFIED');
+    });
+
+    it('lets an already VERIFIED listing be re-published at the limit (already counted)', async () => {
+      prismaMock.listing.findUnique.mockResolvedValueOnce(publishable('VERIFIED') as never);
+      prismaMock.listingPhoto.count.mockResolvedValueOnce(1 as never);
+      prismaMock.listing.count.mockResolvedValue(3 as never);
+      const { req, ctx } = makePatch('l1', { publish: true });
+      const res = await PATCH(req, ctx);
+      expect(res.status).toBe(200);
+      expect(prismaMock.listing.count).not.toHaveBeenCalled();
+    });
+
+    it('refuses to republish a HIDDEN listing at the limit', async () => {
+      prismaMock.listing.findUnique.mockResolvedValueOnce(publishable('HIDDEN') as never);
+      prismaMock.listingPhoto.count.mockResolvedValueOnce(1 as never);
+      prismaMock.listing.count.mockResolvedValue(3 as never);
+      const { req, ctx } = makePatch('l1', { publish: true });
+      const res = await PATCH(req, ctx);
+      expect(res.status).toBe(403);
+      expect((await res.json()).error).toBe('LISTING_QUOTA_REACHED');
+    });
+
+    it('republishes a HIDDEN listing below the limit as VERIFIED', async () => {
+      prismaMock.listing.findUnique.mockResolvedValueOnce(publishable('HIDDEN') as never);
+      prismaMock.listingPhoto.count.mockResolvedValueOnce(1 as never);
+      prismaMock.listing.count.mockResolvedValue(2 as never);
+      const { req, ctx } = makePatch('l1', { publish: true });
+      const res = await PATCH(req, ctx);
+      expect(res.status).toBe(200);
+      expect(prismaMock.listing.update.mock.calls[0]?.[0]?.data?.status).toBe('VERIFIED');
+    });
   });
 });
 

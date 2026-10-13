@@ -12,7 +12,13 @@
 // first getting an admin to knock it back down to DRAFT.
 import 'server-only';
 
-export const LISTING_EDITABLE_STATUSES = new Set(['DRAFT', 'PENDING', 'VERIFIED', 'REJECTED']);
+export const LISTING_EDITABLE_STATUSES = new Set([
+  'DRAFT',
+  'PENDING',
+  'VERIFIED',
+  'REJECTED',
+  'HIDDEN',
+]);
 
 export function isListingEditable(status: string): boolean {
   return LISTING_EDITABLE_STATUSES.has(status);
