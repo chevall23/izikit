@@ -12,6 +12,7 @@ export interface PlanDefinition {
   label: string;
   description: string;
   priceFcfa: number; // 0 for the free plan; smallest currency unit (FCFA has no decimals)
+  maxActiveListings: number | null; // null = unlimited
   features: string[];
 }
 
@@ -23,6 +24,7 @@ export const PLAN_CATALOG: Record<PlanKey, PlanDefinition> = {
     label: 'Gratuit',
     description: 'Pour démarrer et tester la plateforme',
     priceFcfa: 0,
+    maxActiveListings: 3,
     features: ['3 annonces publiées', 'Messagerie basique'],
   },
   PRO_AGENT: {
@@ -30,6 +32,7 @@ export const PLAN_CATALOG: Record<PlanKey, PlanDefinition> = {
     label: 'Pro Agent',
     description: 'Pour les agents actifs avec un portefeuille établi',
     priceFcfa: 29_900,
+    maxActiveListings: 30,
     features: [
       '30 annonces publiées',
       'Messagerie avancée',
@@ -42,6 +45,7 @@ export const PLAN_CATALOG: Record<PlanKey, PlanDefinition> = {
     label: 'Agence Premium',
     description: 'Pour les agences à fort volume et multi-agents',
     priceFcfa: 89_900,
+    maxActiveListings: null,
     features: [
       'Annonces illimitées',
       "Jusqu'à 10 agents",

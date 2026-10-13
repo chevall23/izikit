@@ -1,8 +1,8 @@
-// Single source of truth for the 4 token packs (Banani "Jetons & visites
-// virtuelles" screen). Shared between the purchase button (client) and the
-// Bictorys webhook (server) so price/token-count never drift between what's
-// charged and what's credited. No secrets here — safe to import from client
-// components. Mirrors frontend/src/lib/subscription-plans.ts.
+// Single source of truth for the token packs (Banani "Jetons & visites
+// virtuelles" screen). These are the DEFAULTS: the live values come from
+// PricingConfig (see lib/pricing.ts + lib/server/pricing). Shared between the
+// purchase button (client) and the webhook (server). No secrets here — safe to
+// import from client components. Mirrors frontend/src/lib/subscription-plans.ts.
 
 export const TOKEN_PACK_KEYS = ['STARTER', 'STANDARD', 'PRO'] as const;
 export type TokenPackKey = (typeof TOKEN_PACK_KEYS)[number];
@@ -16,19 +16,51 @@ export interface TokenPackDefinition {
 
 export const TOKEN_PURCHASE_CURRENCY = 'XOF';
 
+// One base rate; every pack price is derived from it by a volume discount.
+export const DEFAULT_TOKEN_BASE_FCFA = 300;
+
+// Hard cap on a custom top-up, so a forged request cannot ask for millions.
+export const MAX_CUSTOM_TOKENS = 1000;
+
+export function packPriceFcfa(tokens: number, baseFcfa: number, discountPct: number): number {
+  return Math.round(tokens * baseFcfa * (1 - discountPct / 100));
+}
+
+export const DEFAULT_TOKEN_PACKS: Record<TokenPackKey, { tokens: number; discountPct: number }> = {
+  STARTER: { tokens: 50, discountPct: 10 },
+  STANDARD: { tokens: 150, discountPct: 20 },
+  PRO: { tokens: 350, discountPct: 28 },
+};
+
+const LABELS: Record<TokenPackKey, string> = {
+  STARTER: 'Starter',
+  STANDARD: 'Standard',
+  PRO: 'Pro',
+};
+
+function defaultPack(key: TokenPackKey): TokenPackDefinition {
+  const { tokens, discountPct } = DEFAULT_TOKEN_PACKS[key];
+  return {
+    key,
+    label: LABELS[key],
+    tokens,
+    priceFcfa: packPriceFcfa(tokens, DEFAULT_TOKEN_BASE_FCFA, discountPct),
+  };
+}
+
 export const TOKEN_PACK_CATALOG: Record<TokenPackKey, TokenPackDefinition> = {
-  STARTER: { key: 'STARTER', label: 'Starter', tokens: 50, priceFcfa: 15_000 },
-  STANDARD: { key: 'STANDARD', label: 'Standard', tokens: 150, priceFcfa: 40_000 },
-  PRO: { key: 'PRO', label: 'Pro', tokens: 350, priceFcfa: 85_000 },
+  STARTER: defaultPack('STARTER'),
+  STANDARD: defaultPack('STANDARD'),
+  PRO: defaultPack('PRO'),
 };
 
 export function isTokenPackKey(value: unknown): value is TokenPackKey {
   return typeof value === 'string' && (TOKEN_PACK_KEYS as readonly string[]).includes(value);
 }
 
-// Per-token rate for a custom top-up (/jetons "Recharger un montant
-// personnalisé") — a custom purchase of N tokens costs exactly N * this.
-export const CUSTOM_TOKEN_PRICE_FCFA = 500;
+// Default per-token rate for a custom top-up — a custom purchase of N tokens
+// costs exactly N * this.
+export const CUSTOM_TOKEN_PRICE_FCFA = DEFAULT_TOKEN_BASE_FCFA;
 
 export function customTokenPurchasePriceFcfa(tokens: number): number {
   return tokens * CUSTOM_TOKEN_PRICE_FCFA;
