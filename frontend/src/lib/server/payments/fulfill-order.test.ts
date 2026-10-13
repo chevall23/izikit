@@ -66,28 +66,14 @@ describe('fulfillPaidOrder', () => {
     );
   });
 
-  it('credits the frozen pack token count from metadata.tokens', async () => {
-    await fulfillPaidOrder(tx, {
-      id: 'o1',
-      userId: 'u1',
-      customerEmail: null,
-      amount: 36_000,
-      currency: 'XOF',
-      metadata: { kind: 'token_purchase', packKey: 'STANDARD', tokens: 150 },
-    });
-    expect(tokenWalletUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({ update: { balance: { increment: 150 } } }),
-    );
-  });
-
-  it('prefers the frozen token count over the catalog default', async () => {
+  it('prefers the frozen token count when the server freeze marker matches the amount', async () => {
     await fulfillPaidOrder(tx, {
       id: 'o1',
       userId: 'u1',
       customerEmail: null,
       amount: 10_000,
       currency: 'XOF',
-      metadata: { kind: 'token_purchase', packKey: 'STANDARD', tokens: 40 },
+      metadata: { kind: 'token_purchase', packKey: 'STANDARD', tokens: 40, priceFcfa: 10_000 },
     });
     expect(tokenWalletUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -95,6 +81,51 @@ describe('fulfillPaidOrder', () => {
         update: { balance: { increment: 40 } },
       }),
     );
+  });
+
+  it('ignores client-supplied tokens on a legacy order without the freeze marker', async () => {
+    await fulfillPaidOrder(tx, {
+      id: 'o1',
+      userId: 'u1',
+      customerEmail: null,
+      amount: 36_000,
+      currency: 'XOF',
+      metadata: { kind: 'token_purchase', packKey: 'STANDARD', tokens: 1_000_000 },
+    });
+    expect(tokenWalletUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { balance: { increment: 150 } } }),
+    );
+  });
+
+  it('ignores tokens when priceFcfa does not match the order amount', async () => {
+    await fulfillPaidOrder(tx, {
+      id: 'o1',
+      userId: 'u1',
+      customerEmail: null,
+      amount: 36_000,
+      currency: 'XOF',
+      metadata: { kind: 'token_purchase', packKey: 'STANDARD', tokens: 1_000_000, priceFcfa: 1 },
+    });
+    expect(tokenWalletUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { balance: { increment: 150 } } }),
+    );
+  });
+
+  it('falls back to the catalog default when frozen tokens are invalid', async () => {
+    for (const tokens of [0, -5, 1.5, '40']) {
+      tokenWalletUpsert.mockClear();
+      await fulfillPaidOrder(tx, {
+        id: 'o1',
+        userId: 'u1',
+        customerEmail: null,
+        amount: 36_000,
+        currency: 'XOF',
+        metadata: { kind: 'token_purchase', packKey: 'STANDARD', tokens, priceFcfa: 36_000 },
+      });
+      expect(tokenWalletUpsert, String(tokens)).toHaveBeenCalledWith(
+        expect.objectContaining({ update: { balance: { increment: 150 } } }),
+      );
+    }
   });
 
   it('credits the token wallet when metadata.kind is token_purchase_custom', async () => {

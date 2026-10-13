@@ -62,6 +62,7 @@ export async function fulfillPaidOrder(
     planKey?: unknown;
     packKey?: unknown;
     tokens?: unknown;
+    priceFcfa?: unknown;
   } | null;
 
   if (order.userId && meta?.kind === 'subscription_plan_change' && isPlanKey(meta.planKey)) {
@@ -86,8 +87,12 @@ export async function fulfillPaidOrder(
     const pack = TOKEN_PACK_CATALOG[meta.packKey];
     // Prefer the count frozen at order creation (server-computed) over the
     // code default, so a later price/pack edit never changes what was paid for.
+    // Only trust it when the server's freeze marker is present (priceFcfa ===
+    // order.amount); orders created before the freeze may carry client-supplied
+    // `tokens`, so they fall back to the catalog default.
+    const frozen = typeof meta.priceFcfa === 'number' && meta.priceFcfa === order.amount;
     const tokens =
-      typeof meta.tokens === 'number' && Number.isInteger(meta.tokens) && meta.tokens > 0
+      frozen && typeof meta.tokens === 'number' && Number.isInteger(meta.tokens) && meta.tokens > 0
         ? meta.tokens
         : pack.tokens;
     await creditTokenWallet(tx, order.userId, tokens, `Achat pack ${pack.label}`, order.id);
