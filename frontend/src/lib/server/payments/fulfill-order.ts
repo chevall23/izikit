@@ -84,7 +84,13 @@ export async function fulfillPaidOrder(
 
   if (order.userId && meta?.kind === 'token_purchase' && isTokenPackKey(meta.packKey)) {
     const pack = TOKEN_PACK_CATALOG[meta.packKey];
-    await creditTokenWallet(tx, order.userId, pack.tokens, `Achat pack ${pack.label}`, order.id);
+    // Prefer the count frozen at order creation (server-computed) over the
+    // code default, so a later price/pack edit never changes what was paid for.
+    const tokens =
+      typeof meta.tokens === 'number' && Number.isInteger(meta.tokens) && meta.tokens > 0
+        ? meta.tokens
+        : pack.tokens;
+    await creditTokenWallet(tx, order.userId, tokens, `Achat pack ${pack.label}`, order.id);
   }
 
   if (

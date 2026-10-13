@@ -66,6 +66,37 @@ describe('fulfillPaidOrder', () => {
     );
   });
 
+  it('credits the frozen pack token count from metadata.tokens', async () => {
+    await fulfillPaidOrder(tx, {
+      id: 'o1',
+      userId: 'u1',
+      customerEmail: null,
+      amount: 36_000,
+      currency: 'XOF',
+      metadata: { kind: 'token_purchase', packKey: 'STANDARD', tokens: 150 },
+    });
+    expect(tokenWalletUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { balance: { increment: 150 } } }),
+    );
+  });
+
+  it('prefers the frozen token count over the catalog default', async () => {
+    await fulfillPaidOrder(tx, {
+      id: 'o1',
+      userId: 'u1',
+      customerEmail: null,
+      amount: 10_000,
+      currency: 'XOF',
+      metadata: { kind: 'token_purchase', packKey: 'STANDARD', tokens: 40 },
+    });
+    expect(tokenWalletUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: { userId: 'u1', balance: 40 },
+        update: { balance: { increment: 40 } },
+      }),
+    );
+  });
+
   it('credits the token wallet when metadata.kind is token_purchase_custom', async () => {
     await fulfillPaidOrder(tx, {
       id: 'o1',

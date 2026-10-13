@@ -51,6 +51,8 @@ import {
   PaymentProviderUnconfiguredError,
 } from '@/lib/server/payments/provider-singleton';
 import { clampLimit, cursorWhere, decodeCursor, buildPage } from '@/lib/server/pagination/paginate';
+import { getPricing } from '@/lib/server/pricing';
+import { isPricedOrderKind, resolveOrderPricing } from '@/lib/server/pricing/order-pricing';
 import { isPlanKey, PLAN_CATALOG } from '@/lib/subscription-plans';
 import { isTokenPackKey, TOKEN_PACK_CATALOG } from '@/lib/token-packs';
 
@@ -214,6 +216,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // 5b. Server-side price authority — for subscription / token orders the
+    // client's `amount` and metadata are only a claim: recompute from the live
+    // pricing, reject mismatches, and freeze priceFcfa/tokens for the webhook.
+    let pricedMetadata: Record<string, unknown> = parsed.data.metadata ?? {};
+    if (isPricedOrderKind(pricedMetadata.kind)) {
+      const priced = resolveOrderPricing(await getPricing(), {
+        amount: parsed.data.amount,
+        currency: parsed.data.currency,
+        metadata: parsed.data.metadata,
+      });
+      if (!priced.ok) {
+        return NextResponse.json(
+          { error: priced.code, message: priced.message },
+          { status: 400, headers: { 'x-request-id': ctx.requestId } },
+        );
+      }
+      pricedMetadata = priced.metadata;
+    }
+
     // 6. Lazy provider init (Pitfall 7 — translate to 503, never 500)
     let provider;
     try {
@@ -258,7 +279,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // metadata so domain fields are preserved. A future migration should
     // promote this to a dedicated typed column on Order.
     const mergedMetadata: Prisma.InputJsonValue = {
-      ...(parsed.data.metadata ?? {}),
+      ...pricedMetadata,
       idempotencyBodyHash: bodyHash,
     };
     const order = await prisma.order.create({

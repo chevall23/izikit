@@ -617,3 +617,60 @@ describe('GET /api/orders [SET-04] — payment history', () => {
     expect(body.items[0]?.description).toBe('Paiement');
   });
 });
+
+describe('POST /api/orders — server-side pricing', () => {
+  it('rejects a forged plan amount with 400 AMOUNT_MISMATCH and creates nothing', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(null as never);
+    const res = await POST(
+      makePost(
+        {
+          amount: 1,
+          currency: 'XOF',
+          metadata: { kind: 'subscription_plan_change', planKey: 'PRO_AGENT' },
+        },
+        { idempotencyKey: 'idem-price-1' },
+      ),
+    );
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe('AMOUNT_MISMATCH');
+    expect(prismaMock.order.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects an out-of-range custom token count with 400 INVALID_ORDER_METADATA', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(null as never);
+    const res = await POST(
+      makePost(
+        {
+          amount: 300,
+          currency: 'XOF',
+          metadata: { kind: 'token_purchase_custom', tokens: 1_000_000 },
+        },
+        { idempotencyKey: 'idem-price-2' },
+      ),
+    );
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe('INVALID_ORDER_METADATA');
+  });
+
+  it('freezes server-computed tokens into the stored metadata', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(null as never);
+    prismaMock.order.create.mockResolvedValue(seededOrder() as never);
+    prismaMock.order.update.mockResolvedValue(seededOrder() as never);
+    const res = await POST(
+      makePost(
+        {
+          amount: 36_000,
+          currency: 'XOF',
+          metadata: { kind: 'token_purchase', packKey: 'STANDARD', tokens: 999_999 },
+        },
+        { idempotencyKey: 'idem-price-3' },
+      ),
+    );
+    expect(res.status).toBe(201);
+    const data = prismaMock.order.create.mock.calls[0]?.[0]?.data as unknown as {
+      metadata: { tokens: number; priceFcfa: number };
+    };
+    expect(data.metadata.tokens).toBe(150);
+    expect(data.metadata.priceFcfa).toBe(36_000);
+  });
+});
