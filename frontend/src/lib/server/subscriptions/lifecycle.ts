@@ -7,7 +7,7 @@ import 'server-only';
 import type { PrismaClient } from '@prisma/client';
 import { planMaxListings, type PricingData } from '@/lib/pricing';
 import { createLogger } from '@/lib/server/logger';
-import { hideExcessListings } from '../listings/quota';
+import { hideExcessListings, lockUserListingQuota } from '../listings/quota';
 import { createNotification } from '../notifications';
 import {
   subscriptionExpiredNotification,
@@ -44,6 +44,7 @@ export async function runSubscriptionLifecycle(opts: {
       currentPeriodEnd: { gt: now, lte: new Date(now.getTime() + 7 * DAY_MS) },
     },
     select: { userId: true, currentPeriodEnd: true },
+    orderBy: { currentPeriodEnd: 'asc' },
     take: BATCH,
   });
   for (const sub of upcoming) {
@@ -65,6 +66,7 @@ export async function runSubscriptionLifecycle(opts: {
   const lapsed = await prisma.subscription.findMany({
     where: { planKey: { not: 'FREE' }, status: 'ACTIVE', currentPeriodEnd: { lte: now } },
     select: { userId: true, currentPeriodEnd: true },
+    orderBy: { currentPeriodEnd: 'asc' },
     take: BATCH,
   });
   for (const sub of lapsed) {
@@ -72,7 +74,12 @@ export async function runSubscriptionLifecycle(opts: {
     if (!end) continue;
     try {
       const moved = await prisma.subscription.updateMany({
-        where: { userId: sub.userId, status: 'ACTIVE' },
+        where: {
+          userId: sub.userId,
+          planKey: { not: 'FREE' },
+          status: 'ACTIVE',
+          currentPeriodEnd: { lte: now },
+        },
         data: { status: 'GRACE' },
       });
       if (moved.count > 0) {
@@ -95,6 +102,7 @@ export async function runSubscriptionLifecycle(opts: {
       ],
     },
     select: { userId: true, currentPeriodEnd: true },
+    orderBy: { currentPeriodEnd: 'asc' },
     take: BATCH,
   });
   const freeLimit = planMaxListings(pricing, 'FREE');
@@ -103,11 +111,15 @@ export async function runSubscriptionLifecycle(opts: {
     if (!end) continue;
     try {
       const outcome = await prisma.$transaction(async (tx) => {
+        await lockUserListingQuota(tx, sub.userId);
         const moved = await tx.subscription.updateMany({
           where: {
             userId: sub.userId,
             planKey: { not: 'FREE' },
-            status: { in: ['GRACE', 'CANCELED'] },
+            OR: [
+              { status: 'GRACE', currentPeriodEnd: { lte: graceCutoff } },
+              { status: 'CANCELED', currentPeriodEnd: { lte: now } },
+            ],
           },
           data: { planKey: 'FREE', status: 'EXPIRED' },
         });

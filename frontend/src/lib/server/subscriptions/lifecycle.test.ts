@@ -3,10 +3,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DEFAULT_PRICING } from '@/lib/pricing';
 
 vi.mock('@/lib/server/notifications', () => ({ createNotification: vi.fn() }));
-vi.mock('@/lib/server/listings/quota', () => ({ hideExcessListings: vi.fn() }));
+vi.mock('@/lib/server/listings/quota', () => ({
+  hideExcessListings: vi.fn(),
+  lockUserListingQuota: vi.fn(),
+}));
 
 import { createNotification } from '@/lib/server/notifications';
-import { hideExcessListings } from '@/lib/server/listings/quota';
+import { hideExcessListings, lockUserListingQuota } from '@/lib/server/listings/quota';
+import { GRACE_PERIOD_MS } from './effective-plan';
 import { runSubscriptionLifecycle } from './lifecycle';
 
 const DAY = 86_400_000;
@@ -14,10 +18,12 @@ const now = new Date('2026-11-10T12:00:00Z');
 const at = (days: number) => new Date(now.getTime() + days * DAY);
 const mockNotify = vi.mocked(createNotification);
 const mockHide = vi.mocked(hideExcessListings);
+const mockLock = vi.mocked(lockUserListingQuota);
 
 beforeEach(() => {
   mockNotify.mockClear();
   mockHide.mockClear();
+  mockLock.mockReset().mockResolvedValue(undefined);
   prismaMock.$transaction.mockImplementation(async (fn: unknown) =>
     (fn as (tx: typeof prismaMock) => Promise<unknown>)(prismaMock),
   );
@@ -63,9 +69,16 @@ describe('grace', () => {
     const r = await run();
     expect(r.graced).toBe(1);
     expect(prismaMock.subscription.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'a', status: 'ACTIVE' },
+      where: {
+        userId: 'a',
+        planKey: { not: 'FREE' },
+        status: 'ACTIVE',
+        currentPeriodEnd: { lte: now },
+      },
       data: { status: 'GRACE' },
     });
+    expect(mockNotify).toHaveBeenCalledTimes(1);
+    expect(mockNotify.mock.calls[0]?.[1]).toMatchObject({ type: 'SUBSCRIPTION_GRACE' });
   });
 
   it('skips the notification when another run already moved it', async () => {
@@ -75,6 +88,7 @@ describe('grace', () => {
       .mockResolvedValue([]);
     prismaMock.subscription.updateMany.mockResolvedValue({ count: 0 });
     expect((await run()).graced).toBe(0);
+    expect(mockNotify).not.toHaveBeenCalled();
   });
 });
 
@@ -89,9 +103,23 @@ describe('expiry', () => {
     const r = await run();
     expect(r).toMatchObject({ expired: 1, hidden: 4 });
     expect(prismaMock.subscription.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'a', planKey: { not: 'FREE' }, status: { in: ['GRACE', 'CANCELED'] } },
+      where: {
+        userId: 'a',
+        planKey: { not: 'FREE' },
+        OR: [
+          { status: 'GRACE', currentPeriodEnd: { lte: new Date(now.getTime() - GRACE_PERIOD_MS) } },
+          { status: 'CANCELED', currentPeriodEnd: { lte: now } },
+        ],
+      },
       data: { planKey: 'FREE', status: 'EXPIRED' },
     });
+    expect(mockLock).toHaveBeenCalledWith(prismaMock, 'a');
+    expect(mockLock.mock.invocationCallOrder[0]).toBeLessThan(
+      prismaMock.subscription.updateMany.mock.invocationCallOrder[0] as number,
+    );
+    expect(mockLock.mock.invocationCallOrder[0]).toBeLessThan(
+      mockHide.mock.invocationCallOrder[0] as number,
+    );
     expect(mockHide).toHaveBeenCalledWith(prismaMock, 'a', 3);
     expect(mockNotify.mock.calls.at(-1)?.[1]).toMatchObject({ type: 'SUBSCRIPTION_EXPIRED' });
   });
@@ -106,6 +134,28 @@ describe('expiry', () => {
     expect(r.expired).toBe(0);
     expect(mockHide).not.toHaveBeenCalled();
     expect(mockNotify).not.toHaveBeenCalled();
+  });
+});
+
+describe('selection queries', () => {
+  it('selects GRACE only past the 7-day window and CANCELED past the period end, oldest first', async () => {
+    await run();
+    const calls = prismaMock.subscription.findMany.mock.calls;
+    expect(calls).toHaveLength(3);
+    expect(calls[2]?.[0]).toMatchObject({
+      where: {
+        planKey: { not: 'FREE' },
+        OR: [
+          { status: 'GRACE', currentPeriodEnd: { lte: new Date(now.getTime() - GRACE_PERIOD_MS) } },
+          { status: 'CANCELED', currentPeriodEnd: { lte: now } },
+        ],
+      },
+    });
+    // a GRACE row ending 3 days ago is inside the window: its end is after the cutoff
+    expect(at(-3).getTime()).toBeGreaterThan(now.getTime() - GRACE_PERIOD_MS);
+    for (const call of calls) {
+      expect(call[0]).toMatchObject({ orderBy: { currentPeriodEnd: 'asc' } });
+    }
   });
 });
 
