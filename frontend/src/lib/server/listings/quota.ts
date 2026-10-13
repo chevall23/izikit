@@ -6,9 +6,22 @@ import 'server-only';
 import type { PrismaClient } from '@prisma/client';
 import { planMaxListings, type PricingData } from '@/lib/pricing';
 import type { PlanKey } from '@/lib/subscription-plans';
+import type { TxClient } from '../withdrawals/lock';
 import { getEffectivePlanKey } from '../subscriptions/effective-plan';
 
 export const PUBLISHED_STATUSES = ['VERIFIED', 'PENDING'] as const;
+
+/**
+ * Per-user transaction-scoped advisory lock (same pattern as
+ * withdrawals/lock.ts, distinct key namespace). Run the quota check and the
+ * publishing write inside the same transaction after taking it.
+ */
+export async function lockUserListingQuota(tx: TxClient, userId: string): Promise<void> {
+  await tx.$executeRawUnsafe(
+    'SELECT pg_advisory_xact_lock(hashtext($1))',
+    `listing-quota:${userId}`,
+  );
+}
 
 type ListingDb = Pick<PrismaClient, 'listing'>;
 

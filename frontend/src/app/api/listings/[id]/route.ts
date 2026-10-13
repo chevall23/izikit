@@ -28,7 +28,7 @@
 //
 // Only the owning user can edit their own listing — 404 (not 403) on
 // mismatch/missing to avoid leaking existence, same convention as the org
-// routes. Editable statuses are DRAFT/PENDING/VERIFIED/REJECTED (see
+// routes. Editable statuses are DRAFT/PENDING/VERIFIED/REJECTED/HIDDEN (see
 // `lib/server/listings/editable.ts`); SOLD is frozen — 409 otherwise. A
 // VERIFIED/PENDING listing being edited via `publish: true` just
 // re-validates and stays at status VERIFIED (see the publish comment
@@ -56,6 +56,7 @@
 export const runtime = 'nodejs';
 
 import 'server-only';
+import type { PrismaClient } from '@prisma/client';
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { verifyCsrf } from '@/lib/server/auth';
@@ -63,7 +64,11 @@ import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { isListingEditable } from '@/lib/server/listings/editable';
-import { checkListingQuota, PUBLISHED_STATUSES } from '@/lib/server/listings/quota';
+import {
+  checkListingQuota,
+  lockUserListingQuota,
+  PUBLISHED_STATUSES,
+} from '@/lib/server/listings/quota';
 import { getPricing } from '@/lib/server/pricing';
 
 const PROPERTY_TYPES = [
@@ -206,6 +211,11 @@ export async function PATCH(
     }
 
     const { publish, ...fields } = parsed.data;
+    // Quota: an already-published listing (VERIFIED/PENDING) is already
+    // counted, so editing it never needs a free slot. DRAFT / REJECTED /
+    // HIDDEN listings do — they would become published.
+    const needsSlot =
+      publish === true && !(PUBLISHED_STATUSES as readonly string[]).includes(existing.status);
 
     if (publish) {
       const merged = { ...existing, ...fields };
@@ -234,64 +244,74 @@ export async function PATCH(
           { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
         );
       }
-
-      // Quota: an already-published listing (VERIFIED/PENDING) is already
-      // counted, so editing it never needs a free slot. DRAFT / REJECTED /
-      // HIDDEN listings do — they would become published.
-      if (!(PUBLISHED_STATUSES as readonly string[]).includes(existing.status)) {
-        const quota = await checkListingQuota(prisma, auth.user.sub, await getPricing(), {
-          excludeListingId: id,
-        });
-        if (!quota.allowed) {
-          return NextResponse.json(
-            {
-              error: 'LISTING_QUOTA_REACHED',
-              message: 'Listing limit reached for your plan.',
-              planKey: quota.planKey,
-              limit: quota.limit,
-            },
-            { status: 403, headers: { 'x-request-id': reqCtx.requestId } },
-          );
-        }
-      }
     }
 
-    const updated = await prisma.listing.update({
-      where: { id },
-      data: {
-        ...(fields.title !== undefined && { title: fields.title }),
-        ...(fields.description !== undefined && { description: fields.description }),
-        ...(fields.city !== undefined && { city: fields.city }),
-        ...(fields.country !== undefined && { country: fields.country }),
-        ...(fields.propertyType !== undefined && { propertyType: fields.propertyType }),
-        ...(fields.transactionType !== undefined && { transactionType: fields.transactionType }),
-        ...(fields.price !== undefined && { price: fields.price }),
-        ...(fields.currency !== undefined && { currency: fields.currency }),
-        ...(fields.surfaceM2 !== undefined && { surfaceM2: fields.surfaceM2 }),
-        ...(fields.capacity !== undefined && { capacity: fields.capacity }),
-        ...(fields.yearBuilt !== undefined && { yearBuilt: fields.yearBuilt }),
-        ...(fields.standing !== undefined && { standing: fields.standing }),
-        ...(fields.roomsTotal !== undefined && { roomsTotal: fields.roomsTotal }),
-        ...(fields.bedrooms !== undefined && { bedrooms: fields.bedrooms }),
-        ...(fields.bathrooms !== undefined && { bathrooms: fields.bathrooms }),
-        ...(fields.kitchens !== undefined && { kitchens: fields.kitchens }),
-        ...(fields.amenities !== undefined && { amenities: fields.amenities }),
-        // A listing an admin REJECTED goes back to PENDING (admin review,
-        // rejection reason kept for the moderator) instead of self-publishing
-        // — otherwise a rejection could be undone with one click.
-        ...(publish &&
-          (existing.status === 'REJECTED'
-            ? { status: 'PENDING' }
-            : {
-                status: 'VERIFIED',
-                rejectionReason: null,
-                rejectedAt: null,
-                moderatedById: null,
-                moderatedAt: null,
-              })),
-      },
-      select: LISTING_SELECT,
-    });
+    const doUpdate = (db: Pick<PrismaClient, 'listing'>) =>
+      db.listing.update({
+        where: { id },
+        data: {
+          ...(fields.title !== undefined && { title: fields.title }),
+          ...(fields.description !== undefined && { description: fields.description }),
+          ...(fields.city !== undefined && { city: fields.city }),
+          ...(fields.country !== undefined && { country: fields.country }),
+          ...(fields.propertyType !== undefined && { propertyType: fields.propertyType }),
+          ...(fields.transactionType !== undefined && { transactionType: fields.transactionType }),
+          ...(fields.price !== undefined && { price: fields.price }),
+          ...(fields.currency !== undefined && { currency: fields.currency }),
+          ...(fields.surfaceM2 !== undefined && { surfaceM2: fields.surfaceM2 }),
+          ...(fields.capacity !== undefined && { capacity: fields.capacity }),
+          ...(fields.yearBuilt !== undefined && { yearBuilt: fields.yearBuilt }),
+          ...(fields.standing !== undefined && { standing: fields.standing }),
+          ...(fields.roomsTotal !== undefined && { roomsTotal: fields.roomsTotal }),
+          ...(fields.bedrooms !== undefined && { bedrooms: fields.bedrooms }),
+          ...(fields.bathrooms !== undefined && { bathrooms: fields.bathrooms }),
+          ...(fields.kitchens !== undefined && { kitchens: fields.kitchens }),
+          ...(fields.amenities !== undefined && { amenities: fields.amenities }),
+          // A listing an admin REJECTED goes back to PENDING (admin review,
+          // rejection reason kept for the moderator) instead of self-publishing
+          // — otherwise a rejection could be undone with one click.
+          ...(publish &&
+            (existing.status === 'REJECTED'
+              ? { status: 'PENDING' }
+              : {
+                  status: 'VERIFIED',
+                  rejectionReason: null,
+                  rejectedAt: null,
+                  moderatedById: null,
+                  moderatedAt: null,
+                })),
+        },
+        select: LISTING_SELECT,
+      });
+
+    let updated: Awaited<ReturnType<typeof doUpdate>>;
+    if (needsSlot) {
+      // The count and the update must be atomic per user: serialize on an
+      // advisory lock so parallel publishes cannot both pass at limit-1.
+      const pricing = await getPricing();
+      const result = await prisma.$transaction(async (tx) => {
+        await lockUserListingQuota(tx, auth.user.sub);
+        const quota = await checkListingQuota(tx, auth.user.sub, pricing, {
+          excludeListingId: id,
+        });
+        if (!quota.allowed) return { quota } as const;
+        return { listing: await doUpdate(tx) } as const;
+      });
+      if ('quota' in result) {
+        return NextResponse.json(
+          {
+            error: 'LISTING_QUOTA_REACHED',
+            message: 'Listing limit reached for your plan.',
+            planKey: result.quota.planKey,
+            limit: result.quota.limit,
+          },
+          { status: 403, headers: { 'x-request-id': reqCtx.requestId } },
+        );
+      }
+      updated = result.listing;
+    } else {
+      updated = await doUpdate(prisma);
+    }
 
     return NextResponse.json(
       { listing: updated },

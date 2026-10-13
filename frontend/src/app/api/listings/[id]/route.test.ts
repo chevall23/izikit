@@ -82,6 +82,13 @@ beforeEach(() => {
   prismaMock.listingDocument.findMany.mockResolvedValue([] as never);
   prismaMock.listing.count.mockResolvedValue(0 as never);
   prismaMock.subscription.findUnique.mockResolvedValue(null);
+  prismaMock.$transaction.mockImplementation((cb: unknown) => {
+    if (typeof cb === 'function') {
+      return (cb as (tx: typeof prismaMock) => unknown)(prismaMock) as Promise<unknown>;
+    }
+    return Promise.resolve(cb);
+  });
+  prismaMock.$executeRawUnsafe.mockResolvedValue(0 as never);
 });
 
 function publishable(status: string) {
@@ -275,6 +282,46 @@ describe('PATCH /api/listings/[id]', () => {
   });
 
   describe('listing quota on publish', () => {
+    it('checks the quota and updates inside one transaction, after taking the per-user lock', async () => {
+      prismaMock.listing.findUnique.mockResolvedValueOnce(publishable('DRAFT') as never);
+      prismaMock.listingPhoto.count.mockResolvedValueOnce(1 as never);
+      prismaMock.listing.count.mockResolvedValue(2 as never);
+      const { req, ctx } = makePatch('l1', { publish: true });
+      const res = await PATCH(req, ctx);
+      expect(res.status).toBe(200);
+      expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+      expect(prismaMock.$executeRawUnsafe).toHaveBeenCalledWith(
+        expect.stringContaining('pg_advisory_xact_lock'),
+        'listing-quota:user-1',
+      );
+      const lockOrder = prismaMock.$executeRawUnsafe.mock.invocationCallOrder[0] ?? Infinity;
+      const countOrder = prismaMock.listing.count.mock.invocationCallOrder[0] ?? 0;
+      const updateOrder = prismaMock.listing.update.mock.invocationCallOrder[0] ?? 0;
+      expect(lockOrder).toBeLessThan(countOrder);
+      expect(countOrder).toBeLessThan(updateOrder);
+    });
+
+    it('does not open a transaction for draft saves or edits of already-published listings', async () => {
+      const { req, ctx } = makePatch('l1', { title: 'x' });
+      await PATCH(req, ctx);
+      prismaMock.listing.findUnique.mockResolvedValueOnce(publishable('VERIFIED') as never);
+      prismaMock.listingPhoto.count.mockResolvedValueOnce(1 as never);
+      const second = makePatch('l1', { publish: true });
+      await PATCH(second.req, second.ctx);
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('returns 403 from inside the transaction without updating when the quota is full', async () => {
+      prismaMock.listing.findUnique.mockResolvedValueOnce(publishable('DRAFT') as never);
+      prismaMock.listingPhoto.count.mockResolvedValueOnce(1 as never);
+      prismaMock.listing.count.mockResolvedValue(3 as never);
+      const { req, ctx } = makePatch('l1', { publish: true });
+      const res = await PATCH(req, ctx);
+      expect(res.status).toBe(403);
+      expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+      expect(prismaMock.listing.update).not.toHaveBeenCalled();
+    });
+
     it('refuses to publish a DRAFT at the plan limit with 403 LISTING_QUOTA_REACHED', async () => {
       prismaMock.listing.findUnique.mockResolvedValueOnce(publishable('DRAFT') as never);
       prismaMock.listingPhoto.count.mockResolvedValueOnce(1 as never);
