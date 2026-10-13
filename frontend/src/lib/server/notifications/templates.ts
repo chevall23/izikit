@@ -97,3 +97,52 @@ export function listingInquiryNotification(
     dedupeKey: `listing-inquiry:${inquiryId}`,
   };
 }
+
+const isoDay = (d: Date): string => d.toISOString().slice(0, 10);
+
+export function subscriptionReminderNotification(
+  userId: string,
+  daysLeft: 7 | 3,
+  periodEnd: Date,
+): CreateNotificationInput {
+  return {
+    userId,
+    type: 'SUBSCRIPTION_REMINDER',
+    title: `Votre abonnement expire dans ${daysLeft} jours`,
+    body: `Renouvelez avant le ${isoDay(periodEnd)} pour garder toutes vos annonces en ligne.`,
+    data: { daysLeft, periodEnd: periodEnd.toISOString() },
+    dedupeKey: `sub-reminder:${userId}:${periodEnd.toISOString()}:${daysLeft}`,
+  };
+}
+
+export function subscriptionGraceNotification(
+  userId: string,
+  periodEnd: Date,
+): CreateNotificationInput {
+  return {
+    userId,
+    type: 'SUBSCRIPTION_GRACE',
+    title: 'Votre abonnement a expiré',
+    body: 'Vous avez 7 jours pour renouveler avant le masquage de vos annonces au-delà de 3.',
+    data: { periodEnd: periodEnd.toISOString() },
+    dedupeKey: `sub-grace:${userId}:${periodEnd.toISOString()}`,
+  };
+}
+
+export function subscriptionExpiredNotification(
+  userId: string,
+  hiddenCount: number,
+  periodEnd: Date,
+): CreateNotificationInput {
+  return {
+    userId,
+    type: 'SUBSCRIPTION_EXPIRED',
+    title: 'Abonnement terminé',
+    body:
+      hiddenCount > 0
+        ? `${hiddenCount} annonce(s) ont été masquées. Elles reviendront dès le renouvellement.`
+        : 'Votre compte repasse au plan Gratuit.',
+    data: { hiddenCount, periodEnd: periodEnd.toISOString() },
+    dedupeKey: `sub-expired:${userId}:${periodEnd.toISOString()}`,
+  };
+}

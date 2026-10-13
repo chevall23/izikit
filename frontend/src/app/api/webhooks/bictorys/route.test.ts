@@ -8,6 +8,7 @@ const orderFindFirst = vi.fn();
 const orderUpdate = vi.fn();
 const orderUpdateMany = vi.fn();
 const outboxCreate = vi.fn();
+const subscriptionFindUnique = vi.fn();
 const subscriptionUpsert = vi.fn();
 const tokenWalletUpsert = vi.fn();
 const tokenTransactionCreate = vi.fn();
@@ -17,7 +18,7 @@ const $transaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>, _opts?:
     webhookLog: { findUnique, create, update },
     order: { findFirst: orderFindFirst, update: orderUpdate, updateMany: orderUpdateMany },
     outboxEvent: { create: outboxCreate },
-    subscription: { upsert: subscriptionUpsert },
+    subscription: { findUnique: subscriptionFindUnique, upsert: subscriptionUpsert },
     tokenWallet: { upsert: tokenWalletUpsert },
     tokenTransaction: { create: tokenTransactionCreate },
   }),
@@ -26,6 +27,14 @@ const $transaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>, _opts?:
 vi.mock('@/lib/server/prisma', () => ({
   prisma: { $transaction },
 }));
+vi.mock('@/lib/server/listings/quota', () => ({
+  lockUserListingQuota: vi.fn(),
+  reactivateHiddenListings: vi.fn(),
+}));
+vi.mock('@/lib/server/pricing', async () => {
+  const { DEFAULT_PRICING } = await import('@/lib/pricing');
+  return { getPricing: vi.fn().mockResolvedValue(DEFAULT_PRICING) };
+});
 
 beforeEach(() => {
   vi.stubEnv('BICTORYS_API_URL', 'https://api.bictorys.test');
@@ -40,6 +49,7 @@ beforeEach(() => {
   orderUpdateMany.mockReset();
   orderUpdateMany.mockResolvedValue({ count: 1 });
   outboxCreate.mockReset();
+  subscriptionFindUnique.mockReset().mockResolvedValue(null);
   subscriptionUpsert.mockReset();
   tokenWalletUpsert.mockReset();
   tokenTransactionCreate.mockReset();

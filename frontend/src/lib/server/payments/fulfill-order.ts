@@ -8,6 +8,9 @@
 import 'server-only';
 import type { PrismaTransactionClient } from '../webhook/handler';
 import { enqueueOutbox } from '../outbox';
+import { getPricing } from '../pricing';
+import { lockUserListingQuota, reactivateHiddenListings } from '../listings/quota';
+import { planMaxListings } from '@/lib/pricing';
 import { isPlanKey } from '@/lib/subscription-plans';
 import { TOKEN_PACK_CATALOG, isTokenPackKey } from '@/lib/token-packs';
 
@@ -66,21 +69,38 @@ export async function fulfillPaidOrder(
   } | null;
 
   if (order.userId && meta?.kind === 'subscription_plan_change' && isPlanKey(meta.planKey)) {
+    const now = Date.now();
+    const existing = await tx.subscription.findUnique({
+      where: { userId: order.userId },
+      select: { planKey: true, status: true, currentPeriodEnd: true },
+    });
+    // Renewing the SAME plan while it is still running carries the remaining
+    // days over; any other case (upgrade, lapsed, grace) starts from now, so
+    // switching plans never gifts time at the higher tier.
+    const carryFrom =
+      existing !== null &&
+      existing.planKey === meta.planKey &&
+      (existing.status === 'ACTIVE' || existing.status === 'CANCELED') &&
+      existing.currentPeriodEnd !== null &&
+      existing.currentPeriodEnd.getTime() > now
+        ? existing.currentPeriodEnd.getTime()
+        : now;
+    const currentPeriodEnd = new Date(carryFrom + SUBSCRIPTION_PERIOD_MS);
+
     await tx.subscription.upsert({
       where: { userId: order.userId },
-      create: {
-        userId: order.userId,
-        planKey: meta.planKey,
-        status: 'ACTIVE',
-        currentPeriodEnd: new Date(Date.now() + SUBSCRIPTION_PERIOD_MS),
-      },
-      update: {
-        planKey: meta.planKey,
-        status: 'ACTIVE',
-        currentPeriodEnd: new Date(Date.now() + SUBSCRIPTION_PERIOD_MS),
-        canceledAt: null,
-      },
+      create: { userId: order.userId, planKey: meta.planKey, status: 'ACTIVE', currentPeriodEnd },
+      update: { planKey: meta.planKey, status: 'ACTIVE', currentPeriodEnd, canceledAt: null },
     });
+
+    // Bring back listings hidden by a previous expiry, within the new quota.
+    // The per-user lock serialises this with a concurrent publish.
+    await lockUserListingQuota(tx, order.userId);
+    await reactivateHiddenListings(
+      tx,
+      order.userId,
+      planMaxListings(await getPricing(), meta.planKey),
+    );
   }
 
   if (order.userId && meta?.kind === 'token_purchase' && isTokenPackKey(meta.packKey)) {
