@@ -1,7 +1,13 @@
 import { prismaMock } from '@/test-utils/prisma-mock';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { DEFAULT_PRICING, type PricingData } from '@/lib/pricing';
-import { getPricing, invalidatePricingCache, savePricing } from './index';
+import {
+  getPricing,
+  invalidatePricingCache,
+  readStoredPricing,
+  savePricing,
+  writePricing,
+} from './index';
 
 const custom = (): PricingData => {
   const p = structuredClone(DEFAULT_PRICING);
@@ -68,5 +74,26 @@ describe('savePricing', () => {
     );
     await getPricing(2_000);
     expect(prismaMock.pricingConfig.findUnique).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('readStoredPricing / writePricing', () => {
+  it('reads the stored row through the given client, defaults when absent or corrupt', async () => {
+    prismaMock.pricingConfig.findUnique.mockResolvedValueOnce({ data: custom() } as never);
+    expect((await readStoredPricing(prismaMock)).plans.PRO_AGENT.priceFcfa).toBe(19_900);
+    prismaMock.pricingConfig.findUnique.mockResolvedValueOnce(null);
+    expect(await readStoredPricing(prismaMock)).toEqual(DEFAULT_PRICING);
+    prismaMock.pricingConfig.findUnique.mockResolvedValueOnce({ data: { plans: 1 } } as never);
+    expect(await readStoredPricing(prismaMock)).toEqual(DEFAULT_PRICING);
+  });
+
+  it('writePricing upserts via the given client without touching the cache', async () => {
+    prismaMock.pricingConfig.findUnique.mockResolvedValue(null);
+    await getPricing(1_000);
+    prismaMock.pricingConfig.upsert.mockResolvedValue({} as never);
+    await writePricing(prismaMock, custom(), 'admin-1');
+    expect(prismaMock.pricingConfig.upsert).toHaveBeenCalledTimes(1);
+    await getPricing(2_000); // still cached
+    expect(prismaMock.pricingConfig.findUnique).toHaveBeenCalledTimes(1);
   });
 });

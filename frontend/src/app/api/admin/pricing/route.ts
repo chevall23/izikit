@@ -11,7 +11,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireSuperadmin } from '@/lib/server/middleware';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
-import { getPricing, savePricing } from '@/lib/server/pricing';
+import { invalidatePricingCache, readStoredPricing, writePricing } from '@/lib/server/pricing';
 import { prisma } from '@/lib/server/prisma';
 
 export async function PUT(req: NextRequest): Promise<NextResponse> {
@@ -34,15 +34,20 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const before = await getPricing();
-    await savePricing(parsed.data, auth.admin.id);
-    await logAdminAction(prisma, {
-      actorId: auth.admin.id,
-      action: 'PRICING_UPDATED',
-      targetType: 'PricingConfig',
-      targetId: 'default',
-      metadata: { before, after: parsed.data },
+    // Read + write + audit in ONE transaction: an audit failure rolls the
+    // new prices back, so a live price change is never unaudited.
+    await prisma.$transaction(async (tx) => {
+      const before = await readStoredPricing(tx);
+      await writePricing(tx, parsed.data, auth.admin.id);
+      await logAdminAction(tx, {
+        actorId: auth.admin.id,
+        action: 'PRICING_UPDATED',
+        targetType: 'PricingConfig',
+        targetId: 'default',
+        metadata: { before, after: parsed.data },
+      });
     });
+    invalidatePricingCache();
 
     return NextResponse.json(
       { pricing: parsed.data },

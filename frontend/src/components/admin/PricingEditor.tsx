@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Save } from 'lucide-react';
 import { AdminSettingsButton, AdminSettingsSection } from '@/components/admin/AdminSettingsSection';
 import { useToast } from '@/contexts/ToastContext';
 import { api, ApiError } from '@/lib/api';
 import { PricingDataSchema, tokenPackPriceFcfa, type PricingData } from '@/lib/pricing';
-import { usePricing } from '@/lib/use-pricing';
+import { usePricingState } from '@/lib/use-pricing';
 
 const PLAN_ROWS = [
   { key: 'FREE', label: 'Gratuit' },
@@ -57,16 +57,22 @@ function NumberInput({
 }
 
 export function PricingEditor() {
-  const pricing = usePricing();
+  const { pricing, loaded } = usePricingState();
   const { toast } = useToast();
-  const [draft, setDraft] = useState<PricingData>(pricing);
+  const [draft, seedDraft] = useState<PricingData>(pricing);
+  const dirty = useRef(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
 
-  // Resync when the live (server) values arrive or change.
+  // Seed from the live config once it has loaded, never over the admin's edits.
   useEffect(() => {
-    setDraft(pricing);
-  }, [pricing]);
+    if (loaded && !dirty.current) seedDraft(pricing);
+  }, [loaded, pricing]);
+
+  function setDraft(fn: (d: PricingData) => PricingData) {
+    dirty.current = true;
+    seedDraft(fn);
+  }
 
   function setPlan(key: 'PRO_AGENT' | 'AGENCY_PREMIUM', patch: { priceFcfa: number }) {
     setDraft((d) => ({ ...d, plans: { ...d.plans, [key]: { ...d.plans[key], ...patch } } }));
@@ -93,6 +99,7 @@ export function PricingEditor() {
   }
 
   async function save() {
+    if (!loaded) return;
     const parsed = PricingDataSchema.safeParse(draft);
     if (!parsed.success) {
       setErrors(parsed.error.issues.map((i) => `${i.path.join(' › ') || 'Tarifs'} : ${i.message}`));
@@ -119,9 +126,9 @@ export function PricingEditor() {
           variant="primary"
           icon={<Save className="h-3.5 w-3.5" aria-hidden />}
           onClick={() => void save()}
-          disabled={saving}
+          disabled={saving || !loaded}
         >
-          {saving ? 'Enregistrement…' : 'Enregistrer'}
+          {saving ? 'Enregistrement…' : loaded ? 'Enregistrer' : 'Chargement des tarifs…'}
         </AdminSettingsButton>
       }
     >

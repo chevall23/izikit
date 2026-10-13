@@ -1,5 +1,5 @@
 // PUT /api/admin/pricing — SUPERADMIN-only pricing replacement + audit.
-import '@/test-utils/prisma-mock';
+import { prismaMock } from '@/test-utils/prisma-mock';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -17,15 +17,16 @@ vi.mock('@/lib/server/admin/audit', () => ({
   logAdminAction: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('@/lib/server/pricing', () => ({
-  getPricing: vi.fn(),
-  savePricing: vi.fn(),
+  readStoredPricing: vi.fn(),
+  writePricing: vi.fn(),
+  invalidatePricingCache: vi.fn(),
 }));
 
 import { requireSuperadmin } from '@/lib/server/middleware';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { verifyCsrf } from '@/lib/server/auth';
 import { logAdminAction } from '@/lib/server/admin/audit';
-import { getPricing, savePricing } from '@/lib/server/pricing';
+import { invalidatePricingCache, readStoredPricing, writePricing } from '@/lib/server/pricing';
 import { DEFAULT_PRICING, type PricingData } from '@/lib/pricing';
 import { seedSuperadmin } from '@/test-utils/admin-fixtures';
 import { PUT } from './route';
@@ -34,8 +35,11 @@ const mockRequireSuperadmin = vi.mocked(requireSuperadmin);
 const mockRateLimit = vi.mocked(enforceAdminRateLimit);
 const mockVerifyCsrf = vi.mocked(verifyCsrf);
 const mockLogAdminAction = vi.mocked(logAdminAction);
-const mockGetPricing = vi.mocked(getPricing);
-const mockSavePricing = vi.mocked(savePricing);
+const mockRead = vi.mocked(readStoredPricing);
+const mockWrite = vi.mocked(writePricing);
+const mockInvalidate = vi.mocked(invalidatePricingCache);
+const tx = { tag: 'tx' };
+const order: string[] = [];
 
 const superadminUser = seedSuperadmin({ id: 'superadmin_1', email: 'superadmin@test.local' });
 const superadminCtx = {
@@ -63,8 +67,20 @@ beforeEach(() => {
   mockRequireSuperadmin.mockResolvedValue(superadminCtx);
   mockRateLimit.mockResolvedValue(null);
   mockLogAdminAction.mockResolvedValue(undefined);
-  mockGetPricing.mockResolvedValue(DEFAULT_PRICING);
-  mockSavePricing.mockResolvedValue(undefined);
+  order.length = 0;
+  mockRead.mockImplementation(async () => {
+    order.push('read');
+    return DEFAULT_PRICING;
+  });
+  mockWrite.mockImplementation(async () => {
+    order.push('write');
+  });
+  mockLogAdminAction.mockImplementation(async () => {
+    order.push('audit');
+  });
+  prismaMock.$transaction.mockImplementation(
+    (cb: unknown) => (cb as (t: unknown) => Promise<unknown>)(tx) as never,
+  );
 });
 
 describe('PUT /api/admin/pricing', () => {
@@ -74,7 +90,7 @@ describe('PUT /api/admin/pricing', () => {
     );
     const res = await PUT(makePut(validBody()));
     expect(res.status).toBe(403);
-    expect(mockSavePricing).not.toHaveBeenCalled();
+    expect(mockWrite).not.toHaveBeenCalled();
     expect(mockLogAdminAction).not.toHaveBeenCalled();
   });
 
@@ -85,7 +101,7 @@ describe('PUT /api/admin/pricing', () => {
     const res = await PUT(makePut(validBody()));
     expect(res.status).toBe(403);
     expect(mockRequireSuperadmin).not.toHaveBeenCalled();
-    expect(mockSavePricing).not.toHaveBeenCalled();
+    expect(mockWrite).not.toHaveBeenCalled();
   });
 
   it('returns 400 VALIDATION_FAILED when the FREE price is not 0', async () => {
@@ -94,7 +110,7 @@ describe('PUT /api/admin/pricing', () => {
     const res = await PUT(makePut(body));
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe('VALIDATION_FAILED');
-    expect(mockSavePricing).not.toHaveBeenCalled();
+    expect(mockWrite).not.toHaveBeenCalled();
   });
 
   it('returns 400 when a pack discount exceeds 90', async () => {
@@ -103,7 +119,7 @@ describe('PUT /api/admin/pricing', () => {
     const res = await PUT(makePut(body));
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe('VALIDATION_FAILED');
-    expect(mockSavePricing).not.toHaveBeenCalled();
+    expect(mockWrite).not.toHaveBeenCalled();
   });
 
   it('returns 400 when a quota is fractional', async () => {
@@ -112,7 +128,7 @@ describe('PUT /api/admin/pricing', () => {
     const res = await PUT(makePut(body));
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe('VALIDATION_FAILED');
-    expect(mockSavePricing).not.toHaveBeenCalled();
+    expect(mockWrite).not.toHaveBeenCalled();
   });
 
   it('returns 400 on a non-JSON body', async () => {
@@ -122,7 +138,7 @@ describe('PUT /api/admin/pricing', () => {
     });
     const res = await PUT(req);
     expect(res.status).toBe(400);
-    expect(mockSavePricing).not.toHaveBeenCalled();
+    expect(mockWrite).not.toHaveBeenCalled();
   });
 
   it('saves a valid body, audits before/after and returns 200', async () => {
@@ -130,9 +146,12 @@ describe('PUT /api/admin/pricing', () => {
     const res = await PUT(makePut(body));
     expect(res.status).toBe(200);
     expect((await res.json()).pricing).toEqual(body);
-    expect(mockSavePricing).toHaveBeenCalledWith(body, 'superadmin_1');
+    expect(mockWrite).toHaveBeenCalledWith(tx, body, 'superadmin_1');
+    expect(mockRead).toHaveBeenCalledWith(tx);
+    expect(order).toEqual(['read', 'write', 'audit']);
+    expect(mockInvalidate).toHaveBeenCalledTimes(1);
     expect(mockLogAdminAction).toHaveBeenCalledWith(
-      expect.anything(),
+      tx,
       expect.objectContaining({
         actorId: 'superadmin_1',
         action: 'PRICING_UPDATED',
@@ -141,5 +160,34 @@ describe('PUT /api/admin/pricing', () => {
         metadata: { before: DEFAULT_PRICING, after: body },
       }),
     );
+  });
+
+  it('takes the audit "before" from the stored row read in the transaction', async () => {
+    const stored = structuredClone(DEFAULT_PRICING);
+    stored.token.baseFcfa = 777;
+    mockRead.mockResolvedValueOnce(stored);
+    const body = validBody();
+    const res = await PUT(makePut(body));
+    expect(res.status).toBe(200);
+    expect(mockLogAdminAction).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ metadata: { before: stored, after: body } }),
+    );
+  });
+
+  it('propagates the failure (Next answers 500) and keeps the cache when the audit insert fails', async () => {
+    mockLogAdminAction.mockRejectedValueOnce(new Error('audit down'));
+    await expect(PUT(makePut(validBody()))).rejects.toThrow('audit down');
+    expect(mockInvalidate).not.toHaveBeenCalled();
+  });
+
+  it('returns the limiter response without saving', async () => {
+    mockRateLimit.mockResolvedValueOnce(
+      NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 }),
+    );
+    const res = await PUT(makePut(validBody()));
+    expect(res.status).toBe(429);
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(mockWrite).not.toHaveBeenCalled();
   });
 });

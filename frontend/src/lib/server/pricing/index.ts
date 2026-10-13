@@ -2,7 +2,7 @@
 // corrupt or unreachable row falls back to DEFAULT_PRICING so a bad edit or a
 // DB blip can never take checkout down. Cached 60 s per instance.
 import 'server-only';
-import type { Prisma } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import { DEFAULT_PRICING, PricingDataSchema, type PricingData } from '@/lib/pricing';
 import { createLogger } from '@/lib/server/logger';
 import { prisma } from '@/lib/server/prisma';
@@ -44,12 +44,30 @@ export async function getPricing(nowMs: number = Date.now()): Promise<PricingDat
   return value;
 }
 
-export async function savePricing(data: PricingData, updatedById: string): Promise<void> {
+export type PricingDb = Pick<PrismaClient, 'pricingConfig'>;
+
+/** Stored config as seen by `db` (a tx client inside a transaction); defaults if absent/corrupt. */
+export async function readStoredPricing(db: PricingDb): Promise<PricingData> {
+  const row = await db.pricingConfig.findUnique({ where: { id: ROW_ID } });
+  const parsed = PricingDataSchema.safeParse(row?.data);
+  return parsed.success ? parsed.data : DEFAULT_PRICING;
+}
+
+/** Upsert the default row through `db`. Callers must invalidate the cache after commit. */
+export async function writePricing(
+  db: PricingDb,
+  data: PricingData,
+  updatedById: string,
+): Promise<void> {
   const json = data as unknown as Prisma.InputJsonValue;
-  await prisma.pricingConfig.upsert({
+  await db.pricingConfig.upsert({
     where: { id: ROW_ID },
     create: { id: ROW_ID, data: json, updatedById },
     update: { data: json, updatedById },
   });
+}
+
+export async function savePricing(data: PricingData, updatedById: string): Promise<void> {
+  await writePricing(prisma, data, updatedById);
   invalidatePricingCache();
 }

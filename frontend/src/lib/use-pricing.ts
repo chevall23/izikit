@@ -4,8 +4,11 @@ import { useEffect, useState } from 'react';
 import { DEFAULT_PRICING, PricingDataSchema, type PricingData } from './pricing';
 
 // Defaults first (instant render), then the live values from the server.
-export function usePricing(): PricingData {
-  const [pricing, setPricing] = useState<PricingData>(DEFAULT_PRICING);
+export function usePricingState(): { pricing: PricingData; loaded: boolean } {
+  const [state, setState] = useState<{ pricing: PricingData; loaded: boolean }>({
+    pricing: DEFAULT_PRICING,
+    loaded: false,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -14,7 +17,7 @@ export function usePricing(): PricingData {
       .then((body: { pricing?: unknown } | null) => {
         if (cancelled || !body) return;
         const parsed = PricingDataSchema.safeParse(body.pricing);
-        if (parsed.success) setPricing(parsed.data);
+        if (parsed.success) setState({ pricing: parsed.data, loaded: true });
       })
       .catch(() => undefined);
     return () => {
@@ -22,5 +25,9 @@ export function usePricing(): PricingData {
     };
   }, []);
 
-  return pricing;
+  return state;
+}
+
+export function usePricing(): PricingData {
+  return usePricingState().pricing;
 }
