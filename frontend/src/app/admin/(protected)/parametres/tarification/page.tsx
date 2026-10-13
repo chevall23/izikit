@@ -6,21 +6,9 @@ import { AdminStatCard } from '@/components/admin/AdminStatCard';
 import { AdminStatusBadge } from '@/components/admin/AdminStatusBadge';
 import { AdminPricingCard } from '@/components/admin/AdminPricingCard';
 import { AdminHistoryRow } from '@/components/admin/AdminHistoryRow';
+import { PricingEditor } from '@/components/admin/PricingEditor';
 
 // ── Static mockup data (Banani "Tarification Admin") ───────────────────────────
-
-const TOKEN_PRICING = [
-  { flag: '🇧🇯', country: 'Bénin', unit: '500 FCFA', pack10: '4 500 FCFA', pack50: '21 000 FCFA' },
-  { flag: '🇹🇬', country: 'Togo', unit: '500 FCFA', pack10: '4 500 FCFA', pack50: '20 000 FCFA' },
-  {
-    flag: '🇨🇮',
-    country: "Côte d'Ivoire",
-    unit: '600 FCFA',
-    pack10: '5 500 FCFA',
-    pack50: '25 000 FCFA',
-  },
-  { flag: '🇸🇳', country: 'Sénégal', unit: '550 FCFA', pack10: '5 000 FCFA', pack50: '22 000 FCFA' },
-];
 
 const COMMISSIONS = [
   {
@@ -181,75 +169,8 @@ export default function AdminTarificationPage() {
             />
           </div>
 
-          {/* Prix des jetons par pays */}
-          <AdminSettingsSection
-            title="Prix des jetons par pays"
-            description="Définissez le prix unitaire et les packs par pays. Cliquez sur l'icône crayon pour modifier."
-            bodyClassName="overflow-x-auto"
-            headerRight={
-              <AdminSettingsButton icon={<Save className="h-3.5 w-3.5" aria-hidden />}>
-                Tout enregistrer
-              </AdminSettingsButton>
-            }
-          >
-            <table className="w-full min-w-[640px] border-collapse text-left">
-              <thead>
-                <tr className="bg-gray-50">
-                  {['Pays', 'Devise', 'Prix unitaire', 'Pack 10 jetons', 'Pack 50 jetons', ''].map(
-                    (h) => (
-                      <th
-                        key={h}
-                        className="px-3.5 py-2.5 text-[11px] font-bold whitespace-nowrap text-gray-400"
-                      >
-                        {h}
-                      </th>
-                    ),
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {TOKEN_PRICING.map((row, i) => (
-                  <tr
-                    key={row.country}
-                    className={`border-t border-black/[0.05] ${i % 2 === 0 ? '' : 'bg-gray-50/60'}`}
-                  >
-                    <td className="px-3.5 py-2.5 text-[13px] whitespace-nowrap">
-                      <span className="mr-1.5">{row.flag}</span>
-                      <span className="font-semibold text-neutral-900">{row.country}</span>
-                    </td>
-                    <td className="px-3.5 py-2.5">
-                      <AdminStatusBadge tone="neutral">XOF</AdminStatusBadge>
-                    </td>
-                    {[row.unit, row.pack10, row.pack50].map((v, j) => (
-                      <td key={j} className="px-3.5 py-2.5">
-                        <input
-                          defaultValue={v}
-                          className="h-8 w-full min-w-[90px] rounded-lg border border-black/[0.08] bg-gray-50 px-2.5 text-[13px] text-neutral-900 outline-none focus:border-brand"
-                        />
-                      </td>
-                    ))}
-                    <td className="px-3.5 py-2.5">
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          aria-label={`Modifier les tarifs — ${row.country}`}
-                          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-brand/10"
-                        >
-                          <Pencil className="h-[13px] w-[13px] text-brand" aria-hidden />
-                        </button>
-                        <button
-                          type="button"
-                          className="h-7 flex-shrink-0 rounded-md bg-brand px-2.5 text-[12px] font-semibold whitespace-nowrap text-brand-foreground"
-                        >
-                          Sauv.
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </AdminSettingsSection>
+          {/* Tarifs live (plans + jetons) */}
+          <PricingEditor />
 
           {/* Commissions par type de transaction */}
           <AdminSettingsSection
