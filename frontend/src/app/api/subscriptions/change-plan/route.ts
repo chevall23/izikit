@@ -19,7 +19,7 @@ import { makeRequestContext, withRequestContext } from '@/lib/server/observabili
 import { hideExcessListings, lockUserListingQuota } from '@/lib/server/listings/quota';
 import { createLogger } from '@/lib/server/logger';
 import { getPricing } from '@/lib/server/pricing';
-import { planMaxListings, planPriceFcfa } from '@/lib/pricing';
+import { planMaxListings } from '@/lib/pricing';
 import { PLAN_KEYS } from '@/lib/subscription-plans';
 
 const log = createLogger();
@@ -51,8 +51,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const pricing = await getPricing();
-    if (planPriceFcfa(pricing, parsed.data.planKey) > 0) {
+    // Only FREE may be set here, whatever the live price says (an admin-edited
+    // price of 0 must never give a paid plan for free).
+    if (parsed.data.planKey !== 'FREE') {
       return NextResponse.json(
         {
           error: 'UPGRADE_REQUIRES_PAYMENT',
@@ -61,6 +62,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 400, headers: { 'x-request-id': ctx.requestId } },
       );
     }
+
+    const pricing = await getPricing();
 
     // The downgrade and the hiding of excess public listings are one unit: if
     // hiding fails we must not leave a FREE account with more than the FREE

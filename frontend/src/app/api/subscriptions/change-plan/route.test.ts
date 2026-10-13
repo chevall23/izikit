@@ -23,6 +23,8 @@ vi.mock('@/lib/server/listings/quota', () => ({
 }));
 
 import { hideExcessListings, lockUserListingQuota } from '@/lib/server/listings/quota';
+import { getPricing } from '@/lib/server/pricing';
+import { DEFAULT_PRICING } from '@/lib/pricing';
 import { CSRF_COOKIE_NAME, createAccessToken } from '@/lib/server/auth';
 import { POST } from './route';
 
@@ -155,6 +157,27 @@ describe('POST /api/subscriptions/change-plan', () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toBe('UPGRADE_REQUIRES_PAYMENT');
+    expect(prismaMock.subscription.upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects a paid target even when the live price is 0', async () => {
+    vi.mocked(getPricing).mockResolvedValueOnce({
+      ...DEFAULT_PRICING,
+      plans: {
+        ...DEFAULT_PRICING.plans,
+        PRO_AGENT: { ...DEFAULT_PRICING.plans.PRO_AGENT, priceFcfa: 0 },
+      },
+    });
+    const res = await POST(
+      makeReq({
+        bearer: validToken,
+        body: { planKey: 'PRO_AGENT' },
+        csrf: CSRF_TOKEN,
+        csrfCookieValue: CSRF_TOKEN,
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('UPGRADE_REQUIRES_PAYMENT');
     expect(prismaMock.subscription.upsert).not.toHaveBeenCalled();
   });
 

@@ -38,6 +38,14 @@ describe('DEFAULT_PRICING', () => {
 describe('PricingDataSchema', () => {
   const clone = () => structuredClone(DEFAULT_PRICING);
 
+  it('rejects a price of 0 for a paid plan', () => {
+    for (const key of ['PRO_AGENT', 'AGENCY_PREMIUM'] as const) {
+      const bad = clone();
+      bad.plans[key].priceFcfa = 0;
+      expect(PricingDataSchema.safeParse(bad).success, key).toBe(false);
+    }
+  });
+
   it('rejects a non-zero FREE price', () => {
     const bad = clone();
     (bad.plans.FREE as { priceFcfa: number }).priceFcfa = 100;

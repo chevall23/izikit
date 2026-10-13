@@ -12,7 +12,7 @@ import {
 
 const quota = z.number().int().nonnegative().nullable(); // null = unlimited
 const paidPlan = z.object({
-  priceFcfa: z.number().int().nonnegative().max(10_000_000),
+  priceFcfa: z.number().int().positive().max(10_000_000),
   maxActiveListings: quota,
 });
 const pack = z.object({

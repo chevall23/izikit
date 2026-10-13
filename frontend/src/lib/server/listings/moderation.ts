@@ -41,7 +41,7 @@ export function asModerationClient(prisma: PrismaClient): ModerationClient {
   return prisma as unknown as ModerationClient;
 }
 
-const NON_MODERATABLE = new Set(['DRAFT', 'SOLD']);
+const NON_MODERATABLE = new Set(['DRAFT', 'SOLD', 'HIDDEN']);
 
 async function loadModeratable(
   db: ModerationClient,

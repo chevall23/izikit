@@ -59,13 +59,20 @@ describe('approveListing', () => {
     });
   });
 
-  it('throws LISTING_NOT_MODERATABLE for DRAFT and SOLD', async () => {
+  it('throws LISTING_NOT_MODERATABLE for DRAFT, SOLD and HIDDEN', async () => {
     db.listing.findUnique.mockResolvedValue({ id: 'l1', status: 'DRAFT' });
     await expect(approveListing(db, { id: 'l1', adminId: 'a' })).rejects.toMatchObject({
       code: 'LISTING_NOT_MODERATABLE',
     });
     db.listing.findUnique.mockResolvedValue({ id: 'l1', status: 'SOLD' });
     await expect(approveListing(db, { id: 'l1', adminId: 'a' })).rejects.toMatchObject({
+      code: 'LISTING_NOT_MODERATABLE',
+    });
+    db.listing.findUnique.mockResolvedValue({ id: 'l1', status: 'HIDDEN' });
+    await expect(approveListing(db, { id: 'l1', adminId: 'a' })).rejects.toMatchObject({
+      code: 'LISTING_NOT_MODERATABLE',
+    });
+    await expect(rejectListing(db, { id: 'l1', adminId: 'a', reason: 'x' })).rejects.toMatchObject({
       code: 'LISTING_NOT_MODERATABLE',
     });
   });

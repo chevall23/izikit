@@ -12,11 +12,12 @@ import {
 } from '@/lib/subscription-plans';
 import { planPriceFcfa } from '@/lib/pricing';
 import { usePricing } from '@/lib/use-pricing';
+import { getRenewalState } from '@/lib/subscription-renewal';
 import { PasswordConfirmModal } from './PasswordConfirmModal';
 
 interface Subscription {
   planKey: PlanKey;
-  status: 'ACTIVE' | 'CANCELED';
+  status: 'ACTIVE' | 'CANCELED' | 'GRACE';
   currentPeriodEnd: string | null;
   canceledAt: string | null;
 }
@@ -46,6 +47,7 @@ export function SubscriptionCard() {
 
   const currentPlanKey = subscription?.planKey ?? 'FREE';
   const currentPlan = PLAN_CATALOG[currentPlanKey];
+  const renewal = getRenewalState(subscription, new Date());
 
   async function changeToFree() {
     setBusyPlan('FREE');
@@ -96,7 +98,10 @@ export function SubscriptionCard() {
   }
 
   function onPlanAction(planKey: PlanKey) {
-    if (planKey === currentPlanKey) return;
+    if (planKey === currentPlanKey) {
+      if (renewal.canRenew) void upgradeTo(planKey);
+      return;
+    }
     if (planKey === 'FREE') void changeToFree();
     else void upgradeTo(planKey);
   }
@@ -119,9 +124,11 @@ export function SubscriptionCard() {
         </div>
         {subscription?.currentPeriodEnd && (
           <p className="text-[13px] text-white/80">
-            {subscription.status === 'CANCELED'
-              ? `Résilié — accès jusqu'au ${new Date(subscription.currentPeriodEnd).toLocaleDateString('fr-FR')}`
-              : `Renouvellement le ${new Date(subscription.currentPeriodEnd).toLocaleDateString('fr-FR')}`}
+            {subscription.status === 'GRACE' && renewal.graceDeadline
+              ? `Expiré le ${new Date(subscription.currentPeriodEnd).toLocaleDateString('fr-FR')} — renouvelez avant le ${renewal.graceDeadline.toLocaleDateString('fr-FR')} pour garder vos annonces`
+              : subscription.status === 'CANCELED'
+                ? `Résilié — accès jusqu'au ${new Date(subscription.currentPeriodEnd).toLocaleDateString('fr-FR')}`
+                : `Renouvellement le ${new Date(subscription.currentPeriodEnd).toLocaleDateString('fr-FR')}`}
           </p>
         )}
       </div>
@@ -130,6 +137,7 @@ export function SubscriptionCard() {
         {PLAN_KEYS.map((key) => {
           const plan = PLAN_CATALOG[key];
           const isCurrent = key === currentPlanKey;
+          const isRenewal = isCurrent && renewal.canRenew;
           return (
             <div
               key={key}
@@ -176,13 +184,17 @@ export function SubscriptionCard() {
                 disabled={busyPlan !== null}
                 onClick={() => onPlanAction(key)}
                 className={
-                  isCurrent
+                  isCurrent && !isRenewal
                     ? 'w-full cursor-default rounded-lg border border-brand px-4 py-2.5 text-[13px] font-semibold text-brand'
                     : 'w-full rounded-lg bg-brand px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-brand/90 disabled:opacity-50'
                 }
               >
                 {isCurrent
-                  ? 'Plan actuel'
+                  ? isRenewal
+                    ? busyPlan === key
+                      ? 'Traitement…'
+                      : 'Renouveler'
+                    : 'Plan actuel'
                   : busyPlan === key
                     ? 'Traitement…'
                     : planPriceFcfa(pricing, plan.key) === 0

@@ -33,7 +33,7 @@ vi.mock('@/lib/server/listings/quota', () => ({
 }));
 vi.mock('@/lib/server/pricing', async () => {
   const { DEFAULT_PRICING } = await import('@/lib/pricing');
-  return { getPricing: vi.fn().mockResolvedValue(DEFAULT_PRICING) };
+  return { readStoredPricing: vi.fn().mockResolvedValue(DEFAULT_PRICING) };
 });
 
 beforeEach(() => {
@@ -141,7 +141,7 @@ describe('POST /api/webhooks/bictorys', () => {
       customerEmail: 'a@b.com',
       amount: 29_900,
       currency: 'XOF',
-      metadata: { kind: 'subscription_plan_change', planKey: 'PRO_AGENT' },
+      metadata: { kind: 'subscription_plan_change', planKey: 'PRO_AGENT', priceFcfa: 29_900 },
     });
     subscriptionUpsert.mockResolvedValue({ id: 'sub1' });
     const { POST } = await import('./route');

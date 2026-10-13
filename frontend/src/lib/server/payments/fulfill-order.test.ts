@@ -5,10 +5,14 @@ vi.mock('@/lib/server/listings/quota', () => ({
   lockUserListingQuota: vi.fn(),
   reactivateHiddenListings: vi.fn(),
 }));
-vi.mock('@/lib/server/pricing', () => ({ getPricing: vi.fn() }));
+vi.mock('@/lib/server/pricing', () => ({ readStoredPricing: vi.fn() }));
+const logError = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/server/logger', () => ({
+  createLogger: () => ({ error: logError, warn: vi.fn(), info: vi.fn(), debug: vi.fn() }),
+}));
 
 import { lockUserListingQuota, reactivateHiddenListings } from '@/lib/server/listings/quota';
-import { getPricing } from '@/lib/server/pricing';
+import { readStoredPricing } from '@/lib/server/pricing';
 import { fulfillPaidOrder } from './fulfill-order';
 
 const mockLock = vi.mocked(lockUserListingQuota);
@@ -30,7 +34,8 @@ beforeEach(() => {
   subscriptionFindUnique.mockReset().mockResolvedValue(null);
   mockLock.mockReset().mockResolvedValue(undefined);
   mockReactivate.mockReset().mockResolvedValue(0);
-  vi.mocked(getPricing).mockResolvedValue(DEFAULT_PRICING);
+  vi.mocked(readStoredPricing).mockResolvedValue(DEFAULT_PRICING);
+  logError.mockReset();
   subscriptionUpsert.mockReset();
   tokenWalletUpsert.mockReset().mockResolvedValue({ userId: 'u1', balance: 150 });
   tokenTransactionCreate.mockReset();
@@ -50,7 +55,7 @@ const subOrder = (planKey: string) => ({
   customerEmail: null,
   amount: 29_900,
   currency: 'XOF',
-  metadata: { kind: 'subscription_plan_change', planKey },
+  metadata: { kind: 'subscription_plan_change', planKey, priceFcfa: 29_900 },
 });
 
 describe('subscription renewal and reactivation', () => {
@@ -141,9 +146,15 @@ describe('subscription renewal and reactivation', () => {
     expect(mockReactivate).toHaveBeenLastCalledWith(tx, 'u1', null);
   });
 
-  it('takes the per-user listing quota lock before reactivating', async () => {
+  it('takes the per-user listing quota lock before any subscription read or write', async () => {
     await fulfillPaidOrder(tx, subOrder('PRO_AGENT'));
     expect(mockLock).toHaveBeenCalledWith(tx, 'u1');
+    expect(mockLock.mock.invocationCallOrder[0]).toBeLessThan(
+      subscriptionFindUnique.mock.invocationCallOrder[0] as number,
+    );
+    expect(mockLock.mock.invocationCallOrder[0]).toBeLessThan(
+      subscriptionUpsert.mock.invocationCallOrder[0] as number,
+    );
     expect(mockLock.mock.invocationCallOrder[0]).toBeLessThan(
       mockReactivate.mock.invocationCallOrder[0] as number,
     );
@@ -159,6 +170,57 @@ describe('subscription renewal and reactivation', () => {
   });
 });
 
+describe('freeze marker on priced paths', () => {
+  const kinds = (): string[] =>
+    outboxCreate.mock.calls.map((c) => (c[0] as { data: { kind: string } }).data.kind);
+
+  it('does not grant a legacy subscription order without the marker', async () => {
+    await fulfillPaidOrder(tx, {
+      ...subOrder('PRO_AGENT'),
+      metadata: { kind: 'subscription_plan_change', planKey: 'PRO_AGENT' },
+    });
+    expect(subscriptionUpsert).not.toHaveBeenCalled();
+    expect(mockReactivate).not.toHaveBeenCalled();
+    expect(logError).toHaveBeenCalledWith(expect.any(String), { orderId: 'o1' });
+    expect(kinds()).toContain('notification.payment_received');
+  });
+
+  it('does not grant a subscription when the marker differs from the amount', async () => {
+    await fulfillPaidOrder(tx, {
+      ...subOrder('PRO_AGENT'),
+      amount: 1,
+    });
+    expect(subscriptionUpsert).not.toHaveBeenCalled();
+    expect(logError).toHaveBeenCalled();
+  });
+
+  it('does not credit a legacy custom token order without the marker', async () => {
+    await fulfillPaidOrder(tx, {
+      id: 'o1',
+      userId: 'u1',
+      customerEmail: null,
+      amount: 1,
+      currency: 'XOF',
+      metadata: { kind: 'token_purchase_custom', tokens: 1_000_000 },
+    });
+    expect(tokenWalletUpsert).not.toHaveBeenCalled();
+    expect(logError).toHaveBeenCalledWith(expect.any(String), { orderId: 'o1' });
+    expect(kinds()).toContain('notification.payment_received');
+  });
+
+  it('does not credit custom tokens when the marker differs from the amount', async () => {
+    await fulfillPaidOrder(tx, {
+      id: 'o1',
+      userId: 'u1',
+      customerEmail: null,
+      amount: 1,
+      currency: 'XOF',
+      metadata: { kind: 'token_purchase_custom', tokens: 1_000_000, priceFcfa: 500_000 },
+    });
+    expect(tokenWalletUpsert).not.toHaveBeenCalled();
+  });
+});
+
 describe('fulfillPaidOrder', () => {
   it('activates a subscription when metadata.kind is subscription_plan_change', async () => {
     await fulfillPaidOrder(tx, {
@@ -167,7 +229,7 @@ describe('fulfillPaidOrder', () => {
       customerEmail: null,
       amount: 29_900,
       currency: 'XOF',
-      metadata: { kind: 'subscription_plan_change', planKey: 'PRO_AGENT' },
+      metadata: { kind: 'subscription_plan_change', planKey: 'PRO_AGENT', priceFcfa: 29_900 },
     });
     expect(subscriptionUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -274,7 +336,7 @@ describe('fulfillPaidOrder', () => {
       customerEmail: null,
       amount: 3_500,
       currency: 'XOF',
-      metadata: { kind: 'token_purchase_custom', tokens: 7 },
+      metadata: { kind: 'token_purchase_custom', tokens: 7, priceFcfa: 3_500 },
     });
     expect(tokenWalletUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -302,7 +364,7 @@ describe('fulfillPaidOrder', () => {
       customerEmail: null,
       amount: 0,
       currency: 'XOF',
-      metadata: { kind: 'token_purchase_custom', tokens: 0 },
+      metadata: { kind: 'token_purchase_custom', tokens: 0, priceFcfa: 0 },
     });
     await fulfillPaidOrder(tx, {
       id: 'o2',
@@ -310,7 +372,7 @@ describe('fulfillPaidOrder', () => {
       customerEmail: null,
       amount: 100,
       currency: 'XOF',
-      metadata: { kind: 'token_purchase_custom', tokens: 1.5 },
+      metadata: { kind: 'token_purchase_custom', tokens: 1.5, priceFcfa: 100 },
     });
     expect(tokenWalletUpsert).not.toHaveBeenCalled();
   });
