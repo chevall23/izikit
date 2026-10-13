@@ -10,6 +10,8 @@ import {
   SUBSCRIPTION_CURRENCY,
   type PlanKey,
 } from '@/lib/subscription-plans';
+import { planPriceFcfa } from '@/lib/pricing';
+import { usePricing } from '@/lib/use-pricing';
 import { PasswordConfirmModal } from './PasswordConfirmModal';
 
 interface Subscription {
@@ -25,6 +27,7 @@ function formatFcfa(amount: number): string {
 
 export function SubscriptionCard() {
   const { toast } = useToast();
+  const pricing = usePricing();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [busyPlan, setBusyPlan] = useState<PlanKey | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -61,14 +64,13 @@ export function SubscriptionCard() {
   }
 
   async function upgradeTo(planKey: PlanKey) {
-    const plan = PLAN_CATALOG[planKey];
     setBusyPlan(planKey);
     try {
       const res = await api<{ paymentUrl: string }>('/api/orders', {
         method: 'POST',
         headers: { 'Idempotency-Key': crypto.randomUUID() },
         body: {
-          amount: plan.priceFcfa,
+          amount: planPriceFcfa(pricing, planKey),
           currency: SUBSCRIPTION_CURRENCY,
           metadata: { kind: 'subscription_plan_change', planKey },
         },
@@ -109,9 +111,9 @@ export function SubscriptionCard() {
         <h2 className="font-sora mb-1.5 text-xl font-semibold text-white">{currentPlan.label}</h2>
         <div className="mb-4 flex items-baseline gap-2">
           <span className="font-sora text-3xl font-semibold text-white">
-            {formatFcfa(currentPlan.priceFcfa)}
+            {formatFcfa(planPriceFcfa(pricing, currentPlan.key))}
           </span>
-          {currentPlan.priceFcfa > 0 && (
+          {planPriceFcfa(pricing, currentPlan.key) > 0 && (
             <span className="text-sm text-white/75">par mois, taxes comprises</span>
           )}
         </div>
@@ -151,10 +153,10 @@ export function SubscriptionCard() {
                     : 'font-sora text-2xl font-semibold text-neutral-900'
                 }
               >
-                {formatFcfa(plan.priceFcfa)}
+                {formatFcfa(planPriceFcfa(pricing, plan.key))}
               </div>
               <p className="mb-5 text-xs text-gray-500">
-                {plan.priceFcfa === 0 ? 'À vie' : 'par mois'}
+                {planPriceFcfa(pricing, plan.key) === 0 ? 'À vie' : 'par mois'}
               </p>
               <ul className="mb-5 flex flex-col gap-2">
                 {plan.features.map((feature) => (
@@ -183,7 +185,7 @@ export function SubscriptionCard() {
                   ? 'Plan actuel'
                   : busyPlan === key
                     ? 'Traitement…'
-                    : plan.priceFcfa === 0
+                    : planPriceFcfa(pricing, plan.key) === 0
                       ? 'Rétrograder'
                       : `Passer à ${plan.label}`}
               </button>

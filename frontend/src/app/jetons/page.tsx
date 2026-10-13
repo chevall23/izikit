@@ -20,10 +20,11 @@ import {
   TOKEN_PACK_CATALOG,
   TOKEN_PACK_KEYS,
   TOKEN_PURCHASE_CURRENCY,
-  CUSTOM_TOKEN_PRICE_FCFA,
-  customTokenPurchasePriceFcfa,
+  MAX_CUSTOM_TOKENS,
   type TokenPackKey,
 } from '@/lib/token-packs';
+import { customTokenPriceFcfa, tokenPackPriceFcfa, tokenPackTokens } from '@/lib/pricing';
+import { usePricing } from '@/lib/use-pricing';
 
 type TxType = 'achat' | 'utilisation' | 'bonus';
 
@@ -50,6 +51,7 @@ const TX_STYLE: Record<TxType, { label: string; className: string; icon: typeof 
 
 export default function JetonsPage() {
   const { toast } = useToast();
+  const pricing = usePricing();
   const [selectedPack, setSelectedPack] = useState<TokenPackKey>('STANDARD');
   const [balance, setBalance] = useState<number | null>(null);
   const [usedThisMonth, setUsedThisMonth] = useState<number | null>(null);
@@ -99,7 +101,7 @@ export default function JetonsPage() {
         method: 'POST',
         headers: { 'Idempotency-Key': crypto.randomUUID() },
         body: {
-          amount: pack.priceFcfa,
+          amount: tokenPackPriceFcfa(pricing, selectedPack),
           currency: TOKEN_PURCHASE_CURRENCY,
           metadata: { kind: 'token_purchase', packKey: pack.key },
         },
@@ -112,7 +114,10 @@ export default function JetonsPage() {
   }
 
   const customTokensNum = Math.trunc(Number(customTokens));
-  const customTokensValid = Number.isFinite(customTokensNum) && customTokensNum >= 1;
+  const customTokensValid =
+    Number.isFinite(customTokensNum) &&
+    customTokensNum >= 1 &&
+    customTokensNum <= MAX_CUSTOM_TOKENS;
 
   async function buyCustomTokens() {
     if (!customTokensValid) return;
@@ -122,7 +127,7 @@ export default function JetonsPage() {
         method: 'POST',
         headers: { 'Idempotency-Key': crypto.randomUUID() },
         body: {
-          amount: customTokenPurchasePriceFcfa(customTokensNum),
+          amount: customTokenPriceFcfa(pricing, customTokensNum),
           currency: TOKEN_PURCHASE_CURRENCY,
           metadata: { kind: 'token_purchase_custom', tokens: customTokensNum },
         },
@@ -206,8 +211,10 @@ export default function JetonsPage() {
           {TOKEN_PACK_KEYS.map((key) => {
             const pack = TOKEN_PACK_CATALOG[key];
             const active = selectedPack === key;
-            const priceLabel = `${pack.priceFcfa.toLocaleString('fr-FR')} FCFA`;
-            const perTokenLabel = `${Math.round(pack.priceFcfa / pack.tokens).toLocaleString('fr-FR')} FCFA/jeton`;
+            const price = tokenPackPriceFcfa(pricing, key);
+            const tokens = tokenPackTokens(pricing, key);
+            const priceLabel = `${price.toLocaleString('fr-FR')} FCFA`;
+            const perTokenLabel = `${Math.round(price / tokens).toLocaleString('fr-FR')} FCFA/jeton`;
             return (
               <button
                 key={pack.key}
@@ -230,7 +237,7 @@ export default function JetonsPage() {
                   {pack.label}
                 </p>
                 <p className="font-sora mt-2 text-2xl font-semibold text-neutral-900">
-                  {pack.tokens}
+                  {tokens}
                   <span className="ml-1 text-xs font-normal text-gray-400">jetons</span>
                 </p>
                 <p className="mt-1 text-[13px] font-semibold text-brand">{priceLabel}</p>
@@ -268,10 +275,10 @@ export default function JetonsPage() {
               <span className="text-[13px] text-gray-500">
                 jeton{customTokensNum > 1 ? 's' : ''} ·{' '}
                 {customTokensValid
-                  ? `${customTokenPurchasePriceFcfa(customTokensNum).toLocaleString('fr-FR')} FCFA`
+                  ? `${customTokenPriceFcfa(pricing, customTokensNum).toLocaleString('fr-FR')} FCFA`
                   : '—'}{' '}
                 <span className="text-gray-400">
-                  ({CUSTOM_TOKEN_PRICE_FCFA.toLocaleString('fr-FR')} FCFA/jeton)
+                  ({pricing.token.baseFcfa.toLocaleString('fr-FR')} FCFA/jeton)
                 </span>
               </span>
             </div>
