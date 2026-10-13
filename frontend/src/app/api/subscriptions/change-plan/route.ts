@@ -16,7 +16,13 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
-import { PLAN_CATALOG, PLAN_KEYS } from '@/lib/subscription-plans';
+import { hideExcessListings, lockUserListingQuota } from '@/lib/server/listings/quota';
+import { createLogger } from '@/lib/server/logger';
+import { getPricing } from '@/lib/server/pricing';
+import { planMaxListings, planPriceFcfa } from '@/lib/pricing';
+import { PLAN_KEYS } from '@/lib/subscription-plans';
+
+const log = createLogger();
 
 const Body = z.object({
   planKey: z.enum(PLAN_KEYS),
@@ -45,8 +51,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const target = PLAN_CATALOG[parsed.data.planKey];
-    if (target.priceFcfa > 0) {
+    const pricing = await getPricing();
+    if (planPriceFcfa(pricing, parsed.data.planKey) > 0) {
       return NextResponse.json(
         {
           error: 'UPGRADE_REQUIRES_PAYMENT',
@@ -56,21 +62,32 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const subscription = await prisma.subscription.upsert({
-      where: { userId: auth.user.sub },
-      create: {
-        userId: auth.user.sub,
-        planKey: 'FREE',
-        status: 'ACTIVE',
-      },
-      update: {
-        planKey: 'FREE',
-        status: 'ACTIVE',
-        currentPeriodEnd: null,
-        canceledAt: null,
-      },
-      select: { planKey: true, status: true, currentPeriodEnd: true, canceledAt: true },
-    });
+    // The downgrade and the hiding of excess public listings are one unit: if
+    // hiding fails we must not leave a FREE account with more than the FREE
+    // quota of public listings, so the error is surfaced as a 500 (rolled back).
+    let subscription;
+    try {
+      subscription = await prisma.$transaction(async (tx) => {
+        await lockUserListingQuota(tx, auth.user.sub);
+        const sub = await tx.subscription.upsert({
+          where: { userId: auth.user.sub },
+          create: { userId: auth.user.sub, planKey: 'FREE', status: 'ACTIVE' },
+          update: { planKey: 'FREE', status: 'ACTIVE', currentPeriodEnd: null, canceledAt: null },
+          select: { planKey: true, status: true, currentPeriodEnd: true, canceledAt: true },
+        });
+        await hideExcessListings(tx, auth.user.sub, planMaxListings(pricing, 'FREE'));
+        return sub;
+      });
+    } catch (err) {
+      log.error('change-plan downgrade failed', {
+        requestId: ctx.requestId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return NextResponse.json(
+        { error: 'INTERNAL_ERROR', message: 'Could not change plan' },
+        { status: 500, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
 
     return NextResponse.json(
       { subscription },

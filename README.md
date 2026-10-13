@@ -129,7 +129,7 @@ Les fichiers uploadés renvoient une URL R2 (`R2_PUBLIC_URL/<key>`) servie direc
 | ------- | ------------------------ | --------------------------------- |
 | POST    | `/api/webhooks/bictorys` | HMAC provider + replay window 60s |
 
-### Handlers cron — 6 routes (toutes `Authorization: Bearer ${CRON_SECRET}`)
+### Handlers cron — 7 routes (toutes `Authorization: Bearer ${CRON_SECRET}`)
 
 | Path                             | Schedule (panel N0C — voir [docs/deploy/n0c-crons.md](docs/deploy/n0c-crons.md)) |
 | -------------------------------- | -------------------------------------------------------------------------------- |
@@ -137,6 +137,7 @@ Les fichiers uploadés renvoient une URL R2 (`R2_PUBLIC_URL/<key>`) servie direc
 | `/api/cron/email-queue-drain`    | `*/5 * * * *`                                                                    |
 | `/api/cron/verification-cleanup` | toutes les heures                                                                |
 | `/api/cron/order-expiration`     | `*/5 * * * *`                                                                    |
+| `/api/cron/subscription-lifecycle` | toutes les heures                                                              |
 | `/api/cron/webhook-log-purge`    | quotidien                                                                        |
 | `/api/cron/email-job-purge`      | quotidien                                                                        |
 
@@ -184,7 +185,7 @@ Le déploiement est automatisé par [`.github/workflows/deploy-n0c.yml`](.github
 
 Prérequis (une fois) : suivre [docs/deploy/n0c-setup.md](docs/deploy/n0c-setup.md) — créer l'application Node.js et la base Postgres dans le panel N0C, déposer le `.env`, générer une clé SSH de déploiement, renseigner les secrets GitHub `N0C_SSH_HOST` / `N0C_SSH_USER` / `N0C_SSH_KEY` / `N0C_APP_PATH` / `N0C_DEPLOY_URL`.
 
-Les 6 crons se créent dans le panel N0C : [docs/deploy/n0c-crons.md](docs/deploy/n0c-crons.md).
+Les 7 crons se créent dans le panel N0C : [docs/deploy/n0c-crons.md](docs/deploy/n0c-crons.md).
 
 ## Design system — entièrement swappable
 

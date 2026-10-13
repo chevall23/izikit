@@ -13,6 +13,16 @@ vi.mock('@/lib/server/auth/lockout', () => ({
   recordSuccess: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('@/lib/server/pricing', async () => {
+  const { DEFAULT_PRICING } = await import('@/lib/pricing');
+  return { getPricing: vi.fn().mockResolvedValue(DEFAULT_PRICING) };
+});
+vi.mock('@/lib/server/listings/quota', () => ({
+  lockUserListingQuota: vi.fn().mockResolvedValue(undefined),
+  hideExcessListings: vi.fn().mockResolvedValue(0),
+}));
+
+import { hideExcessListings, lockUserListingQuota } from '@/lib/server/listings/quota';
 import { CSRF_COOKIE_NAME, createAccessToken } from '@/lib/server/auth';
 import { POST } from './route';
 
@@ -50,6 +60,10 @@ beforeEach(async () => {
     email: 'user@example.com',
     tokenVersion: 0,
   } as never);
+  vi.mocked(hideExcessListings).mockClear().mockResolvedValue(0);
+  vi.mocked(lockUserListingQuota).mockClear().mockResolvedValue(undefined);
+  prismaMock.$transaction.mockImplementation((async (fn: (tx: unknown) => unknown) =>
+    fn(prismaMock)) as never);
 });
 
 describe('POST /api/subscriptions/change-plan', () => {
@@ -79,6 +93,54 @@ describe('POST /api/subscriptions/change-plan', () => {
         update: expect.objectContaining({ planKey: 'FREE' }),
       }),
     );
+  });
+
+  it('locks the quota, then hides excess listings down to the FREE limit', async () => {
+    prismaMock.subscription.upsert.mockResolvedValue({
+      planKey: 'FREE',
+      status: 'ACTIVE',
+      currentPeriodEnd: null,
+      canceledAt: null,
+    } as never);
+
+    const res = await POST(
+      makeReq({
+        bearer: validToken,
+        body: { planKey: 'FREE' },
+        csrf: CSRF_TOKEN,
+        csrfCookieValue: CSRF_TOKEN,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(lockUserListingQuota).toHaveBeenCalledWith(prismaMock, 'user_1');
+    expect(hideExcessListings).toHaveBeenCalledWith(prismaMock, 'user_1', 3);
+    const lockOrder = vi.mocked(lockUserListingQuota).mock.invocationCallOrder[0]!;
+    const upsertOrder = prismaMock.subscription.upsert.mock.invocationCallOrder[0]!;
+    const hideOrder = vi.mocked(hideExcessListings).mock.invocationCallOrder[0]!;
+    expect(lockOrder).toBeLessThan(upsertOrder);
+    expect(upsertOrder).toBeLessThan(hideOrder);
+  });
+
+  it('returns 500 when hiding excess listings fails (error not swallowed)', async () => {
+    prismaMock.subscription.upsert.mockResolvedValue({
+      planKey: 'FREE',
+      status: 'ACTIVE',
+      currentPeriodEnd: null,
+      canceledAt: null,
+    } as never);
+    vi.mocked(hideExcessListings).mockRejectedValueOnce(new Error('db down'));
+
+    const res = await POST(
+      makeReq({
+        bearer: validToken,
+        body: { planKey: 'FREE' },
+        csrf: CSRF_TOKEN,
+        csrfCookieValue: CSRF_TOKEN,
+      }),
+    );
+
+    expect(res.status).toBe(500);
   });
 
   it('rejects a paid target with UPGRADE_REQUIRES_PAYMENT', async () => {

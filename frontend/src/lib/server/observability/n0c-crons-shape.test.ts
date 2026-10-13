@@ -1,7 +1,7 @@
 // n0c-crons-shape.test.ts — remplace vercel-json-shape.test.ts.
 //
 // Tripwire : la doc des crons N0C (docs/deploy/n0c-crons.md) documente
-// EXACTEMENT les 6 crons canoniques, chacun pointant vers une route
+// EXACTEMENT les 7 crons canoniques, chacun pointant vers une route
 // app/api/cron/<name>/route.ts réelle, avec une expression cron à 5 champs
 // et JAMAIS `*/1` (reco PlanetHoster : pas d'exécution every-minute).
 import { describe, it, expect } from 'vitest';
@@ -21,6 +21,7 @@ const CANONICAL = [
   'email-queue-drain',
   'order-expiration',
   'verification-cleanup',
+  'subscription-lifecycle',
   'webhook-log-purge',
   'email-job-purge',
 ].sort();
@@ -42,7 +43,7 @@ describe('n0c-crons doc tripwire', () => {
     expect(existsSync(CRONS_DOC)).toBe(true);
   });
 
-  it('documente exactement les 6 crons canoniques', () => {
+  it('documente exactement les 7 crons canoniques', () => {
     const rows = parseRows(readFileSync(CRONS_DOC, 'utf8'));
     expect(rows.map((r) => r.name).sort()).toEqual(CANONICAL);
   });

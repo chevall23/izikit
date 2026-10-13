@@ -1,8 +1,8 @@
 // POST /api/subscriptions/cancel — /settings "Abonnement & paiement".
 //
-// Flips an active paid subscription to CANCELED. No renewal cron exists yet
-// (see .planning/banani/abonnement-paiement.md) — this is a DB-only flag,
-// not an enforced access cutoff at currentPeriodEnd.
+// Flips an active paid subscription to CANCELED. The plan stays effective until
+// currentPeriodEnd (see lib/server/subscriptions/effective-plan.ts); the
+// subscription-lifecycle cron then expires it without a grace period.
 export const runtime = 'nodejs';
 
 import 'server-only';
