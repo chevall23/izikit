@@ -35,7 +35,7 @@ import {
 
 // ── API shapes (GET /api/admin/listings, /api/admin/listings/[id]) ─────────────
 
-type TabKey = 'all' | 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SOLD';
+type TabKey = 'all' | 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SOLD' | 'HIDDEN';
 
 interface ListRow {
   id: string;
@@ -59,6 +59,7 @@ interface Counts {
   verified: number;
   rejected: number;
   sold: number;
+  hidden: number;
 }
 
 interface ListingDetail {
@@ -130,10 +131,11 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'VERIFIED', label: 'Validées' },
   { key: 'REJECTED', label: 'Rejetées' },
   { key: 'SOLD', label: 'Vendues' },
+  { key: 'HIDDEN', label: 'Masquées' },
 ];
 
 const PER_PAGE = 20;
-const EMPTY_COUNTS: Counts = { all: 0, pending: 0, verified: 0, rejected: 0, sold: 0 };
+const EMPTY_COUNTS: Counts = { all: 0, pending: 0, verified: 0, rejected: 0, sold: 0, hidden: 0 };
 
 function countFor(counts: Counts, key: TabKey): number {
   return key === 'all' ? counts.all : counts[key.toLowerCase() as keyof Counts];

@@ -51,6 +51,7 @@ describe('GET /api/admin/listings', () => {
       verified: 0,
       rejected: 0,
       sold: 0,
+      hidden: 0,
     });
   });
 

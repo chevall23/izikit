@@ -32,6 +32,7 @@ const STATUS_DONUT_COLOR: Record<string, string> = {
   PENDING: '#F59E0B',
   VERIFIED: '#376BFF',
   SOLD: '#10B981',
+  HIDDEN: '#6B7280',
 };
 
 function donutSegments(data: { pct: number }[]) {

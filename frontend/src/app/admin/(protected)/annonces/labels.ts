@@ -9,6 +9,7 @@ export const STATUS_LABEL: Record<string, string> = {
   REJECTED: 'Rejetée',
   SOLD: 'Vendue',
   DRAFT: 'Brouillon',
+  HIDDEN: 'Masquée',
 };
 
 export const STATUS_TONE: Record<string, AdminStatusTone> = {
@@ -17,6 +18,7 @@ export const STATUS_TONE: Record<string, AdminStatusTone> = {
   REJECTED: 'danger',
   SOLD: 'neutral',
   DRAFT: 'neutral',
+  HIDDEN: 'neutral',
 };
 
 export const TXN_LABEL: Record<string, string> = {

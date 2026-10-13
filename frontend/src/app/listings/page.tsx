@@ -8,6 +8,7 @@ import {
   Download,
   MapPin,
   Eye,
+  EyeOff,
   Pencil,
   Trash2,
   CheckCircle2,
@@ -45,12 +46,14 @@ const STATUS_TABS = [
   { value: 'VERIFIED', label: 'Vérifiées' },
   { value: 'PENDING', label: 'En attente' },
   { value: 'SOLD', label: 'Vendues' },
+  { value: 'HIDDEN', label: 'Masquées' },
 ];
 
 const STATUS_BADGE: Record<string, { icon: typeof CheckCircle2; className: string }> = {
   VERIFIED: { icon: CheckCircle2, className: 'bg-emerald-100 text-emerald-800' },
   PENDING: { icon: Clock, className: 'bg-amber-100 text-amber-800' },
   SOLD: { icon: XCircle, className: 'bg-red-100 text-red-800' },
+  HIDDEN: { icon: EyeOff, className: 'bg-gray-100 text-gray-600' },
 };
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('fr-FR', {

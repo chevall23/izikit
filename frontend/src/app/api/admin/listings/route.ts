@@ -50,7 +50,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       ? { AND: [baseWhere, cursorWhere(cursor)] }
       : baseWhere;
 
-    const [rows, all, pending, verified, rejected, sold] = await Promise.all([
+    const [rows, all, pending, verified, rejected, sold, hidden] = await Promise.all([
       prisma.listing.findMany({
         where: listWhere,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -76,6 +76,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       prisma.listing.count({ where: { ...countsWhere, status: 'VERIFIED' } }),
       prisma.listing.count({ where: { ...countsWhere, status: 'REJECTED' } }),
       prisma.listing.count({ where: { ...countsWhere, status: 'SOLD' } }),
+      prisma.listing.count({ where: { ...countsWhere, status: 'HIDDEN' } }),
     ]);
 
     const page = buildPage(rows as { id: string; createdAt: Date }[], limit);
@@ -96,7 +97,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }));
 
     return NextResponse.json(
-      { items, nextCursor: page.nextCursor, counts: { all, pending, verified, rejected, sold } },
+      {
+        items,
+        nextCursor: page.nextCursor,
+        counts: { all, pending, verified, rejected, sold, hidden },
+      },
       { headers: { 'x-request-id': ctx.requestId } },
     );
   });

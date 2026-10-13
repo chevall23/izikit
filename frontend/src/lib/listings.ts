@@ -26,6 +26,7 @@ export interface ListingCounts {
   pending: number;
   rejected: number;
   sold: number;
+  hidden: number;
 }
 
 /**
@@ -102,6 +103,7 @@ export const STATUS_LABEL: Record<string, string> = {
   VERIFIED: 'Vérifié',
   PENDING: 'En attente',
   SOLD: 'Vendu',
+  HIDDEN: 'Masquée',
 };
 
 export const STATUS_STYLE: Record<string, { label: string; className: string }> = {
@@ -115,6 +117,7 @@ export const STATUS_STYLE: Record<string, { label: string; className: string }> 
     className: 'bg-amber-100 text-amber-800',
   },
   SOLD: { label: STATUS_LABEL.SOLD!, className: 'bg-red-100 text-red-800' },
+  HIDDEN: { label: STATUS_LABEL.HIDDEN!, className: 'bg-gray-100 text-gray-600' },
 };
 
 /** Format a listing price stored in its smallest currency unit (e.g. XOF has no decimals). */
