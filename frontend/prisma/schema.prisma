@@ -371,13 +371,23 @@ model Subscription {
   userId           String    @unique
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   planKey          String    @default("FREE") // FREE | PRO_AGENT | AGENCY_PREMIUM
-  status           String    @default("ACTIVE") // ACTIVE | CANCELED
+  status           String    @default("ACTIVE") // ACTIVE | GRACE | EXPIRED | CANCELED
   currentPeriodEnd DateTime?
   canceledAt       DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
   @@index([userId])
+}
+
+// Live pricing (plans, quotas, token base rate, pack discounts). One row,
+// id = "default". `data` is validated by PricingDataSchema (lib/pricing.ts);
+// an absent/invalid row falls back to DEFAULT_PRICING in code.
+model PricingConfig {
+  id          String   @id
+  data        Json
+  updatedById String?
+  updatedAt   DateTime @updatedAt
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -572,7 +582,7 @@ model Listing {
   transactionType String @default("VENTE") // VENTE | LOCATION | SEJOUR | AUBERGE
   price           Int // smallest currency unit (FCFA = no decimals); for RENT/SHORT_RENT this is the per-month price
   currency        String @default("XOF")
-  status          String @default("PENDING") // DRAFT | PENDING | VERIFIED | REJECTED | SOLD
+  status          String @default("PENDING") // DRAFT | PENDING | VERIFIED | REJECTED | SOLD | HIDDEN (HIDDEN = masquée à l'expiration de l'abonnement, jamais supprimée)
 
   // "Publier une annonce" fields (frontend/src/app/listings/new/page.tsx).
   // All nullable — a DRAFT listing may have none of them filled in yet;
