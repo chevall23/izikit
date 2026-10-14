@@ -49,7 +49,9 @@ describe('GET /api/subscriptions/me', () => {
         currentPeriodEnd: null,
         canceledAt: null,
         boostCredits: 0,
+        trialStartedAt: null,
       },
+      trialEligible: false,
     });
   });
 
@@ -83,6 +85,40 @@ describe('GET /api/subscriptions/me', () => {
     expect(prismaMock.subscription.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ select: expect.objectContaining({ boostCredits: true }) }),
     );
+  });
+
+  it('is trial-eligible for an agent who was never subscribed', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'user_1',
+      email: 'user@example.com',
+      tokenVersion: 0,
+      accountType: 'OWNER_AGENT',
+    } as never);
+    prismaMock.subscription.findUnique.mockResolvedValue(null);
+    const body = await (await GET(makeReq(validToken))).json();
+    expect(body.trialEligible).toBe(true);
+    expect(body.subscription.trialStartedAt).toBeNull();
+  });
+
+  it('is not eligible once a trial was taken and exposes its start', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'user_1',
+      email: 'user@example.com',
+      tokenVersion: 0,
+      accountType: 'OWNER_AGENT',
+    } as never);
+    const started = new Date('2026-11-01T00:00:00Z');
+    prismaMock.subscription.findUnique.mockResolvedValue({
+      planKey: 'FREE',
+      status: 'ACTIVE',
+      currentPeriodEnd: null,
+      canceledAt: null,
+      boostCredits: 0,
+      trialStartedAt: started,
+    } as never);
+    const body = await (await GET(makeReq(validToken))).json();
+    expect(body.trialEligible).toBe(false);
+    expect(body.subscription.trialStartedAt).toBe(started.toISOString());
   });
 
   it('missing token returns 401', async () => {

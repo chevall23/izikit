@@ -10,6 +10,7 @@ import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
+import { isTrialEligible } from '@/lib/server/subscriptions/trial';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -29,7 +30,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         currentPeriodEnd: true,
         canceledAt: true,
         boostCredits: true,
+        trialStartedAt: true,
       },
+    });
+    const user = await prisma.user.findUnique({
+      where: { id: auth.user.sub },
+      select: { accountType: true },
     });
 
     const subscription = row ?? {
@@ -38,10 +44,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       currentPeriodEnd: null,
       canceledAt: null,
       boostCredits: 0,
+      trialStartedAt: null,
     };
 
     return NextResponse.json(
-      { subscription },
+      {
+        subscription,
+        trialEligible: isTrialEligible(
+          user?.accountType,
+          row
+            ? { planKey: row.planKey, status: row.status, trialStartedAt: row.trialStartedAt }
+            : null,
+        ),
+      },
       { status: 200, headers: { 'x-request-id': ctx.requestId } },
     );
   });
