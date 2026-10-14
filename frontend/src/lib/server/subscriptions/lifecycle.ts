@@ -6,6 +6,7 @@
 import 'server-only';
 import type { PrismaClient } from '@prisma/client';
 import { planMaxListings, type PricingData } from '@/lib/pricing';
+import { disableExcessAlerts, lockUserAlertQuota } from '../alerts/quota';
 import { createLogger } from '@/lib/server/logger';
 import { hideExcessListings, lockUserListingQuota } from '../listings/quota';
 import { createNotification } from '../notifications';
@@ -127,12 +128,16 @@ export async function runSubscriptionLifecycle(opts: {
           data: { planKey: 'FREE', status: 'EXPIRED' },
         });
         if (moved.count === 0) return null;
-        return { hidden: await hideExcessListings(tx, sub.userId, freeLimit) };
+        const hidden = await hideExcessListings(tx, sub.userId, freeLimit);
+        // Listing lock first, alert lock second (fixed order, no deadlock).
+        await lockUserAlertQuota(tx, sub.userId);
+        const alertsDisabled = await disableExcessAlerts(tx, sub.userId, pricing, 'FREE');
+        return { hidden, alertsDisabled };
       });
       if (outcome) {
         await createNotification(
           prisma,
-          subscriptionExpiredNotification(sub.userId, outcome.hidden, end),
+          subscriptionExpiredNotification(sub.userId, outcome.hidden, end, outcome.alertsDisabled),
         );
         result.expired++;
         result.hidden += outcome.hidden;

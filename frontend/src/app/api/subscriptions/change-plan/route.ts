@@ -16,6 +16,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { disableExcessAlerts, lockUserAlertQuota } from '@/lib/server/alerts/quota';
 import { hideExcessListings, lockUserListingQuota } from '@/lib/server/listings/quota';
 import { createLogger } from '@/lib/server/logger';
 import { getPricing } from '@/lib/server/pricing';
@@ -79,6 +80,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           select: { planKey: true, status: true, currentPeriodEnd: true, canceledAt: true },
         });
         await hideExcessListings(tx, auth.user.sub, planMaxListings(pricing, 'FREE'));
+        await lockUserAlertQuota(tx, auth.user.sub);
+        await disableExcessAlerts(tx, auth.user.sub, pricing, 'FREE');
         return sub;
       });
     } catch (err) {

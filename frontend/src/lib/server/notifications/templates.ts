@@ -137,16 +137,23 @@ export function subscriptionExpiredNotification(
   userId: string,
   hiddenCount: number,
   periodEnd: Date,
+  disabledAlerts = 0,
 ): CreateNotificationInput {
+  const parts: string[] = [];
+  if (hiddenCount > 0) {
+    parts.push(
+      `${hiddenCount} annonce(s) ont été masquées. Elles reviendront dès le renouvellement.`,
+    );
+  }
+  if (disabledAlerts > 0) {
+    parts.push(`${disabledAlerts} alerte(s) secteur ont été désactivées.`);
+  }
   return {
     userId,
     type: 'SUBSCRIPTION_EXPIRED',
     title: 'Abonnement terminé',
-    body:
-      hiddenCount > 0
-        ? `${hiddenCount} annonce(s) ont été masquées. Elles reviendront dès le renouvellement.`
-        : 'Votre compte repasse au plan Gratuit.',
-    data: { hiddenCount, periodEnd: periodEnd.toISOString() },
+    body: parts.length > 0 ? parts.join(' ') : 'Votre compte repasse au plan Gratuit.',
+    data: { hiddenCount, disabledAlerts, periodEnd: periodEnd.toISOString() },
     dedupeKey: `sub-expired:${userId}:${periodEnd.toISOString()}`,
   };
 }

@@ -17,12 +17,17 @@ vi.mock('@/lib/server/pricing', async () => {
   const { DEFAULT_PRICING } = await import('@/lib/pricing');
   return { getPricing: vi.fn().mockResolvedValue(DEFAULT_PRICING) };
 });
+vi.mock('@/lib/server/alerts/quota', () => ({
+  lockUserAlertQuota: vi.fn().mockResolvedValue(undefined),
+  disableExcessAlerts: vi.fn().mockResolvedValue(0),
+}));
 vi.mock('@/lib/server/listings/quota', () => ({
   lockUserListingQuota: vi.fn().mockResolvedValue(undefined),
   hideExcessListings: vi.fn().mockResolvedValue(0),
 }));
 
 import { hideExcessListings, lockUserListingQuota } from '@/lib/server/listings/quota';
+import { disableExcessAlerts, lockUserAlertQuota } from '@/lib/server/alerts/quota';
 import { getPricing } from '@/lib/server/pricing';
 import { DEFAULT_PRICING } from '@/lib/pricing';
 import { CSRF_COOKIE_NAME, createAccessToken } from '@/lib/server/auth';
@@ -122,6 +127,11 @@ describe('POST /api/subscriptions/change-plan', () => {
     const hideOrder = vi.mocked(hideExcessListings).mock.invocationCallOrder[0]!;
     expect(lockOrder).toBeLessThan(upsertOrder);
     expect(upsertOrder).toBeLessThan(hideOrder);
+    expect(lockUserAlertQuota).toHaveBeenCalledWith(prismaMock, 'user_1');
+    expect(disableExcessAlerts).toHaveBeenCalledWith(prismaMock, 'user_1', DEFAULT_PRICING, 'FREE');
+    expect(vi.mocked(lockUserListingQuota).mock.invocationCallOrder.at(-1)!).toBeLessThan(
+      vi.mocked(lockUserAlertQuota).mock.invocationCallOrder.at(-1)!,
+    );
   });
 
   it('returns 500 when hiding excess listings fails (error not swallowed)', async () => {

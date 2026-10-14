@@ -3,6 +3,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DEFAULT_PRICING } from '@/lib/pricing';
 
 vi.mock('@/lib/server/notifications', () => ({ createNotification: vi.fn() }));
+vi.mock('@/lib/server/alerts/quota', () => ({
+  lockUserAlertQuota: vi.fn(),
+  disableExcessAlerts: vi.fn(),
+}));
 vi.mock('@/lib/server/listings/quota', () => ({
   hideExcessListings: vi.fn(),
   lockUserListingQuota: vi.fn(),
@@ -10,6 +14,7 @@ vi.mock('@/lib/server/listings/quota', () => ({
 
 import { createNotification } from '@/lib/server/notifications';
 import { hideExcessListings, lockUserListingQuota } from '@/lib/server/listings/quota';
+import { disableExcessAlerts, lockUserAlertQuota } from '@/lib/server/alerts/quota';
 import { GRACE_PERIOD_MS } from './effective-plan';
 import { runSubscriptionLifecycle } from './lifecycle';
 
@@ -19,11 +24,15 @@ const at = (days: number) => new Date(now.getTime() + days * DAY);
 const mockNotify = vi.mocked(createNotification);
 const mockHide = vi.mocked(hideExcessListings);
 const mockLock = vi.mocked(lockUserListingQuota);
+const mockDisable = vi.mocked(disableExcessAlerts);
+const mockAlertLock = vi.mocked(lockUserAlertQuota);
 
 beforeEach(() => {
   mockNotify.mockClear();
   mockHide.mockClear();
   mockLock.mockReset().mockResolvedValue(undefined);
+  mockDisable.mockReset().mockResolvedValue(0);
+  mockAlertLock.mockReset().mockResolvedValue(undefined);
   prismaMock.$transaction.mockImplementation(async (fn: unknown) =>
     (fn as (tx: typeof prismaMock) => Promise<unknown>)(prismaMock),
   );
@@ -122,6 +131,33 @@ describe('expiry', () => {
     );
     expect(mockHide).toHaveBeenCalledWith(prismaMock, 'a', 5);
     expect(mockNotify.mock.calls.at(-1)?.[1]).toMatchObject({ type: 'SUBSCRIPTION_EXPIRED' });
+  });
+
+  it('deactivates excess alerts after hiding listings (lock order) and tells the user', async () => {
+    prismaMock.subscription.findMany
+      .mockResolvedValueOnce([]) // reminders
+      .mockResolvedValueOnce([]) // lapsed
+      .mockResolvedValueOnce([{ userId: 'a', currentPeriodEnd: at(-9) }] as never); // to expire
+    prismaMock.subscription.updateMany.mockResolvedValue({ count: 1 });
+    mockHide.mockResolvedValue(1);
+    mockDisable.mockResolvedValue(2);
+    await run();
+    expect(mockAlertLock).toHaveBeenCalledWith(prismaMock, 'a');
+    expect(mockDisable).toHaveBeenCalledWith(prismaMock, 'a', DEFAULT_PRICING, 'FREE');
+    expect(mockLock.mock.invocationCallOrder[0]).toBeLessThan(
+      mockAlertLock.mock.invocationCallOrder[0] as number,
+    );
+    expect(mockNotify.mock.calls.at(-1)?.[1].body).toContain('2 alerte(s) secteur');
+  });
+
+  it('does not touch alerts when another run already expired the row', async () => {
+    prismaMock.subscription.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ userId: 'a', currentPeriodEnd: at(-9) }] as never);
+    prismaMock.subscription.updateMany.mockResolvedValue({ count: 0 });
+    await run();
+    expect(mockDisable).not.toHaveBeenCalled();
   });
 
   it('is idempotent: a row another run already expired is not hidden or notified again', async () => {
