@@ -69,6 +69,19 @@ describe('POST /api/subscriptions/cancel', () => {
     expect(body.subscription.status).toBe('CANCELED');
   });
 
+  it('refuses to cancel a running trial (it ends by itself)', async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue({
+      planKey: 'PRO_AGENT',
+      status: 'TRIAL',
+    } as never);
+    const res = await POST(
+      makeReq({ bearer: validToken, csrf: CSRF_TOKEN, csrfCookieValue: CSRF_TOKEN }),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('NO_ACTIVE_SUBSCRIPTION');
+    expect(prismaMock.subscription.update).not.toHaveBeenCalled();
+  });
+
   it('no subscription row returns NO_ACTIVE_SUBSCRIPTION', async () => {
     prismaMock.subscription.findUnique.mockResolvedValue(null);
     const res = await POST(

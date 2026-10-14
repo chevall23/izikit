@@ -32,7 +32,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       select: { planKey: true, status: true },
     });
 
-    if (!existing || existing.planKey === 'FREE' || existing.status === 'CANCELED') {
+    if (
+      !existing ||
+      existing.planKey === 'FREE' ||
+      existing.status === 'CANCELED' ||
+      existing.status === 'TRIAL'
+    ) {
       return NextResponse.json(
         { error: 'NO_ACTIVE_SUBSCRIPTION', message: 'No active paid subscription to cancel' },
         { status: 400, headers: { 'x-request-id': ctx.requestId } },
