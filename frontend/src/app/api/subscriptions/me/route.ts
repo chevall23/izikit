@@ -23,7 +23,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const row = await prisma.subscription.findUnique({
       where: { userId: auth.user.sub },
-      select: { planKey: true, status: true, currentPeriodEnd: true, canceledAt: true },
+      select: {
+        planKey: true,
+        status: true,
+        currentPeriodEnd: true,
+        canceledAt: true,
+        boostCredits: true,
+      },
     });
 
     const subscription = row ?? {
@@ -31,6 +37,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       status: 'ACTIVE' as const,
       currentPeriodEnd: null,
       canceledAt: null,
+      boostCredits: 0,
     };
 
     return NextResponse.json(

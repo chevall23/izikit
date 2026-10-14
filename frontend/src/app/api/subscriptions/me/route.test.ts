@@ -48,6 +48,7 @@ describe('GET /api/subscriptions/me', () => {
         status: 'ACTIVE',
         currentPeriodEnd: null,
         canceledAt: null,
+        boostCredits: 0,
       },
     });
   });
@@ -62,6 +63,26 @@ describe('GET /api/subscriptions/me', () => {
     const res = await GET(makeReq(validToken));
     const body = await res.json();
     expect(body.subscription.planKey).toBe('PRO_AGENT');
+  });
+
+  it('returns the remaining included boosts', async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue({
+      planKey: 'PRO_AGENT',
+      status: 'ACTIVE',
+      currentPeriodEnd: new Date('2026-12-01'),
+      canceledAt: null,
+      boostCredits: 2,
+    } as never);
+    const body = await (await GET(makeReq(validToken))).json();
+    expect(body.subscription.boostCredits).toBe(2);
+  });
+
+  it('selects boostCredits from the row', async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue(null);
+    await GET(makeReq(validToken));
+    expect(prismaMock.subscription.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ select: expect.objectContaining({ boostCredits: true }) }),
+    );
   });
 
   it('missing token returns 401', async () => {

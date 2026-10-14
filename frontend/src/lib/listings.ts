@@ -18,6 +18,8 @@ export interface Listing {
   createdAt: string;
   primaryPhotoUrl?: string | null;
   rejectionReason?: string | null;
+  /** End of the latest boost (ISO); a future date means the listing is currently boosted. */
+  boostedUntil?: string | null;
 }
 
 export interface ListingCounts {

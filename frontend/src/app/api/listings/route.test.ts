@@ -59,6 +59,13 @@ beforeEach(() => {
 });
 
 describe('GET /api/listings', () => {
+  it('selects boostedUntil so the owner table can show the boost end date', async () => {
+    prismaMock.listing.findMany.mockResolvedValue([] as never);
+    await GET(makeGet());
+    const args = prismaMock.listing.findMany.mock.calls[0]?.[0];
+    expect(args?.select).toMatchObject({ boostedUntil: true });
+  });
+
   it('returns 401 when requireAuth bails', async () => {
     mockRequireAuth.mockResolvedValueOnce(
       NextResponse.json({ error: 'Missing token' }, { status: 401 }),

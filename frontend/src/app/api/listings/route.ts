@@ -57,6 +57,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           currency: true,
           status: true,
           rejectionReason: true,
+          boostedUntil: true,
           createdAt: true,
           photos: {
             where: { isPrimary: true },
