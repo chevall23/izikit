@@ -1,5 +1,5 @@
 import { prismaMock } from '@/test-utils/prisma-mock';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { DEFAULT_PRICING } from '@/lib/pricing';
 import { contactOf, isAgent, isSellable, previewOf, sellableWhere, MAX_BUYERS } from './index';
 
@@ -19,17 +19,55 @@ const row = {
 };
 
 describe('sellable rule', () => {
-  it('only unowned, trusted, not closed requests', () => {
+  const FROM = '2026-11-01T00:00:00.000Z';
+  const base = {
+    userId: null,
+    trustStatus: 'TRUSTED',
+    status: 'EN_ATTENTE',
+    source: 'Site web',
+    createdAt: new Date('2026-11-02T00:00:00Z'),
+  };
+
+  beforeEach(() => {
+    process.env.LEADS_SALE_FROM = FROM;
+  });
+  afterEach(() => {
+    delete process.env.LEADS_SALE_FROM;
+  });
+
+  it('only unowned, trusted, not closed, post-consent requests from public sources', () => {
     expect(sellableWhere()).toEqual({
       userId: null,
       trustStatus: 'TRUSTED',
       status: { not: 'CLOTUREE' },
+      createdAt: { gte: new Date(FROM) },
+      OR: [{ source: null }, { source: { notIn: ['ancien-site', 'Admin'] } }],
     });
-    expect(isSellable({ userId: null, trustStatus: 'TRUSTED', status: 'EN_ATTENTE' })).toBe(true);
-    expect(isSellable({ userId: 'a', trustStatus: 'TRUSTED', status: 'EN_ATTENTE' })).toBe(false);
-    expect(isSellable({ userId: null, trustStatus: 'REVIEW', status: 'EN_ATTENTE' })).toBe(false);
-    expect(isSellable({ userId: null, trustStatus: 'REJECTED', status: 'EN_ATTENTE' })).toBe(false);
-    expect(isSellable({ userId: null, trustStatus: 'TRUSTED', status: 'CLOTUREE' })).toBe(false);
+    expect(isSellable(base)).toBe(true);
+    expect(isSellable({ ...base, userId: 'a' })).toBe(false);
+    expect(isSellable({ ...base, trustStatus: 'REVIEW' })).toBe(false);
+    expect(isSellable({ ...base, trustStatus: 'REJECTED' })).toBe(false);
+    expect(isSellable({ ...base, status: 'CLOTUREE' })).toBe(false);
+  });
+
+  it('never sells a request collected before the consent text went live', () => {
+    expect(isSellable({ ...base, createdAt: new Date('2026-10-31T23:59:59Z') })).toBe(false);
+    expect(isSellable({ ...base, createdAt: new Date(FROM) })).toBe(true);
+  });
+
+  it('never sells legacy-imported or admin-entered requests', () => {
+    expect(isSellable({ ...base, source: 'ancien-site' })).toBe(false);
+    expect(isSellable({ ...base, source: 'Admin' })).toBe(false);
+    expect(isSellable({ ...base, source: null })).toBe(true);
+  });
+
+  it('sells nothing while the start date is unset or invalid', () => {
+    delete process.env.LEADS_SALE_FROM;
+    expect(isSellable(base)).toBe(false);
+    expect(sellableWhere()).toEqual({ id: { in: [] } });
+    process.env.LEADS_SALE_FROM = 'not-a-date';
+    expect(isSellable(base)).toBe(false);
+    expect(sellableWhere()).toEqual({ id: { in: [] } });
   });
 });
 

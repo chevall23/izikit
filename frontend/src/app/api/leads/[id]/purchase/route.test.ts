@@ -24,6 +24,8 @@ const request = (over: Record<string, unknown> = {}) => ({
   trustStatus: 'TRUSTED',
   status: 'EN_ATTENTE',
   priority: 'Normale',
+  source: 'Site web',
+  createdAt: new Date('2026-11-02T00:00:00Z'),
   city: 'Cotonou',
   clientName: 'Awa',
   clientPhone: '+22997000000',
@@ -42,6 +44,7 @@ const call = () =>
   );
 
 beforeEach(() => {
+  process.env.LEADS_SALE_FROM = '2026-11-01T00:00:00.000Z';
   vi.clearAllMocks();
   __cookieStore.clear();
   mockVerifyCsrf.mockReturnValue(null);
@@ -145,11 +148,21 @@ describe('POST /api/leads/[id]/purchase', () => {
     ['REVIEW', { trustStatus: 'REVIEW' }],
     ['CLOTUREE', { status: 'CLOTUREE' }],
     ['agent-owned', { userId: 'someone' }],
+    ['legacy-imported', { source: 'ancien-site' }],
+    ['admin-entered', { source: 'Admin' }],
+    ['pre-consent', { createdAt: new Date('2026-10-31T00:00:00Z') }],
   ])('409 LEAD_UNAVAILABLE for a %s request, no debit', async (_n, over) => {
     prismaMock.propertyRequest.findUnique.mockResolvedValue(request(over) as never);
     const res = await call();
     expect(res.status).toBe(409);
     expect((await res.json()).error).toBe('LEAD_UNAVAILABLE');
+    expect(prismaMock.tokenWallet.update).not.toHaveBeenCalled();
+  });
+
+  it('409 LEAD_UNAVAILABLE for everything while the sale start date is unset', async () => {
+    delete process.env.LEADS_SALE_FROM;
+    const res = await call();
+    expect(res.status).toBe(409);
     expect(prismaMock.tokenWallet.update).not.toHaveBeenCalled();
   });
 

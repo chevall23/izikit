@@ -66,6 +66,8 @@ export async function POST(
             userId: true,
             trustStatus: true,
             status: true,
+            source: true,
+            createdAt: true,
             priority: true,
             city: true,
             clientName: true,

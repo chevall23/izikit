@@ -11,12 +11,48 @@ export const REFUND_CAP = 2;
 export const REFUND_WINDOW_MS = 30 * 86_400_000;
 export const LEAD_REPORTED_FLAG = 'LEAD_REPORTED_INVALID_NUMBER';
 
-export function sellableWhere(): Prisma.PropertyRequestWhereInput {
-  return { userId: null, trustStatus: 'TRUSTED', status: { not: 'CLOTUREE' } };
+// Consent: the request form only mentions the sharing of contact details with
+// up to 3 agents from the day this text is live (LEADS_SALE_FROM, ISO date).
+// Older requests, requests imported from the legacy site and requests typed in
+// by an admin were collected without it and are never sold. Unset or invalid
+// date = nothing is sold.
+const UNSELLABLE_SOURCES = ['ancien-site', 'Admin'];
+
+function saleStart(): Date | null {
+  const raw = process.env.LEADS_SALE_FROM;
+  if (!raw) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export function isSellable(r: { userId: string | null; trustStatus: string; status: string }) {
-  return r.userId === null && r.trustStatus === 'TRUSTED' && r.status !== 'CLOTUREE';
+export function sellableWhere(): Prisma.PropertyRequestWhereInput {
+  const from = saleStart();
+  if (!from) return { id: { in: [] } };
+  return {
+    userId: null,
+    trustStatus: 'TRUSTED',
+    status: { not: 'CLOTUREE' },
+    createdAt: { gte: from },
+    OR: [{ source: null }, { source: { notIn: UNSELLABLE_SOURCES } }],
+  };
+}
+
+export function isSellable(r: {
+  userId: string | null;
+  trustStatus: string;
+  status: string;
+  source: string | null;
+  createdAt: Date;
+}) {
+  const from = saleStart();
+  return (
+    from !== null &&
+    r.userId === null &&
+    r.trustStatus === 'TRUSTED' &&
+    r.status !== 'CLOTUREE' &&
+    r.createdAt.getTime() >= from.getTime() &&
+    !(r.source !== null && UNSELLABLE_SOURCES.includes(r.source))
+  );
 }
 
 // Fields visible BEFORE buying. No name, phone, e-mail, client type or notes.

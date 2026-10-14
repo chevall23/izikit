@@ -38,6 +38,7 @@ const row = (id: string, active: number, mine = false, at = '2026-10-01T00:00:00
 const get = (qs = '') => GET(new NextRequest(`http://test/api/leads${qs}`));
 
 beforeEach(() => {
+  process.env.LEADS_SALE_FROM = '2026-11-01T00:00:00.000Z';
   vi.clearAllMocks();
   __cookieStore.clear();
   mockRequireAuth.mockResolvedValue({ user: { sub: 'agent-1', email: 'a@x.io' } });
@@ -65,8 +66,17 @@ describe('GET /api/leads', () => {
       userId: null,
       trustStatus: 'TRUSTED',
       status: { not: 'CLOTUREE' },
+      createdAt: { gte: new Date('2026-11-01T00:00:00.000Z') },
       country: 'Bénin',
       city: 'Cotonou',
+    });
+  });
+
+  it('lists nothing while the sale start date is unset', async () => {
+    delete process.env.LEADS_SALE_FROM;
+    await get();
+    expect(prismaMock.propertyRequest.findMany.mock.calls[0]![0]!.where).toMatchObject({
+      id: { in: [] },
     });
   });
 
