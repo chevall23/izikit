@@ -9,6 +9,9 @@ import {
   planMaxAlerts,
   tokensPerMonthLabel,
   alertsQuotaLabel,
+  BOOST_DAYS,
+  boostTokenCost,
+  boostsIncludedLabel,
   planMaxListings,
   planPriceFcfa,
   tokenPackPriceFcfa,
@@ -144,5 +147,37 @@ describe('plan entitlements', () => {
     expect(alertsQuotaLabel(1)).toBe('1 alerte secteur');
     expect(alertsQuotaLabel(10)).toBe('10 alertes secteur');
     expect(alertsQuotaLabel(null)).toBe('Alertes secteur illimitées');
+  });
+});
+
+describe('boost pricing', () => {
+  it('defaults to 8 / 14 / 24 tokens', () => {
+    expect(BOOST_DAYS).toEqual([7, 15, 30]);
+    expect(boostTokenCost(DEFAULT_PRICING, 7)).toBe(8);
+    expect(boostTokenCost(DEFAULT_PRICING, 15)).toBe(14);
+    expect(boostTokenCost(DEFAULT_PRICING, 30)).toBe(24);
+  });
+
+  it('keeps a row stored before boosts existed valid and fills the defaults', () => {
+    const legacy = {
+      plans: DEFAULT_PRICING.plans,
+      token: DEFAULT_PRICING.token,
+    };
+    const parsed = PricingDataSchema.parse(legacy);
+    expect(parsed.boost).toEqual({ tokens7: 8, tokens15: 14, tokens30: 24 });
+  });
+
+  it('reads edited prices and rejects non-positive ones', () => {
+    const edited = structuredClone(DEFAULT_PRICING);
+    edited.boost.tokens7 = 10;
+    expect(boostTokenCost(PricingDataSchema.parse(edited), 7)).toBe(10);
+    edited.boost.tokens15 = 0;
+    expect(PricingDataSchema.safeParse(edited).success).toBe(false);
+  });
+
+  it('labels the included boosts, hiding zero', () => {
+    expect(boostsIncludedLabel(0)).toBeNull();
+    expect(boostsIncludedLabel(1)).toBe('1 boost de 7 jours inclus');
+    expect(boostsIncludedLabel(4)).toBe('4 boosts de 7 jours inclus');
   });
 });

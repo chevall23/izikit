@@ -39,6 +39,16 @@ const pack = z.object({
   discountPct: z.number().min(0).max(90),
 });
 
+export const BOOST_DAYS = [7, 15, 30] as const;
+export type BoostDays = (typeof BOOST_DAYS)[number];
+
+const DEFAULT_BOOST = { tokens7: 8, tokens15: 14, tokens30: 24 };
+const boostPrices = z.object({
+  tokens7: z.number().int().positive().max(100_000),
+  tokens15: z.number().int().positive().max(100_000),
+  tokens30: z.number().int().positive().max(100_000),
+});
+
 export const PricingDataSchema = z.object({
   plans: z.object({
     FREE: z.object({
@@ -53,6 +63,7 @@ export const PricingDataSchema = z.object({
     baseFcfa: z.number().int().positive().max(100_000),
     packs: z.object({ STARTER: pack, STANDARD: pack, PRO: pack }),
   }),
+  boost: boostPrices.default(DEFAULT_BOOST),
 });
 
 export type PricingData = z.infer<typeof PricingDataSchema>;
@@ -79,6 +90,7 @@ export const DEFAULT_PRICING: PricingData = {
       PRO: { ...DEFAULT_TOKEN_PACKS.PRO },
     },
   },
+  boost: { ...DEFAULT_BOOST },
 };
 
 export function planPriceFcfa(p: PricingData, key: PlanKey): number {
@@ -115,6 +127,15 @@ export function alertsQuotaLabel(max: number | null): string | null {
   if (max === null) return 'Alertes secteur illimitées';
   if (max <= 0) return null;
   return `${max} alerte${max > 1 ? 's' : ''} secteur`;
+}
+
+export function boostTokenCost(p: PricingData, days: BoostDays): number {
+  return days === 7 ? p.boost.tokens7 : days === 15 ? p.boost.tokens15 : p.boost.tokens30;
+}
+
+export function boostsIncludedLabel(n: number): string | null {
+  if (n <= 0) return null;
+  return `${n} boost${n > 1 ? 's' : ''} de 7 jours inclus`;
 }
 
 export function tokenPackTokens(p: PricingData, key: TokenPackKey): number {

@@ -92,6 +92,10 @@ export function PricingEditor() {
     setDraft((d) => ({ ...d, plans: { ...d.plans, [key]: { ...d.plans[key], ...patch } } }));
   }
 
+  function setBoost(key: 'tokens7' | 'tokens15' | 'tokens30', value: number) {
+    setDraft((d) => ({ ...d, boost: { ...d.boost, [key]: value } }));
+  }
+
   function setPack(
     key: (typeof PACK_ROWS)[number]['key'],
     patch: Partial<{ tokens: number; discountPct: number }>,
@@ -240,6 +244,25 @@ export function PricingEditor() {
           value={draft.token.baseFcfa}
           onChange={(n) => setDraft((d) => ({ ...d, token: { ...d.token, baseFcfa: n } }))}
         />
+      </div>
+
+      <div className="grid max-w-xl grid-cols-3 gap-3">
+        {(
+          [
+            ['tokens7', 'Boost 7 jours (jetons)'],
+            ['tokens15', 'Boost 15 jours (jetons)'],
+            ['tokens30', 'Boost 30 jours (jetons)'],
+          ] as const
+        ).map(([key, label]) => (
+          <div key={key}>
+            <label className="mb-1 block text-[12px] font-semibold text-neutral-900">{label}</label>
+            <NumberInput
+              label={label}
+              value={draft.boost[key]}
+              onChange={(n) => setBoost(key, n)}
+            />
+          </div>
+        ))}
       </div>
 
       <div className="overflow-x-auto">
