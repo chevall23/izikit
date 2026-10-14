@@ -12,6 +12,7 @@ import {
   BOOST_DAYS,
   boostTokenCost,
   boostsIncludedLabel,
+  leadTokenCost,
   planMaxListings,
   planPriceFcfa,
   tokenPackPriceFcfa,
@@ -179,5 +180,36 @@ describe('boost pricing', () => {
     expect(boostsIncludedLabel(0)).toBeNull();
     expect(boostsIncludedLabel(1)).toBe('1 boost de 7 jours inclus');
     expect(boostsIncludedLabel(4)).toBe('4 boosts de 7 jours inclus');
+  });
+});
+
+describe('lead pricing', () => {
+  it('defaults to 3 standard / 5 urgent', () => {
+    expect(DEFAULT_PRICING.lead).toEqual({ tokensStandard: 3, tokensUrgent: 5 });
+  });
+
+  it('fills the block for rows stored before 1C', () => {
+    const stored: Partial<typeof DEFAULT_PRICING> = { ...DEFAULT_PRICING };
+    delete stored.lead;
+    const parsed = PricingDataSchema.parse(stored);
+    expect(parsed.lead).toEqual({ tokensStandard: 3, tokensUrgent: 5 });
+  });
+
+  it('charges urgent only for the Urgent priority', () => {
+    expect(leadTokenCost(DEFAULT_PRICING, 'Urgent')).toBe(5);
+    expect(leadTokenCost(DEFAULT_PRICING, 'Normale')).toBe(3);
+    expect(leadTokenCost(DEFAULT_PRICING, 'Basse')).toBe(3);
+    expect(leadTokenCost(DEFAULT_PRICING, 'n’importe quoi')).toBe(3);
+  });
+
+  it('rejects non-positive or non-integer prices', () => {
+    for (const bad of [0, -1, 1.5]) {
+      expect(
+        PricingDataSchema.safeParse({
+          ...DEFAULT_PRICING,
+          lead: { tokensStandard: bad, tokensUrgent: 5 },
+        }).success,
+      ).toBe(false);
+    }
   });
 });

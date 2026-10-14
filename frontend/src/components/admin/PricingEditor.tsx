@@ -92,6 +92,9 @@ export function PricingEditor() {
     setDraft((d) => ({ ...d, plans: { ...d.plans, [key]: { ...d.plans[key], ...patch } } }));
   }
 
+  function setLead(key: 'tokensStandard' | 'tokensUrgent', value: number) {
+    setDraft((d) => ({ ...d, lead: { ...d.lead, [key]: value } }));
+  }
   function setBoost(key: 'tokens7' | 'tokens15' | 'tokens30', value: number) {
     setDraft((d) => ({ ...d, boost: { ...d.boost, [key]: value } }));
   }
@@ -261,6 +264,20 @@ export function PricingEditor() {
               value={draft.boost[key]}
               onChange={(n) => setBoost(key, n)}
             />
+          </div>
+        ))}
+      </div>
+
+      <div className="grid max-w-xl grid-cols-2 gap-3">
+        {(
+          [
+            ['tokensStandard', 'Lead acheteur standard (jetons)'],
+            ['tokensUrgent', 'Lead acheteur urgent (jetons)'],
+          ] as const
+        ).map(([key, label]) => (
+          <div key={key}>
+            <label className="mb-1 block text-[12px] font-semibold text-neutral-900">{label}</label>
+            <NumberInput label={label} value={draft.lead[key]} onChange={(n) => setLead(key, n)} />
           </div>
         ))}
       </div>

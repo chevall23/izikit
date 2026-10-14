@@ -49,6 +49,12 @@ const boostPrices = z.object({
   tokens30: z.number().int().positive().max(100_000),
 });
 
+const DEFAULT_LEAD = { tokensStandard: 3, tokensUrgent: 5 };
+const leadPrices = z.object({
+  tokensStandard: z.number().int().positive().max(100_000),
+  tokensUrgent: z.number().int().positive().max(100_000),
+});
+
 export const PricingDataSchema = z.object({
   plans: z.object({
     FREE: z.object({
@@ -64,6 +70,7 @@ export const PricingDataSchema = z.object({
     packs: z.object({ STARTER: pack, STANDARD: pack, PRO: pack }),
   }),
   boost: boostPrices.default(DEFAULT_BOOST),
+  lead: leadPrices.default(DEFAULT_LEAD),
 });
 
 export type PricingData = z.infer<typeof PricingDataSchema>;
@@ -91,6 +98,7 @@ export const DEFAULT_PRICING: PricingData = {
     },
   },
   boost: { ...DEFAULT_BOOST },
+  lead: { ...DEFAULT_LEAD },
 };
 
 export function planPriceFcfa(p: PricingData, key: PlanKey): number {
@@ -131,6 +139,10 @@ export function alertsQuotaLabel(max: number | null): string | null {
 
 export function boostTokenCost(p: PricingData, days: BoostDays): number {
   return days === 7 ? p.boost.tokens7 : days === 15 ? p.boost.tokens15 : p.boost.tokens30;
+}
+
+export function leadTokenCost(p: PricingData, priority: string): number {
+  return priority === 'Urgent' ? p.lead.tokensUrgent : p.lead.tokensStandard;
 }
 
 export function boostsIncludedLabel(n: number): string | null {
