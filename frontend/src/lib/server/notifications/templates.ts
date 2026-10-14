@@ -118,12 +118,16 @@ export function subscriptionReminderNotification(
 export function subscriptionGraceNotification(
   userId: string,
   periodEnd: Date,
+  freeLimit: number | null,
 ): CreateNotificationInput {
   return {
     userId,
     type: 'SUBSCRIPTION_GRACE',
     title: 'Votre abonnement a expiré',
-    body: 'Vous avez 7 jours pour renouveler avant le masquage de vos annonces au-delà de 3.',
+    body:
+      freeLimit === null
+        ? 'Vous avez 7 jours pour renouveler votre abonnement.'
+        : `Vous avez 7 jours pour renouveler avant le masquage de vos annonces au-delà de ${freeLimit}.`,
     data: { periodEnd: periodEnd.toISOString() },
     dedupeKey: `sub-grace:${userId}:${periodEnd.toISOString()}`,
   };

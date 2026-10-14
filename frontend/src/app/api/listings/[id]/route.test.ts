@@ -314,7 +314,7 @@ describe('PATCH /api/listings/[id]', () => {
     it('returns 403 from inside the transaction without updating when the quota is full', async () => {
       prismaMock.listing.findUnique.mockResolvedValueOnce(publishable('DRAFT') as never);
       prismaMock.listingPhoto.count.mockResolvedValueOnce(1 as never);
-      prismaMock.listing.count.mockResolvedValue(3 as never);
+      prismaMock.listing.count.mockResolvedValue(5 as never);
       const { req, ctx } = makePatch('l1', { publish: true });
       const res = await PATCH(req, ctx);
       expect(res.status).toBe(403);
@@ -325,12 +325,12 @@ describe('PATCH /api/listings/[id]', () => {
     it('refuses to publish a DRAFT at the plan limit with 403 LISTING_QUOTA_REACHED', async () => {
       prismaMock.listing.findUnique.mockResolvedValueOnce(publishable('DRAFT') as never);
       prismaMock.listingPhoto.count.mockResolvedValueOnce(1 as never);
-      prismaMock.listing.count.mockResolvedValue(3 as never);
+      prismaMock.listing.count.mockResolvedValue(5 as never);
       const { req, ctx } = makePatch('l1', { publish: true });
       const res = await PATCH(req, ctx);
       expect(res.status).toBe(403);
       const body = await res.json();
-      expect(body).toMatchObject({ error: 'LISTING_QUOTA_REACHED', planKey: 'FREE', limit: 3 });
+      expect(body).toMatchObject({ error: 'LISTING_QUOTA_REACHED', planKey: 'FREE', limit: 5 });
       expect(prismaMock.listing.update).not.toHaveBeenCalled();
     });
 
@@ -347,7 +347,7 @@ describe('PATCH /api/listings/[id]', () => {
     it('lets an already VERIFIED listing be re-published at the limit (already counted)', async () => {
       prismaMock.listing.findUnique.mockResolvedValueOnce(publishable('VERIFIED') as never);
       prismaMock.listingPhoto.count.mockResolvedValueOnce(1 as never);
-      prismaMock.listing.count.mockResolvedValue(3 as never);
+      prismaMock.listing.count.mockResolvedValue(5 as never);
       const { req, ctx } = makePatch('l1', { publish: true });
       const res = await PATCH(req, ctx);
       expect(res.status).toBe(200);
@@ -357,7 +357,7 @@ describe('PATCH /api/listings/[id]', () => {
     it('refuses to republish a HIDDEN listing at the limit', async () => {
       prismaMock.listing.findUnique.mockResolvedValueOnce(publishable('HIDDEN') as never);
       prismaMock.listingPhoto.count.mockResolvedValueOnce(1 as never);
-      prismaMock.listing.count.mockResolvedValue(3 as never);
+      prismaMock.listing.count.mockResolvedValue(5 as never);
       const { req, ctx } = makePatch('l1', { publish: true });
       const res = await PATCH(req, ctx);
       expect(res.status).toBe(403);

@@ -64,6 +64,11 @@ export function planMaxListings(p: PricingData, key: PlanKey): number | null {
   return p.plans[key].maxActiveListings;
 }
 
+export function listingsQuotaLabel(max: number | null): string {
+  if (max === null) return 'Annonces illimitées';
+  return `${max} annonce${max > 1 ? 's' : ''} publiée${max > 1 ? 's' : ''}`;
+}
+
 export function tokenPackTokens(p: PricingData, key: TokenPackKey): number {
   return p.token.packs[key].tokens;
 }

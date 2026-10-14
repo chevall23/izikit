@@ -3,6 +3,7 @@ import {
   DEFAULT_PRICING,
   PricingDataSchema,
   customTokenPriceFcfa,
+  listingsQuotaLabel,
   planMaxListings,
   planPriceFcfa,
   tokenPackPriceFcfa,
@@ -12,9 +13,9 @@ import {
 describe('DEFAULT_PRICING', () => {
   it('has the agreed plan prices and quotas', () => {
     expect(planPriceFcfa(DEFAULT_PRICING, 'FREE')).toBe(0);
-    expect(planPriceFcfa(DEFAULT_PRICING, 'PRO_AGENT')).toBe(29_900);
-    expect(planPriceFcfa(DEFAULT_PRICING, 'AGENCY_PREMIUM')).toBe(89_900);
-    expect(planMaxListings(DEFAULT_PRICING, 'FREE')).toBe(3);
+    expect(planPriceFcfa(DEFAULT_PRICING, 'PRO_AGENT')).toBe(15_000);
+    expect(planPriceFcfa(DEFAULT_PRICING, 'AGENCY_PREMIUM')).toBe(35_000);
+    expect(planMaxListings(DEFAULT_PRICING, 'FREE')).toBe(5);
     expect(planMaxListings(DEFAULT_PRICING, 'PRO_AGENT')).toBe(30);
     expect(planMaxListings(DEFAULT_PRICING, 'AGENCY_PREMIUM')).toBeNull();
   });
@@ -77,5 +78,13 @@ describe('PricingDataSchema', () => {
     const ok = clone();
     ok.plans.PRO_AGENT.maxActiveListings = null;
     expect(PricingDataSchema.safeParse(ok).success).toBe(true);
+  });
+});
+
+describe('listingsQuotaLabel', () => {
+  it('renders the live quota with correct pluralisation', () => {
+    expect(listingsQuotaLabel(3)).toBe('3 annonces publiées');
+    expect(listingsQuotaLabel(1)).toBe('1 annonce publiée');
+    expect(listingsQuotaLabel(null)).toBe('Annonces illimitées');
   });
 });

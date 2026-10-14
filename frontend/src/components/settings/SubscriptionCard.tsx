@@ -10,7 +10,7 @@ import {
   SUBSCRIPTION_CURRENCY,
   type PlanKey,
 } from '@/lib/subscription-plans';
-import { planPriceFcfa } from '@/lib/pricing';
+import { listingsQuotaLabel, planMaxListings, planPriceFcfa } from '@/lib/pricing';
 import { usePricing } from '@/lib/use-pricing';
 import { getRenewalState } from '@/lib/subscription-renewal';
 import { PasswordConfirmModal } from './PasswordConfirmModal';
@@ -167,17 +167,19 @@ export function SubscriptionCard() {
                 {planPriceFcfa(pricing, plan.key) === 0 ? 'À vie' : 'par mois'}
               </p>
               <ul className="mb-5 flex flex-col gap-2">
-                {plan.features.map((feature) => (
-                  <li
-                    key={feature}
-                    className="flex items-center gap-2 text-[12.5px] text-neutral-700"
-                  >
-                    <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100">
-                      <Check className="h-2.5 w-2.5 text-emerald-700" aria-hidden />
-                    </span>
-                    {feature}
-                  </li>
-                ))}
+                {[listingsQuotaLabel(planMaxListings(pricing, plan.key)), ...plan.features].map(
+                  (feature) => (
+                    <li
+                      key={feature}
+                      className="flex items-center gap-2 text-[12.5px] text-neutral-700"
+                    >
+                      <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100">
+                        <Check className="h-2.5 w-2.5 text-emerald-700" aria-hidden />
+                      </span>
+                      {feature}
+                    </li>
+                  ),
+                )}
               </ul>
               <button
                 type="button"

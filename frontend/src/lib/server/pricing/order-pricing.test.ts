@@ -22,13 +22,13 @@ describe('resolveOrderPricing', () => {
 
   it('accepts a plan at its exact price and freezes it', () => {
     const r = resolveOrderPricing(P, {
-      amount: 29_900,
+      amount: 15_000,
       currency: 'XOF',
       metadata: { kind: 'subscription_plan_change', planKey: 'PRO_AGENT' },
     });
     expect(r).toEqual({
       ok: true,
-      metadata: { kind: 'subscription_plan_change', planKey: 'PRO_AGENT', priceFcfa: 29_900 },
+      metadata: { kind: 'subscription_plan_change', planKey: 'PRO_AGENT', priceFcfa: 15_000 },
     });
   });
 
@@ -51,7 +51,7 @@ describe('resolveOrderPricing', () => {
       expect(r).toMatchObject({ ok: false, code: 'INVALID_ORDER_METADATA' });
     }
     const usd = resolveOrderPricing(P, {
-      amount: 29_900,
+      amount: 15_000,
       currency: 'USD',
       metadata: { kind: 'subscription_plan_change', planKey: 'PRO_AGENT' },
     });

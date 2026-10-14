@@ -116,7 +116,7 @@ describe('POST /api/subscriptions/change-plan', () => {
 
     expect(res.status).toBe(200);
     expect(lockUserListingQuota).toHaveBeenCalledWith(prismaMock, 'user_1');
-    expect(hideExcessListings).toHaveBeenCalledWith(prismaMock, 'user_1', 3);
+    expect(hideExcessListings).toHaveBeenCalledWith(prismaMock, 'user_1', 5);
     const lockOrder = vi.mocked(lockUserListingQuota).mock.invocationCallOrder[0]!;
     const upsertOrder = prismaMock.subscription.upsert.mock.invocationCallOrder[0]!;
     const hideOrder = vi.mocked(hideExcessListings).mock.invocationCallOrder[0]!;

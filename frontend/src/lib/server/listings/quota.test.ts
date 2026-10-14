@@ -9,18 +9,18 @@ const noSub = () => prismaMock.subscription.findUnique.mockResolvedValue(null);
 describe('checkListingQuota', () => {
   it('allows below the FREE limit and refuses at it', async () => {
     noSub();
-    prismaMock.listing.count.mockResolvedValue(2);
+    prismaMock.listing.count.mockResolvedValue(4);
     expect(await checkListingQuota(prismaMock, 'u1', DEFAULT_PRICING, { now })).toMatchObject({
       allowed: true,
       planKey: 'FREE',
-      limit: 3,
-      used: 2,
+      limit: 5,
+      used: 4,
     });
-    prismaMock.listing.count.mockResolvedValue(3);
+    prismaMock.listing.count.mockResolvedValue(5);
     expect(await checkListingQuota(prismaMock, 'u1', DEFAULT_PRICING, { now })).toMatchObject({
       allowed: false,
-      limit: 3,
-      used: 3,
+      limit: 5,
+      used: 5,
     });
   });
 
@@ -41,7 +41,7 @@ describe('checkListingQuota', () => {
       status: 'ACTIVE',
       currentPeriodEnd: new Date('2026-10-01'),
     } as never);
-    prismaMock.listing.count.mockResolvedValue(3);
+    prismaMock.listing.count.mockResolvedValue(5);
     expect(await checkListingQuota(prismaMock, 'u1', DEFAULT_PRICING, { now })).toMatchObject({
       allowed: false,
       planKey: 'FREE',

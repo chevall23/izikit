@@ -120,7 +120,7 @@ describe('expiry', () => {
     expect(mockLock.mock.invocationCallOrder[0]).toBeLessThan(
       mockHide.mock.invocationCallOrder[0] as number,
     );
-    expect(mockHide).toHaveBeenCalledWith(prismaMock, 'a', 3);
+    expect(mockHide).toHaveBeenCalledWith(prismaMock, 'a', 5);
     expect(mockNotify.mock.calls.at(-1)?.[1]).toMatchObject({ type: 'SUBSCRIPTION_EXPIRED' });
   });
 

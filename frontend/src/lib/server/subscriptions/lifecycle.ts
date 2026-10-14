@@ -83,7 +83,10 @@ export async function runSubscriptionLifecycle(opts: {
         data: { status: 'GRACE' },
       });
       if (moved.count > 0) {
-        await createNotification(prisma, subscriptionGraceNotification(sub.userId, end));
+        await createNotification(
+          prisma,
+          subscriptionGraceNotification(sub.userId, end, planMaxListings(pricing, 'FREE')),
+        );
         result.graced++;
       }
     } catch (err) {
