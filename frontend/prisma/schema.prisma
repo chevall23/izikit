@@ -100,6 +100,7 @@ model User {
   alerts                   Alert[]
   tokenWallet              TokenWallet?
   boosts                   Boost[]
+  leadPurchases            LeadPurchase[]            @relation("LeadBuyer")
   tokenTransactions        TokenTransaction[]
   paymentMethodPreferences PaymentMethodPreference[]
 
@@ -557,8 +558,8 @@ model TokenTransaction {
   id           String   @id @default(cuid())
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type         String // PURCHASE | USAGE | BONUS
-  amount       Int // signed: +tokens (purchase/bonus) or -tokens (usage)
+  type         String // PURCHASE | USAGE | BONUS | REFUND
+  amount       Int // signed: +tokens (purchase/bonus/refund) or -tokens (usage)
   balanceAfter Int
   description  String
   orderId      String?  @unique // links a PURCHASE row back to its Order
@@ -795,6 +796,7 @@ model PropertyRequest {
   updatedAt DateTime @updatedAt
 
   matchedByAlerts AlertMatch[]
+  leadPurchases   LeadPurchase[]
 
   // Fiabilité de la demande (voir lib/server/requests/trust.ts). Une demande
   // REVIEW ou REJECTED n'est jamais proposée aux agents (correspondance avec
@@ -1033,4 +1035,24 @@ model NewsletterSubscriber {
   unsubscribedAt DateTime?
 
   @@index([status])
+}
+
+// Achat des coordonnées d'une demande immobilière publique par un agent
+// (jetons). Au plus 3 ACTIVE par demande ; REFUNDED libère la place.
+model LeadPurchase {
+  id           String          @id @default(cuid())
+  requestId    String
+  request      PropertyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  agentId      String
+  agent        User            @relation("LeadBuyer", fields: [agentId], references: [id], onDelete: Cascade)
+  tokensSpent  Int
+  status       String          @default("ACTIVE") // ACTIVE | REFUNDED
+  reportedAt   DateTime?
+  reportReason String?
+  refundedAt   DateTime?
+  createdAt    DateTime        @default(now())
+
+  @@unique([requestId, agentId])
+  @@index([requestId, status])
+  @@index([agentId, createdAt])
 }
