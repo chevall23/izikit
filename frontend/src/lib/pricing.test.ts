@@ -4,6 +4,11 @@ import {
   PricingDataSchema,
   customTokenPriceFcfa,
   listingsQuotaLabel,
+  planMonthlyTokens,
+  planIncludedBoosts,
+  planMaxAlerts,
+  tokensPerMonthLabel,
+  alertsQuotaLabel,
   planMaxListings,
   planPriceFcfa,
   tokenPackPriceFcfa,
@@ -86,5 +91,58 @@ describe('listingsQuotaLabel', () => {
     expect(listingsQuotaLabel(3)).toBe('3 annonces publiées');
     expect(listingsQuotaLabel(1)).toBe('1 annonce publiée');
     expect(listingsQuotaLabel(null)).toBe('Annonces illimitées');
+  });
+});
+
+describe('plan entitlements', () => {
+  it('defaults to the official grid', () => {
+    expect(planMonthlyTokens(DEFAULT_PRICING, 'FREE')).toBe(0);
+    expect(planMonthlyTokens(DEFAULT_PRICING, 'PRO_AGENT')).toBe(10);
+    expect(planMonthlyTokens(DEFAULT_PRICING, 'AGENCY_PREMIUM')).toBe(40);
+    expect(planIncludedBoosts(DEFAULT_PRICING, 'FREE')).toBe(0);
+    expect(planIncludedBoosts(DEFAULT_PRICING, 'PRO_AGENT')).toBe(1);
+    expect(planIncludedBoosts(DEFAULT_PRICING, 'AGENCY_PREMIUM')).toBe(4);
+    expect(planMaxAlerts(DEFAULT_PRICING, 'FREE')).toBe(0);
+    expect(planMaxAlerts(DEFAULT_PRICING, 'PRO_AGENT')).toBe(10);
+    expect(planMaxAlerts(DEFAULT_PRICING, 'AGENCY_PREMIUM')).toBeNull();
+  });
+
+  it('keeps a row stored before this phase valid and fills the grid defaults', () => {
+    const legacy = {
+      plans: {
+        FREE: { priceFcfa: 0, maxActiveListings: 5 },
+        PRO_AGENT: { priceFcfa: 17_000, maxActiveListings: 30 },
+        AGENCY_PREMIUM: { priceFcfa: 35_000, maxActiveListings: null },
+      },
+      token: DEFAULT_PRICING.token,
+    };
+    const parsed = PricingDataSchema.parse(legacy);
+    expect(parsed.plans.PRO_AGENT).toMatchObject({
+      priceFcfa: 17_000,
+      monthlyTokens: 10,
+      includedBoosts: 1,
+      maxAlerts: 10,
+    });
+    expect(parsed.plans.AGENCY_PREMIUM).toMatchObject({
+      monthlyTokens: 40,
+      includedBoosts: 4,
+      maxAlerts: null,
+    });
+  });
+
+  it('rejects negative entitlements', () => {
+    const bad = structuredClone(DEFAULT_PRICING);
+    bad.plans.PRO_AGENT.monthlyTokens = -1;
+    expect(PricingDataSchema.safeParse(bad).success).toBe(false);
+  });
+
+  it('labels the perks, hiding zero values', () => {
+    expect(tokensPerMonthLabel(0)).toBeNull();
+    expect(tokensPerMonthLabel(1)).toBe('1 jeton offert par mois');
+    expect(tokensPerMonthLabel(10)).toBe('10 jetons offerts par mois');
+    expect(alertsQuotaLabel(0)).toBeNull();
+    expect(alertsQuotaLabel(1)).toBe('1 alerte secteur');
+    expect(alertsQuotaLabel(10)).toBe('10 alertes secteur');
+    expect(alertsQuotaLabel(null)).toBe('Alertes secteur illimitées');
   });
 });

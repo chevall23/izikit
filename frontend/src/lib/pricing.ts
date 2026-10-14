@@ -11,10 +11,29 @@ import {
 } from './token-packs';
 
 const quota = z.number().int().nonnegative().nullable(); // null = unlimited
-const paidPlan = z.object({
-  priceFcfa: z.number().int().positive().max(10_000_000),
-  maxActiveListings: quota,
+// Missing fields on a row stored before these existed fall back to the official
+// grid (never to 0), so an old PricingConfig row stays valid and keeps its prices.
+const entitlements = (key: PlanKey) => ({
+  monthlyTokens: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(100_000)
+    .default(PLAN_CATALOG[key].monthlyTokens),
+  includedBoosts: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(1_000)
+    .default(PLAN_CATALOG[key].includedBoosts),
+  maxAlerts: quota.default(PLAN_CATALOG[key].maxAlerts),
 });
+const paidPlan = (key: PlanKey) =>
+  z.object({
+    priceFcfa: z.number().int().positive().max(10_000_000),
+    maxActiveListings: quota,
+    ...entitlements(key),
+  });
 const pack = z.object({
   tokens: z.number().int().positive().max(100_000),
   discountPct: z.number().min(0).max(90),
@@ -22,9 +41,13 @@ const pack = z.object({
 
 export const PricingDataSchema = z.object({
   plans: z.object({
-    FREE: z.object({ priceFcfa: z.literal(0), maxActiveListings: quota }),
-    PRO_AGENT: paidPlan,
-    AGENCY_PREMIUM: paidPlan,
+    FREE: z.object({
+      priceFcfa: z.literal(0),
+      maxActiveListings: quota,
+      ...entitlements('FREE'),
+    }),
+    PRO_AGENT: paidPlan('PRO_AGENT'),
+    AGENCY_PREMIUM: paidPlan('AGENCY_PREMIUM'),
   }),
   token: z.object({
     baseFcfa: z.number().int().positive().max(100_000),
@@ -34,17 +57,19 @@ export const PricingDataSchema = z.object({
 
 export type PricingData = z.infer<typeof PricingDataSchema>;
 
+const fromCatalog = (key: PlanKey) => ({
+  priceFcfa: PLAN_CATALOG[key].priceFcfa,
+  maxActiveListings: PLAN_CATALOG[key].maxActiveListings,
+  monthlyTokens: PLAN_CATALOG[key].monthlyTokens,
+  includedBoosts: PLAN_CATALOG[key].includedBoosts,
+  maxAlerts: PLAN_CATALOG[key].maxAlerts,
+});
+
 export const DEFAULT_PRICING: PricingData = {
   plans: {
-    FREE: { priceFcfa: 0, maxActiveListings: PLAN_CATALOG.FREE.maxActiveListings },
-    PRO_AGENT: {
-      priceFcfa: PLAN_CATALOG.PRO_AGENT.priceFcfa,
-      maxActiveListings: PLAN_CATALOG.PRO_AGENT.maxActiveListings,
-    },
-    AGENCY_PREMIUM: {
-      priceFcfa: PLAN_CATALOG.AGENCY_PREMIUM.priceFcfa,
-      maxActiveListings: PLAN_CATALOG.AGENCY_PREMIUM.maxActiveListings,
-    },
+    FREE: { ...fromCatalog('FREE'), priceFcfa: 0 },
+    PRO_AGENT: fromCatalog('PRO_AGENT'),
+    AGENCY_PREMIUM: fromCatalog('AGENCY_PREMIUM'),
   },
   token: {
     baseFcfa: DEFAULT_TOKEN_BASE_FCFA,
@@ -67,6 +92,29 @@ export function planMaxListings(p: PricingData, key: PlanKey): number | null {
 export function listingsQuotaLabel(max: number | null): string {
   if (max === null) return 'Annonces illimitées';
   return `${max} annonce${max > 1 ? 's' : ''} publiée${max > 1 ? 's' : ''}`;
+}
+
+export function planMonthlyTokens(p: PricingData, key: PlanKey): number {
+  return p.plans[key].monthlyTokens;
+}
+
+export function planIncludedBoosts(p: PricingData, key: PlanKey): number {
+  return p.plans[key].includedBoosts;
+}
+
+export function planMaxAlerts(p: PricingData, key: PlanKey): number | null {
+  return p.plans[key].maxAlerts;
+}
+
+export function tokensPerMonthLabel(n: number): string | null {
+  if (n <= 0) return null;
+  return `${n} jeton${n > 1 ? 's' : ''} offert${n > 1 ? 's' : ''} par mois`;
+}
+
+export function alertsQuotaLabel(max: number | null): string | null {
+  if (max === null) return 'Alertes secteur illimitées';
+  if (max <= 0) return null;
+  return `${max} alerte${max > 1 ? 's' : ''} secteur`;
 }
 
 export function tokenPackTokens(p: PricingData, key: TokenPackKey): number {

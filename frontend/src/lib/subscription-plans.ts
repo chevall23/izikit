@@ -13,6 +13,9 @@ export interface PlanDefinition {
   description: string;
   priceFcfa: number; // 0 for the free plan; smallest currency unit (FCFA has no decimals)
   maxActiveListings: number | null; // null = unlimited
+  monthlyTokens: number; // tokens granted on every paid subscription period
+  includedBoosts: number; // 7-day boosts included per period (consumed by phase 1B)
+  maxAlerts: number | null; // active sector alerts for agent accounts; null = unlimited
   // Static perks only — the listing-quota line is generated from the live
   // pricing (see listingsQuotaLabel in lib/pricing.ts).
   features: string[];
@@ -27,6 +30,9 @@ export const PLAN_CATALOG: Record<PlanKey, PlanDefinition> = {
     description: 'Pour démarrer et tester la plateforme',
     priceFcfa: 0,
     maxActiveListings: 5,
+    monthlyTokens: 0,
+    includedBoosts: 0,
+    maxAlerts: 0,
     features: ['Statistiques basiques'],
   },
   PRO_AGENT: {
@@ -35,6 +41,9 @@ export const PLAN_CATALOG: Record<PlanKey, PlanDefinition> = {
     description: 'Pour les agents actifs avec un portefeuille établi',
     priceFcfa: 15_000,
     maxActiveListings: 30,
+    monthlyTokens: 10,
+    includedBoosts: 1,
+    maxAlerts: 10,
     features: ['Statistiques complètes'],
   },
   AGENCY_PREMIUM: {
@@ -43,6 +52,9 @@ export const PLAN_CATALOG: Record<PlanKey, PlanDefinition> = {
     description: 'Pour les agences à fort volume et multi-agents',
     priceFcfa: 35_000,
     maxActiveListings: null,
+    monthlyTokens: 40,
+    includedBoosts: 4,
+    maxAlerts: null,
     features: ['Statistiques avancées'],
   },
 };
