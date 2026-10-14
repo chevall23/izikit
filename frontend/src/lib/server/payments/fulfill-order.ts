@@ -11,7 +11,12 @@ import { enqueueOutbox } from '../outbox';
 import { readStoredPricing } from '../pricing';
 import { createLogger } from '../logger';
 import { lockUserListingQuota, reactivateHiddenListings } from '../listings/quota';
-import { planMaxListings, planMonthlyTokens, type PricingData } from '@/lib/pricing';
+import {
+  planIncludedBoosts,
+  planMaxListings,
+  planMonthlyTokens,
+  type PricingData,
+} from '@/lib/pricing';
 import { isPlanKey, PLAN_CATALOG, type PlanKey } from '@/lib/subscription-plans';
 import { TOKEN_PACK_CATALOG, isTokenPackKey } from '@/lib/token-packs';
 
@@ -149,11 +154,13 @@ export async function fulfillPaidOrder(
   }
 }
 
-// Monthly tokens included in the plan. One grant per paid period: the key is the
-// order, so a replayed delivery cannot credit twice (the findUnique guards the
-// transaction; the unique column is the backstop). A unique violation inside this
-// Serializable tx would abort it, hence the read-first.
-async function grantMonthlyTokens(
+// Perks included in the plan (monthly tokens + boosts). One grant per paid
+// period: the key is the order, so a replayed delivery cannot credit twice (the
+// findUnique guards the transaction; the unique column is the backstop). A
+// unique violation inside this Serializable tx would abort it, hence the
+// read-first. The BONUS row is written whenever the plan grants anything, even
+// at 0 tokens, so it also keys the boost credit.
+async function grantPlanPerks(
   tx: PrismaTransactionClient,
   userId: string,
   planKey: PlanKey,
@@ -161,7 +168,8 @@ async function grantMonthlyTokens(
   pricing: PricingData,
 ): Promise<void> {
   const tokens = planMonthlyTokens(pricing, planKey);
-  if (tokens <= 0) return;
+  const boosts = planIncludedBoosts(pricing, planKey);
+  if (tokens <= 0 && boosts <= 0) return;
   const grantKey = `plan:${orderId}`;
   const done = await tx.tokenTransaction.findUnique({ where: { grantKey }, select: { id: true } });
   if (done) return;
@@ -170,16 +178,29 @@ async function grantMonthlyTokens(
     create: { userId, balance: tokens },
     update: { balance: { increment: tokens } },
   });
+  const label = PLAN_CATALOG[planKey].label;
+  const description =
+    tokens > 0 && boosts > 0
+      ? `Jetons et boosts offerts — plan ${label}`
+      : tokens > 0
+        ? `Jetons offerts — plan ${label}`
+        : `Boosts offerts — plan ${label}`;
   await tx.tokenTransaction.create({
     data: {
       userId,
       type: 'BONUS',
       amount: tokens,
       balanceAfter: wallet.balance,
-      description: `Jetons offerts — plan ${PLAN_CATALOG[planKey].label}`,
+      description,
       grantKey,
     },
   });
+  if (boosts > 0) {
+    await tx.subscription.update({
+      where: { userId },
+      data: { boostCredits: { increment: boosts } },
+    });
+  }
 }
 
 async function grantSubscription(
@@ -218,5 +239,5 @@ async function grantSubscription(
   const pricing = await readStoredPricing(tx);
   // Bring back listings hidden by a previous expiry, within the new quota.
   await reactivateHiddenListings(tx, userId, planMaxListings(pricing, planKey));
-  await grantMonthlyTokens(tx, userId, planKey, orderId, pricing);
+  await grantPlanPerks(tx, userId, planKey, orderId, pricing);
 }

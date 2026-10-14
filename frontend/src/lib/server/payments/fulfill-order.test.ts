@@ -19,13 +19,18 @@ const mockLock = vi.mocked(lockUserListingQuota);
 const mockReactivate = vi.mocked(reactivateHiddenListings);
 const subscriptionFindUnique = vi.fn();
 const subscriptionUpsert = vi.fn();
+const subscriptionUpdate = vi.fn();
 const tokenWalletUpsert = vi.fn();
 const tokenTransactionCreate = vi.fn();
 const tokenTransactionFindUnique = vi.fn();
 const outboxCreate = vi.fn();
 
 const tx = {
-  subscription: { findUnique: subscriptionFindUnique, upsert: subscriptionUpsert },
+  subscription: {
+    findUnique: subscriptionFindUnique,
+    upsert: subscriptionUpsert,
+    update: subscriptionUpdate,
+  },
   tokenWallet: { upsert: tokenWalletUpsert },
   tokenTransaction: { create: tokenTransactionCreate, findUnique: tokenTransactionFindUnique },
   outboxEvent: { create: outboxCreate },
@@ -38,6 +43,7 @@ beforeEach(() => {
   vi.mocked(readStoredPricing).mockResolvedValue(DEFAULT_PRICING);
   logError.mockReset();
   subscriptionUpsert.mockReset();
+  subscriptionUpdate.mockReset();
   tokenWalletUpsert.mockReset().mockResolvedValue({ userId: 'u1', balance: 150 });
   tokenTransactionCreate.mockReset();
   tokenTransactionFindUnique.mockReset().mockResolvedValue(null);
@@ -470,7 +476,7 @@ describe('monthly token grant', () => {
     expect(tokenTransactionCreate).not.toHaveBeenCalled();
   });
 
-  it('grants nothing when the live pricing sets 0 monthly tokens', async () => {
+  it('still grants (and keys) the boosts when the plan has 0 monthly tokens', async () => {
     vi.mocked(readStoredPricing).mockResolvedValue({
       ...DEFAULT_PRICING,
       plans: {
@@ -479,7 +485,56 @@ describe('monthly token grant', () => {
       },
     });
     await fulfillPaidOrder(tx, subOrder('PRO_AGENT'));
+    expect(tokenTransactionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ type: 'BONUS', amount: 0, grantKey: 'plan:o1' }),
+    });
+    expect(subscriptionUpdate).toHaveBeenCalledWith({
+      where: { userId: 'u1' },
+      data: { boostCredits: { increment: 1 } },
+    });
+  });
+
+  it('writes nothing when the plan grants neither tokens nor boosts', async () => {
+    vi.mocked(readStoredPricing).mockResolvedValue({
+      ...DEFAULT_PRICING,
+      plans: {
+        ...DEFAULT_PRICING.plans,
+        PRO_AGENT: { ...DEFAULT_PRICING.plans.PRO_AGENT, monthlyTokens: 0, includedBoosts: 0 },
+      },
+    });
+    await fulfillPaidOrder(tx, subOrder('PRO_AGENT'));
     expect(tokenTransactionCreate).not.toHaveBeenCalled();
+    expect(subscriptionUpdate).not.toHaveBeenCalled();
+  });
+
+  it('credits the included boosts of the plan (Pro 1, Agence 4) with the tokens', async () => {
+    await fulfillPaidOrder(tx, subOrder('PRO_AGENT'));
+    expect(subscriptionUpdate).toHaveBeenCalledWith({
+      where: { userId: 'u1' },
+      data: { boostCredits: { increment: 1 } },
+    });
+    subscriptionUpdate.mockReset();
+    tokenTransactionCreate.mockReset();
+    await fulfillPaidOrder(tx, subOrder('AGENCY_PREMIUM'));
+    expect(subscriptionUpdate).toHaveBeenCalledWith({
+      where: { userId: 'u1' },
+      data: { boostCredits: { increment: 4 } },
+    });
+  });
+
+  it('does not credit boosts twice when the order was already granted', async () => {
+    tokenTransactionFindUnique.mockResolvedValue({ id: 't1' });
+    await fulfillPaidOrder(tx, subOrder('PRO_AGENT'));
+    expect(subscriptionUpdate).not.toHaveBeenCalled();
+    expect(tokenTransactionCreate).not.toHaveBeenCalled();
+  });
+
+  it('grants no boost without the price freeze marker', async () => {
+    await fulfillPaidOrder(tx, {
+      ...subOrder('PRO_AGENT'),
+      metadata: { kind: 'subscription_plan_change', planKey: 'PRO_AGENT' },
+    });
+    expect(subscriptionUpdate).not.toHaveBeenCalled();
   });
 
   it('grants nothing without the price freeze marker (no subscription either)', async () => {
