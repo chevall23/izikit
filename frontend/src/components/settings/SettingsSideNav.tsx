@@ -11,6 +11,15 @@ export type SettingsTabKey =
   | 'documents'
   | 'abonnement';
 
+export const SETTINGS_TABS: SettingsTabKey[] = [
+  'profil',
+  'securite',
+  'notifications',
+  'agence',
+  'documents',
+  'abonnement',
+];
+
 interface TabEntry {
   key: SettingsTabKey;
   label: string;

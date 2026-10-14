@@ -14,8 +14,11 @@ import {
   Mail,
   Link2,
   Loader2,
+  Lock,
 } from 'lucide-react';
+import Link from 'next/link';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
+import { LockedBlock } from '@/components/stats/LockedBlock';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -135,6 +138,7 @@ export default function StatistiquesPage() {
   const [period, setPeriod] = useState<Period>('30j');
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [level, setLevel] = useState<'BASIC' | 'FULL' | 'ADVANCED'>('BASIC');
 
   useEffect(() => {
     if (!user) return;
@@ -142,10 +146,17 @@ export default function StatistiquesPage() {
     setLoading(true);
     api<StatsResponse>(`/api/listings/stats?period=${period}`)
       .then((res) => {
-        if (!cancelled) setStats(res);
+        if (cancelled) return;
+        setStats(res);
+        setLevel(res.level);
       })
       .catch((e) => {
         if (cancelled) return;
+        if (e instanceof ApiError && e.code === 'PLAN_REQUIRED') {
+          setPeriod('30j');
+          toast('Cette période est réservée au plan Pro.', 'info');
+          return;
+        }
         toast(
           e instanceof ApiError ? e.message : 'Impossible de charger les statistiques.',
           'error',
@@ -230,29 +241,45 @@ export default function StatistiquesPage() {
         </div>
         <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-1 rounded-lg border border-black/[0.08] bg-white p-1">
-            {PERIODS.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setPeriod(p.id)}
-                className={cn(
-                  'rounded-md px-3.5 py-1.5 text-[12.5px] font-medium whitespace-nowrap',
-                  period === p.id ? 'bg-brand font-semibold text-white' : 'text-gray-400',
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
+            {PERIODS.map((p) => {
+              const periodLocked = level === 'BASIC' && (p.id === '3m' || p.id === '1a');
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  disabled={periodLocked}
+                  title={periodLocked ? 'Plan Pro' : undefined}
+                  onClick={() => setPeriod(p.id)}
+                  className={cn(
+                    'flex items-center gap-1 rounded-md px-3.5 py-1.5 text-[12.5px] font-medium whitespace-nowrap',
+                    period === p.id ? 'bg-brand font-semibold text-white' : 'text-gray-400',
+                    periodLocked && 'cursor-not-allowed opacity-60',
+                  )}
+                >
+                  {periodLocked && <Lock className="h-3 w-3" aria-hidden />}
+                  {p.label}
+                </button>
+              );
+            })}
           </div>
-          <button
-            type="button"
-            disabled
-            title="Bientôt disponible"
-            className="flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-black/[0.08] px-4 py-2.5 text-[13px] font-medium text-gray-400"
-          >
-            <Download className="h-[14px] w-[14px]" aria-hidden />
-            <span className="hidden lg:inline">Exporter</span>
-          </button>
+          {stats?.canExport ? (
+            <a
+              href={`/api/listings/stats/export?period=${period}`}
+              className="flex items-center gap-1.5 rounded-lg border border-black/[0.08] px-4 py-2.5 text-[13px] font-medium text-neutral-800 hover:bg-gray-50"
+            >
+              <Download className="h-[14px] w-[14px]" aria-hidden />
+              <span className="hidden lg:inline">Exporter (CSV)</span>
+            </a>
+          ) : (
+            <Link
+              href="/settings?tab=abonnement"
+              title="Export réservé au plan Agence"
+              className="flex items-center gap-1.5 rounded-lg border border-black/[0.08] px-4 py-2.5 text-[13px] font-medium text-gray-400"
+            >
+              <Lock className="h-[14px] w-[14px]" aria-hidden />
+              <span className="hidden lg:inline">Exporter</span>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -287,32 +314,44 @@ export default function StatistiquesPage() {
               title="Évolution des vues"
               subtitle={`Vues quotidiennes sur la période sélectionnée`}
             >
-              {chart ? (
-                <svg viewBox="0 0 480 130" preserveAspectRatio="none" className="h-[130px] w-full">
-                  <path d={chart.area} fill="#EEF3FF" opacity="0.7" />
-                  <path
-                    d={chart.line}
-                    fill="none"
-                    stroke="#376BFF"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
+              {stats.locked.includes('viewsTimeseries') ? (
+                <LockedBlock label="Disponible avec le plan Pro" />
               ) : (
-                <p className="py-10 text-center text-xs text-gray-400">Aucune vue enregistrée.</p>
+                <>
+                  {chart ? (
+                    <svg
+                      viewBox="0 0 480 130"
+                      preserveAspectRatio="none"
+                      className="h-[130px] w-full"
+                    >
+                      <path d={chart.area} fill="#EEF3FF" opacity="0.7" />
+                      <path
+                        d={chart.line}
+                        fill="none"
+                        stroke="#376BFF"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  ) : (
+                    <p className="py-10 text-center text-xs text-gray-400">
+                      Aucune vue enregistrée.
+                    </p>
+                  )}
+                  <div className="mt-1.5 flex justify-between">
+                    {stats.viewsTimeseries.length > 0 && (
+                      <>
+                        <span className="text-[10.5px] text-gray-400">
+                          {stats.viewsTimeseries[0]!.date}
+                        </span>
+                        <span className="text-[10.5px] text-gray-400">
+                          {stats.viewsTimeseries[stats.viewsTimeseries.length - 1]!.date}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </>
               )}
-              <div className="mt-1.5 flex justify-between">
-                {stats.viewsTimeseries.length > 0 && (
-                  <>
-                    <span className="text-[10.5px] text-gray-400">
-                      {stats.viewsTimeseries[0]!.date}
-                    </span>
-                    <span className="text-[10.5px] text-gray-400">
-                      {stats.viewsTimeseries[stats.viewsTimeseries.length - 1]!.date}
-                    </span>
-                  </>
-                )}
-              </div>
             </ChartCard>
 
             <ChartCard title="Répartition des annonces" subtitle="Par statut de publication">
@@ -416,33 +455,41 @@ export default function StatistiquesPage() {
             </ChartCard>
 
             <ChartCard title="Top annonces" subtitle="Par nombre de contacts reçus">
-              {stats.topListings.length === 0 ? (
-                <p className="py-10 text-center text-xs text-gray-400">Aucun contact reçu.</p>
+              {stats.locked.includes('topListings') ? (
+                <LockedBlock label="Disponible avec le plan Pro" />
               ) : (
-                <div className="flex flex-col">
-                  {stats.topListings.map((l, i) => (
-                    <div
-                      key={l.id}
-                      className="flex items-center gap-3 border-b border-black/[0.05] py-2.5 last:border-0"
-                    >
-                      <span className="w-5 flex-shrink-0 text-center text-[13px] font-semibold text-gray-400">
-                        {MEDALS[i] ?? i + 1}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[13px] font-semibold text-neutral-900">
-                          {l.title}
-                        </p>
-                        <p className="truncate text-[11.5px] text-gray-400">
-                          {l.city}, {l.country} · {formatListingPrice(l.price, l.currency)}
-                        </p>
-                      </div>
-                      <div className="flex-shrink-0 text-right">
-                        <p className="text-[13px] font-semibold text-neutral-900">{l.contacts}</p>
-                        <p className="text-[11px] text-gray-400">contacts</p>
-                      </div>
+                <>
+                  {stats.topListings.length === 0 ? (
+                    <p className="py-10 text-center text-xs text-gray-400">Aucun contact reçu.</p>
+                  ) : (
+                    <div className="flex flex-col">
+                      {stats.topListings.map((l, i) => (
+                        <div
+                          key={l.id}
+                          className="flex items-center gap-3 border-b border-black/[0.05] py-2.5 last:border-0"
+                        >
+                          <span className="w-5 flex-shrink-0 text-center text-[13px] font-semibold text-gray-400">
+                            {MEDALS[i] ?? i + 1}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[13px] font-semibold text-neutral-900">
+                              {l.title}
+                            </p>
+                            <p className="truncate text-[11.5px] text-gray-400">
+                              {l.city}, {l.country} · {formatListingPrice(l.price, l.currency)}
+                            </p>
+                          </div>
+                          <div className="flex-shrink-0 text-right">
+                            <p className="text-[13px] font-semibold text-neutral-900">
+                              {l.contacts}
+                            </p>
+                            <p className="text-[11px] text-gray-400">contacts</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </ChartCard>
           </div>
@@ -450,48 +497,54 @@ export default function StatistiquesPage() {
           {/* ROW 3: SOURCES */}
           <div className="grid grid-cols-1 gap-5">
             <ChartCard title="Sources de trafic" subtitle="D'où viennent vos visiteurs">
-              {stats.trafficSources.length === 0 ? (
-                <p className="py-10 text-center text-xs text-gray-400">
-                  Pas encore assez de vues pour analyser les sources.
-                </p>
+              {stats.locked.includes('trafficSources') ? (
+                <LockedBlock label="Disponible avec le plan Pro" />
               ) : (
-                <div className="flex flex-col gap-3.5">
-                  {stats.trafficSources.map((s) => {
-                    const meta = SOURCE_META[s.source] ?? SOURCE_META.OTHER!;
-                    return (
-                      <div key={s.source}>
-                        <div className="mb-1.5 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={cn(
-                                'flex h-7 w-7 items-center justify-center rounded-md',
-                                meta.bg,
-                              )}
-                            >
-                              <meta.icon
-                                className="h-[13px] w-[13px]"
-                                style={{ color: meta.color }}
-                                aria-hidden
+                <>
+                  {stats.trafficSources.length === 0 ? (
+                    <p className="py-10 text-center text-xs text-gray-400">
+                      Pas encore assez de vues pour analyser les sources.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-3.5">
+                      {stats.trafficSources.map((s) => {
+                        const meta = SOURCE_META[s.source] ?? SOURCE_META.OTHER!;
+                        return (
+                          <div key={s.source}>
+                            <div className="mb-1.5 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={cn(
+                                    'flex h-7 w-7 items-center justify-center rounded-md',
+                                    meta.bg,
+                                  )}
+                                >
+                                  <meta.icon
+                                    className="h-[13px] w-[13px]"
+                                    style={{ color: meta.color }}
+                                    aria-hidden
+                                  />
+                                </span>
+                                <span className="text-[13px] font-medium text-neutral-900">
+                                  {meta.label}
+                                </span>
+                              </div>
+                              <span className="text-[13px] font-semibold text-neutral-900">
+                                {s.pct}%
+                              </span>
+                            </div>
+                            <div className="h-[7px] w-full overflow-hidden rounded-full bg-gray-100">
+                              <div
+                                className="h-full rounded-full"
+                                style={{ width: `${s.pct}%`, backgroundColor: meta.color }}
                               />
-                            </span>
-                            <span className="text-[13px] font-medium text-neutral-900">
-                              {meta.label}
-                            </span>
+                            </div>
                           </div>
-                          <span className="text-[13px] font-semibold text-neutral-900">
-                            {s.pct}%
-                          </span>
-                        </div>
-                        <div className="h-[7px] w-full overflow-hidden rounded-full bg-gray-100">
-                          <div
-                            className="h-full rounded-full"
-                            style={{ width: `${s.pct}%`, backgroundColor: meta.color }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
               )}
             </ChartCard>
           </div>

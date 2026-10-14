@@ -21,10 +21,14 @@
 // .planning/banani/abonnement-paiement.md.
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { useUser } from '@/contexts/AuthContext';
-import { SettingsSideNav, type SettingsTabKey } from '@/components/settings/SettingsSideNav';
+import {
+  SETTINGS_TABS,
+  SettingsSideNav,
+  type SettingsTabKey,
+} from '@/components/settings/SettingsSideNav';
 import { ProfileCard } from '@/components/settings/ProfileCard';
 import { SecurityCard } from '@/components/settings/SecurityCard';
 import { NotificationsCard } from '@/components/settings/NotificationsCard';
@@ -41,6 +45,15 @@ import { PaymentHistoryCard } from '@/components/settings/PaymentHistoryCard';
 export default function SettingsPage() {
   const user = useUser();
   const [tab, setTab] = useState<SettingsTabKey>('profil');
+
+  // Deep link, e.g. /settings?tab=abonnement from the locked statistics blocks.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get('tab');
+    if (wanted && SETTINGS_TABS.includes(wanted as SettingsTabKey)) {
+      setTab(wanted as SettingsTabKey);
+    }
+  }, []);
+
   if (!user) return null;
 
   return (
