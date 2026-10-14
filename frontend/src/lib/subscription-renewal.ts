@@ -5,7 +5,7 @@ const RENEWAL_WINDOW_MS = 7 * 24 * 3600 * 1000;
 
 export interface RenewableSubscription {
   planKey: 'FREE' | 'PRO_AGENT' | 'AGENCY_PREMIUM';
-  status: 'ACTIVE' | 'CANCELED' | 'GRACE';
+  status: 'ACTIVE' | 'CANCELED' | 'GRACE' | 'TRIAL';
   currentPeriodEnd: string | null;
 }
 
@@ -24,7 +24,7 @@ export function getRenewalState(sub: RenewableSubscription | null, now: Date): R
   const inGrace = sub.status === 'GRACE';
   const nearEnd = end !== null && end.getTime() - now.getTime() <= RENEWAL_WINDOW_MS;
   return {
-    canRenew: inGrace || sub.status === 'CANCELED' || nearEnd,
+    canRenew: inGrace || sub.status === 'CANCELED' || sub.status === 'TRIAL' || nearEnd,
     inGrace,
     graceDeadline: inGrace && end ? new Date(end.getTime() + GRACE_PERIOD_MS) : null,
   };

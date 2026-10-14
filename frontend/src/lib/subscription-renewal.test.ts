@@ -39,3 +39,15 @@ describe('getRenewalState', () => {
     expect(getRenewalState(sub('PRO_AGENT', 'ACTIVE', 2), NOW).graceDeadline).toBeNull();
   });
 });
+
+describe('getRenewalState — trial', () => {
+  it('a running trial can always be upgraded, whatever the days left', () => {
+    const s = getRenewalState(
+      { planKey: 'PRO_AGENT', status: 'TRIAL', currentPeriodEnd: '2026-11-24T12:00:00Z' },
+      new Date('2026-11-10T12:00:00Z'),
+    );
+    expect(s.canRenew).toBe(true);
+    expect(s.inGrace).toBe(false);
+    expect(s.graceDeadline).toBeNull();
+  });
+});

@@ -27,9 +27,10 @@ import { PasswordConfirmModal } from './PasswordConfirmModal';
 
 interface Subscription {
   planKey: PlanKey;
-  status: 'ACTIVE' | 'CANCELED' | 'GRACE';
+  status: 'ACTIVE' | 'CANCELED' | 'GRACE' | 'TRIAL';
   currentPeriodEnd: string | null;
   canceledAt: string | null;
+  trialStartedAt?: string | null;
 }
 
 function formatFcfa(amount: number): string {
@@ -42,12 +43,15 @@ export function SubscriptionCard() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [busyPlan, setBusyPlan] = useState<PlanKey | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [trialEligible, setTrialEligible] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    api<{ subscription: Subscription }>('/api/subscriptions/me')
+    api<{ subscription: Subscription; trialEligible?: boolean }>('/api/subscriptions/me')
       .then((res) => {
-        if (!cancelled) setSubscription(res.subscription);
+        if (cancelled) return;
+        setSubscription(res.subscription);
+        setTrialEligible(res.trialEligible === true);
       })
       .catch(() => undefined);
     return () => {
@@ -58,6 +62,14 @@ export function SubscriptionCard() {
   const currentPlanKey = subscription?.planKey ?? 'FREE';
   const currentPlan = PLAN_CATALOG[currentPlanKey];
   const renewal = getRenewalState(subscription, new Date());
+  const isTrial = subscription?.status === 'TRIAL';
+  const trialDaysLeft =
+    isTrial && subscription?.currentPeriodEnd
+      ? Math.max(
+          0,
+          Math.ceil((new Date(subscription.currentPeriodEnd).getTime() - Date.now()) / 86_400_000),
+        )
+      : 0;
 
   async function changeToFree() {
     setBusyPlan('FREE');
@@ -68,6 +80,22 @@ export function SubscriptionCard() {
       });
       setSubscription(res.subscription);
       toast('Plan Gratuit activé.', 'success');
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Erreur réseau. Réessaie.', 'error');
+    } finally {
+      setBusyPlan(null);
+    }
+  }
+
+  async function startTrial() {
+    setBusyPlan('PRO_AGENT');
+    try {
+      const res = await api<{ subscription: Subscription }>('/api/subscriptions/trial', {
+        method: 'POST',
+      });
+      setSubscription(res.subscription);
+      setTrialEligible(false);
+      toast('Essai Pro de 14 jours activé.', 'success');
     } catch (err) {
       toast(err instanceof ApiError ? err.message : 'Erreur réseau. Réessaie.', 'error');
     } finally {
@@ -121,14 +149,15 @@ export function SubscriptionCard() {
       <div className="mb-5 rounded-xl bg-gradient-to-br from-brand to-brand/80 p-7">
         <div className="mb-2.5 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-semibold text-white">
           <Zap className="h-2.5 w-2.5" aria-hidden />
-          Plan actif
+          {isTrial ? 'Essai Pro' : 'Plan actif'}
         </div>
         <h2 className="font-sora mb-1.5 text-xl font-semibold text-white">{currentPlan.label}</h2>
         <div className="mb-4 flex items-baseline gap-2">
           <span className="font-sora text-3xl font-semibold text-white">
-            {formatFcfa(planPriceFcfa(pricing, currentPlan.key))}
+            {isTrial ? 'Gratuit' : formatFcfa(planPriceFcfa(pricing, currentPlan.key))}
           </span>
-          {planPriceFcfa(pricing, currentPlan.key) > 0 && (
+          {isTrial && <span className="text-sm text-white/75">pendant l’essai</span>}
+          {!isTrial && planPriceFcfa(pricing, currentPlan.key) > 0 && (
             <span className="text-sm text-white/75">par mois, taxes comprises</span>
           )}
         </div>
@@ -138,10 +167,34 @@ export function SubscriptionCard() {
               ? `Expiré le ${new Date(subscription.currentPeriodEnd).toLocaleDateString('fr-FR')} — renouvelez avant le ${renewal.graceDeadline.toLocaleDateString('fr-FR')} pour garder vos annonces`
               : subscription.status === 'CANCELED'
                 ? `Résilié — accès jusqu'au ${new Date(subscription.currentPeriodEnd).toLocaleDateString('fr-FR')}`
-                : `Renouvellement le ${new Date(subscription.currentPeriodEnd).toLocaleDateString('fr-FR')}`}
+                : isTrial
+                  ? `Essai gratuit — se termine le ${new Date(subscription.currentPeriodEnd).toLocaleDateString('fr-FR')} (${trialDaysLeft} jour${trialDaysLeft > 1 ? 's' : ''} restant${trialDaysLeft > 1 ? 's' : ''})`
+                  : `Renouvellement le ${new Date(subscription.currentPeriodEnd).toLocaleDateString('fr-FR')}`}
           </p>
         )}
       </div>
+
+      {trialEligible && currentPlanKey === 'FREE' && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand/30 bg-brand/5 p-5">
+          <div>
+            <h3 className="font-sora text-[15px] font-semibold text-neutral-900">
+              Essayez Pro gratuitement pendant 14 jours
+            </h3>
+            <p className="text-[13px] text-gray-600">
+              30 annonces et 10 alertes secteur, sans carte bancaire. Les jetons et le boost inclus
+              sont accordés à l’abonnement.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={busyPlan !== null}
+            onClick={() => void startTrial()}
+            className="rounded-lg bg-brand px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-brand/90 disabled:opacity-50"
+          >
+            {busyPlan === 'PRO_AGENT' ? 'Activation…' : 'Démarrer l’essai'}
+          </button>
+        </div>
+      )}
 
       <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
         {PLAN_KEYS.map((key) => {
@@ -211,7 +264,9 @@ export function SubscriptionCard() {
                   ? isRenewal
                     ? busyPlan === key
                       ? 'Traitement…'
-                      : 'Renouveler'
+                      : isTrial
+                        ? 'Passer à Pro'
+                        : 'Renouveler'
                     : 'Plan actuel'
                   : busyPlan === key
                     ? 'Traitement…'
