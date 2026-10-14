@@ -32,6 +32,11 @@ beforeEach(() => {
   prismaMock.listing.findMany.mockResolvedValue([] as never);
   prismaMock.listingView.findMany.mockResolvedValue([] as never);
   prismaMock.listingInquiry.findMany.mockResolvedValue([] as never);
+  prismaMock.subscription.findUnique.mockResolvedValue({
+    planKey: 'PRO_AGENT',
+    status: 'ACTIVE',
+    currentPeriodEnd: new Date(Date.now() + 86_400_000),
+  } as never);
 });
 
 describe('GET /api/listings/stats', () => {
@@ -188,5 +193,70 @@ describe('GET /api/listings/stats', () => {
         }),
       }),
     );
+  });
+});
+
+describe('levels', () => {
+  const asFree = () => prismaMock.subscription.findUnique.mockResolvedValue(null);
+  const asAgency = () =>
+    prismaMock.subscription.findUnique.mockResolvedValue({
+      planKey: 'AGENCY_PREMIUM',
+      status: 'ACTIVE',
+      currentPeriodEnd: new Date(Date.now() + 86_400_000),
+    } as never);
+
+  it('reports level FULL, nothing locked and no export for a Pro agent', async () => {
+    const body = await (await GET(makeGet())).json();
+    expect(body).toMatchObject({ level: 'FULL', locked: [], canExport: false });
+  });
+
+  it('reports ADVANCED and canExport for an Agence agent', async () => {
+    asAgency();
+    const body = await (await GET(makeGet('?period=1a'))).json();
+    expect(body).toMatchObject({ level: 'ADVANCED', canExport: true });
+  });
+
+  it('a free agent gets the basic blocks and empty locked blocks', async () => {
+    asFree();
+    prismaMock.listingView.findMany.mockResolvedValue([
+      { createdAt: new Date(), source: 'ORGANIC' },
+    ] as never);
+    const body = await (await GET(makeGet('?period=30j'))).json();
+    expect(body).toMatchObject({ level: 'BASIC', canExport: false });
+    expect(body.locked).toEqual(['viewsTimeseries', 'topListings', 'trafficSources']);
+    expect(body.viewsTimeseries).toEqual([]);
+    expect(body.topListings).toEqual([]);
+    expect(body.trafficSources).toEqual([]);
+    expect(body.kpis.views).toBeDefined();
+    expect(body.contactsByDay).toHaveLength(7);
+    expect(body.documentsProgress).toHaveLength(4);
+  });
+
+  it('does not even query the locked data for a free agent', async () => {
+    asFree();
+    await GET(makeGet());
+    expect(prismaMock.listingView.findMany).not.toHaveBeenCalled();
+  });
+
+  it.each(['3m', '1a'])(
+    '403 PLAN_REQUIRED for a free agent asking %s, nothing computed',
+    async (p) => {
+      asFree();
+      const res = await GET(makeGet('?period=' + p));
+      expect(res.status).toBe(403);
+      expect((await res.json()).error).toBe('PLAN_REQUIRED');
+      expect(prismaMock.listingView.count).not.toHaveBeenCalled();
+    },
+  );
+
+  it('a free agent keeps 7j and 30j', async () => {
+    asFree();
+    expect((await GET(makeGet('?period=7j'))).status).toBe(200);
+    expect((await GET(makeGet('?period=30j'))).status).toBe(200);
+  });
+
+  it('an unknown period falls back to 30j and is allowed for a free agent', async () => {
+    asFree();
+    expect((await GET(makeGet('?period=bogus'))).status).toBe(200);
   });
 });

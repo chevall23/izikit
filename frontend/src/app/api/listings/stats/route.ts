@@ -12,23 +12,13 @@ import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
+import { PERIOD_DAYS, dateKey, trend } from '@/lib/server/stats/helpers';
+import { canExport, getStatsLevel, lockedBlocks, periodAllowed } from '@/lib/server/stats/level';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
-
-const PERIOD_DAYS: Record<string, number> = { '7j': 7, '30j': 30, '3m': 90, '1a': 365 };
 
 const DOCUMENT_TYPES = ['LAND_TITLE', 'SALE_MANDATE', 'CADASTRAL_PLAN'] as const;
 const LISTING_STATUSES = ['DRAFT', 'PENDING', 'VERIFIED', 'REJECTED', 'SOLD', 'HIDDEN'] as const;
 const WEEKDAY_LABELS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-
-function trend(current: number, previous: number): { trendPct: number; up: boolean } {
-  if (previous === 0) return { trendPct: current > 0 ? 100 : 0, up: current >= 0 };
-  const pct = Math.round(((current - previous) / previous) * 100);
-  return { trendPct: pct, up: pct >= 0 };
-}
-
-function dateKey(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const ctx = makeRequestContext(req.headers);
@@ -37,8 +27,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (auth instanceof NextResponse) return auth;
     const userId = auth.user.sub;
 
-    const periodParam = req.nextUrl.searchParams.get('period') ?? '30j';
-    const days = PERIOD_DAYS[periodParam] ?? PERIOD_DAYS['30j']!;
+    const requested = req.nextUrl.searchParams.get('period') ?? '30j';
+    const periodParam = requested in PERIOD_DAYS ? requested : '30j';
+    const days = PERIOD_DAYS[periodParam]!;
+    const level = await getStatsLevel(prisma, userId);
+    if (!periodAllowed(level, periodParam)) {
+      return NextResponse.json(
+        { error: 'PLAN_REQUIRED', message: 'Cette période est réservée au plan Pro.' },
+        { status: 403, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
+    const locked = lockedBlocks(level);
+    const lockedOut = locked.length > 0;
 
     const now = new Date();
     const start = new Date(now.getTime() - days * 86_400_000);
@@ -46,6 +46,23 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const sevenDaysAgo = new Date(now.getTime() - 7 * 86_400_000);
 
     const listingScope = { listing: { userId } } as const;
+
+    const topListingsQuery = () =>
+      prisma.listing.findMany({
+        where: { userId, status: { not: 'DRAFT' } },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select: {
+          id: true,
+          title: true,
+          city: true,
+          country: true,
+          propertyType: true,
+          transactionType: true,
+          price: true,
+          currency: true,
+          _count: { select: { inquiries: { where: { createdAt: { gte: start } } } } },
+        },
+      });
 
     const [
       viewsCurrent,
@@ -103,25 +120,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         where: { userId, status: { not: 'DRAFT' }, documents: { some: {} } },
         select: { id: true },
       }),
-      prisma.listing.findMany({
-        where: { userId, status: { not: 'DRAFT' } },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        select: {
-          id: true,
-          title: true,
-          city: true,
-          country: true,
-          propertyType: true,
-          transactionType: true,
-          price: true,
-          currency: true,
-          _count: { select: { inquiries: { where: { createdAt: { gte: start } } } } },
-        },
-      }),
-      prisma.listingView.findMany({
-        where: { ...listingScope, createdAt: { gte: start } },
-        select: { createdAt: true, source: true },
-      }),
+      lockedOut
+        ? Promise.resolve([] as Awaited<ReturnType<typeof topListingsQuery>>)
+        : topListingsQuery(),
+      lockedOut
+        ? Promise.resolve([] as { createdAt: Date; source: string }[])
+        : prisma.listingView.findMany({
+            where: { ...listingScope, createdAt: { gte: start } },
+            select: { createdAt: true, source: true },
+          }),
       prisma.listingInquiry.findMany({
         where: { ...listingScope, createdAt: { gte: sevenDaysAgo } },
         select: { createdAt: true },
@@ -194,7 +201,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       sourceCounts.set(v.source, (sourceCounts.get(v.source) ?? 0) + 1);
     }
     const viewsTimeseries: { date: string; count: number }[] = [];
-    for (let i = days - 1; i >= 0; i--) {
+    for (let i = days - 1; i >= 0 && !lockedOut; i--) {
       const d = new Date(now.getTime() - i * 86_400_000);
       const key = dateKey(d);
       viewsTimeseries.push({ date: key, count: viewsByDay.get(key) ?? 0 });
@@ -242,6 +249,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         totalListingsCount: totalListings,
         newListingsInPeriod,
         upcomingVisitsCount,
+        level,
+        locked,
+        canExport: canExport(level),
       },
       { headers: { 'x-request-id': ctx.requestId } },
     );

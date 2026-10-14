@@ -2,6 +2,8 @@
 // /statistiques and /dashboard so the two pages never drift out of sync
 // with the API contract.
 
+import type { StatsLevel } from '@/lib/subscription-plans';
+
 export type StatsPeriod = '7j' | '30j' | '3m' | '1a';
 
 export interface StatsKpi {
@@ -37,4 +39,7 @@ export interface ListingStatsResponse {
   totalListingsCount: number;
   newListingsInPeriod: number;
   upcomingVisitsCount: number;
+  level: StatsLevel;
+  locked: string[];
+  canExport: boolean;
 }
