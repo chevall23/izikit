@@ -11,8 +11,8 @@ import { enqueueOutbox } from '../outbox';
 import { readStoredPricing } from '../pricing';
 import { createLogger } from '../logger';
 import { lockUserListingQuota, reactivateHiddenListings } from '../listings/quota';
-import { planMaxListings } from '@/lib/pricing';
-import { isPlanKey, type PlanKey } from '@/lib/subscription-plans';
+import { planMaxListings, planMonthlyTokens, type PricingData } from '@/lib/pricing';
+import { isPlanKey, PLAN_CATALOG, type PlanKey } from '@/lib/subscription-plans';
 import { TOKEN_PACK_CATALOG, isTokenPackKey } from '@/lib/token-packs';
 
 const log = createLogger();
@@ -83,7 +83,7 @@ export async function fulfillPaidOrder(
         orderId: order.id,
       });
     } else {
-      await grantSubscription(tx, order.userId, meta.planKey);
+      await grantSubscription(tx, order.userId, meta.planKey, order.id);
     }
   }
 
@@ -149,10 +149,44 @@ export async function fulfillPaidOrder(
   }
 }
 
+// Monthly tokens included in the plan. One grant per paid period: the key is the
+// order, so a replayed delivery cannot credit twice (the findUnique guards the
+// transaction; the unique column is the backstop). A unique violation inside this
+// Serializable tx would abort it, hence the read-first.
+async function grantMonthlyTokens(
+  tx: PrismaTransactionClient,
+  userId: string,
+  planKey: PlanKey,
+  orderId: string,
+  pricing: PricingData,
+): Promise<void> {
+  const tokens = planMonthlyTokens(pricing, planKey);
+  if (tokens <= 0) return;
+  const grantKey = `plan:${orderId}`;
+  const done = await tx.tokenTransaction.findUnique({ where: { grantKey }, select: { id: true } });
+  if (done) return;
+  const wallet = await tx.tokenWallet.upsert({
+    where: { userId },
+    create: { userId, balance: tokens },
+    update: { balance: { increment: tokens } },
+  });
+  await tx.tokenTransaction.create({
+    data: {
+      userId,
+      type: 'BONUS',
+      amount: tokens,
+      balanceAfter: wallet.balance,
+      description: `Jetons offerts — plan ${PLAN_CATALOG[planKey].label}`,
+      grantKey,
+    },
+  });
+}
+
 async function grantSubscription(
   tx: PrismaTransactionClient,
   userId: string,
   planKey: PlanKey,
+  orderId: string,
 ): Promise<void> {
   // Lock first (same lock-then-write order as lifecycle expiry and change-plan);
   // it also serialises this grant with a concurrent publish.
@@ -181,6 +215,8 @@ async function grantSubscription(
     update: { planKey, status: 'ACTIVE', currentPeriodEnd, canceledAt: null },
   });
 
+  const pricing = await readStoredPricing(tx);
   // Bring back listings hidden by a previous expiry, within the new quota.
-  await reactivateHiddenListings(tx, userId, planMaxListings(await readStoredPricing(tx), planKey));
+  await reactivateHiddenListings(tx, userId, planMaxListings(pricing, planKey));
+  await grantMonthlyTokens(tx, userId, planKey, orderId, pricing);
 }

@@ -560,6 +560,7 @@ model TokenTransaction {
   balanceAfter Int
   description  String
   orderId      String?  @unique // links a PURCHASE row back to its Order
+  grantKey     String?  @unique // idempotency key of automatic grants, e.g. "plan:<orderId>"
   createdAt    DateTime @default(now())
 
   @@index([userId, createdAt])

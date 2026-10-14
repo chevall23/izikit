@@ -21,12 +21,13 @@ const subscriptionFindUnique = vi.fn();
 const subscriptionUpsert = vi.fn();
 const tokenWalletUpsert = vi.fn();
 const tokenTransactionCreate = vi.fn();
+const tokenTransactionFindUnique = vi.fn();
 const outboxCreate = vi.fn();
 
 const tx = {
   subscription: { findUnique: subscriptionFindUnique, upsert: subscriptionUpsert },
   tokenWallet: { upsert: tokenWalletUpsert },
-  tokenTransaction: { create: tokenTransactionCreate },
+  tokenTransaction: { create: tokenTransactionCreate, findUnique: tokenTransactionFindUnique },
   outboxEvent: { create: outboxCreate },
 } as never;
 
@@ -39,6 +40,7 @@ beforeEach(() => {
   subscriptionUpsert.mockReset();
   tokenWalletUpsert.mockReset().mockResolvedValue({ userId: 'u1', balance: 150 });
   tokenTransactionCreate.mockReset();
+  tokenTransactionFindUnique.mockReset().mockResolvedValue(null);
   outboxCreate.mockReset();
 });
 
@@ -428,5 +430,64 @@ describe('fulfillPaidOrder', () => {
     expect(outboxCreate).not.toHaveBeenCalled();
     expect(subscriptionUpsert).not.toHaveBeenCalled();
     expect(tokenWalletUpsert).not.toHaveBeenCalled();
+  });
+});
+
+describe('monthly token grant', () => {
+  beforeEach(() => {
+    tokenWalletUpsert.mockResolvedValue({ userId: 'u1', balance: 10 });
+  });
+
+  it('credits the plan monthly tokens as a BONUS keyed by the order', async () => {
+    await fulfillPaidOrder(tx, subOrder('PRO_AGENT'));
+    expect(tokenWalletUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: { balance: { increment: 10 } } }),
+    );
+    expect(tokenTransactionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: 'u1',
+        type: 'BONUS',
+        amount: 10,
+        grantKey: 'plan:o1',
+      }),
+    });
+  });
+
+  it('grants the Agence amount', async () => {
+    await fulfillPaidOrder(tx, subOrder('AGENCY_PREMIUM'));
+    expect(tokenTransactionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ amount: 40, grantKey: 'plan:o1' }),
+    });
+  });
+
+  it('does not credit twice when the same order was already granted', async () => {
+    tokenTransactionFindUnique.mockResolvedValue({ id: 't1' });
+    await fulfillPaidOrder(tx, subOrder('PRO_AGENT'));
+    expect(tokenTransactionFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { grantKey: 'plan:o1' } }),
+    );
+    expect(tokenWalletUpsert).not.toHaveBeenCalled();
+    expect(tokenTransactionCreate).not.toHaveBeenCalled();
+  });
+
+  it('grants nothing when the live pricing sets 0 monthly tokens', async () => {
+    vi.mocked(readStoredPricing).mockResolvedValue({
+      ...DEFAULT_PRICING,
+      plans: {
+        ...DEFAULT_PRICING.plans,
+        PRO_AGENT: { ...DEFAULT_PRICING.plans.PRO_AGENT, monthlyTokens: 0 },
+      },
+    });
+    await fulfillPaidOrder(tx, subOrder('PRO_AGENT'));
+    expect(tokenTransactionCreate).not.toHaveBeenCalled();
+  });
+
+  it('grants nothing without the price freeze marker (no subscription either)', async () => {
+    await fulfillPaidOrder(tx, {
+      ...subOrder('PRO_AGENT'),
+      metadata: { kind: 'subscription_plan_change', planKey: 'PRO_AGENT' },
+    });
+    expect(subscriptionUpsert).not.toHaveBeenCalled();
+    expect(tokenTransactionCreate).not.toHaveBeenCalled();
   });
 });
