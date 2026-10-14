@@ -56,7 +56,7 @@ const FAQ = [
   {
     icon: ShieldCheck,
     q: 'Mes coordonnées sont-elles protégées ?',
-    a: "Vos informations de contact restent privées. Les agents certifiés n'y accèdent qu'après confirmation de votre intérêt. Vos données ne sont jamais partagées publiquement.",
+    a: "Vos coordonnées ne sont jamais affichées publiquement. Elles ne sont transmises qu'à 3 agents immobiliers au maximum, qui les obtiennent pour vous recontacter au sujet de votre demande.",
   },
   {
     icon: Clock,

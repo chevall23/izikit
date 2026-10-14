@@ -936,7 +936,9 @@ export default function NouvelleDemandePage() {
                           className="mt-0.5 h-4 w-4 flex-shrink-0 accent-brand"
                         />
                         J&apos;accepte la politique de confidentialité et le traitement de mes
-                        données personnelles.
+                        données personnelles. Je comprends que mes coordonnées (nom, téléphone,
+                        e-mail) peuvent être transmises à 3 agents immobiliers au maximum afin
+                        qu&apos;ils me contactent au sujet de ma demande.
                       </label>
                     </div>
 

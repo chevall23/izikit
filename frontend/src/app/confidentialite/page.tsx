@@ -64,6 +64,11 @@ export default function ConfidentialitePage() {
         Les informations saisies dans le formulaire de contact ou de demande immobilière (nom,
         téléphone / WhatsApp, e-mail, message).
       </p>
+      <p>
+        Les coordonnées que vous laissez dans une demande immobilière peuvent être communiquées à 3
+        agents immobiliers au maximum, qui les obtiennent via la plateforme pour vous contacter au
+        sujet de cette demande. Elles ne sont jamais rendues publiques.
+      </p>
 
       <h2>Finalités</h2>
       <ul>
