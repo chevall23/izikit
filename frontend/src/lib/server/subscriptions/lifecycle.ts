@@ -3,6 +3,7 @@
 // is deduplicated, so a re-run (or two overlapping ones) changes nothing twice.
 //   ACTIVE ──(period end)──► GRACE ──(+7 d)──► EXPIRED (plan FREE, excess hidden)
 //   CANCELED ──(period end)──► EXPIRED (no grace: the user chose to leave)
+//   TRIAL ──(trial end)──► EXPIRED (no grace, plan FREE, excess hidden)
 import 'server-only';
 import type { PrismaClient } from '@prisma/client';
 import { planMaxListings, type PricingData } from '@/lib/pricing';
@@ -14,6 +15,8 @@ import {
   subscriptionExpiredNotification,
   subscriptionGraceNotification,
   subscriptionReminderNotification,
+  trialEndedNotification,
+  trialReminderNotification,
 } from '../notifications/templates';
 import { GRACE_PERIOD_MS } from './effective-plan';
 
@@ -26,6 +29,7 @@ export interface LifecycleResult {
   graced: number;
   expired: number;
   hidden: number;
+  trialEnded: number;
 }
 
 export async function runSubscriptionLifecycle(opts: {
@@ -35,7 +39,7 @@ export async function runSubscriptionLifecycle(opts: {
 }): Promise<LifecycleResult> {
   const { prisma, pricing } = opts;
   const now = opts.now ?? new Date();
-  const result: LifecycleResult = { reminded: 0, graced: 0, expired: 0, hidden: 0 };
+  const result: LifecycleResult = { reminded: 0, graced: 0, expired: 0, hidden: 0, trialEnded: 0 };
 
   // 1. Reminders (J-7, then J-3) for ACTIVE subscriptions ending within a week.
   const upcoming = await prisma.subscription.findMany({
@@ -144,6 +148,62 @@ export async function runSubscriptionLifecycle(opts: {
       }
     } catch (err) {
       log.warn('subscription expiry failed', { userId: sub.userId, error: String(err) });
+    }
+  }
+
+  // 4. Trials. Reminder (3 days before the end), then the hard stop: no grace.
+  const endingTrials = await prisma.subscription.findMany({
+    where: {
+      status: 'TRIAL',
+      currentPeriodEnd: { gt: now, lte: new Date(now.getTime() + 3 * DAY_MS) },
+    },
+    select: { userId: true, currentPeriodEnd: true },
+    orderBy: { currentPeriodEnd: 'asc' },
+    take: BATCH,
+  });
+  for (const sub of endingTrials) {
+    const end = sub.currentPeriodEnd;
+    if (!end) continue;
+    try {
+      const created = await createNotification(prisma, trialReminderNotification(sub.userId, end));
+      if (created) result.reminded++;
+    } catch (err) {
+      log.warn('trial reminder failed', { userId: sub.userId, error: String(err) });
+    }
+  }
+
+  const elapsedTrials = await prisma.subscription.findMany({
+    where: { status: 'TRIAL', currentPeriodEnd: { lte: now } },
+    select: { userId: true, currentPeriodEnd: true },
+    orderBy: { currentPeriodEnd: 'asc' },
+    take: BATCH,
+  });
+  for (const sub of elapsedTrials) {
+    const end = sub.currentPeriodEnd;
+    if (!end) continue;
+    try {
+      const outcome = await prisma.$transaction(async (tx) => {
+        await lockUserListingQuota(tx, sub.userId);
+        const moved = await tx.subscription.updateMany({
+          where: { userId: sub.userId, status: 'TRIAL', currentPeriodEnd: { lte: now } },
+          data: { planKey: 'FREE', status: 'EXPIRED' },
+        });
+        if (moved.count === 0) return null;
+        const hidden = await hideExcessListings(tx, sub.userId, freeLimit);
+        // Listing lock first, alert lock second (fixed order, no deadlock).
+        await lockUserAlertQuota(tx, sub.userId);
+        const alertsDisabled = await disableExcessAlerts(tx, sub.userId, pricing, 'FREE');
+        return { hidden, alertsDisabled };
+      });
+      if (outcome) {
+        await createNotification(
+          prisma,
+          trialEndedNotification(sub.userId, outcome.hidden, end, outcome.alertsDisabled),
+        );
+        result.trialEnded++;
+      }
+    } catch (err) {
+      log.warn('trial end failed', { userId: sub.userId, error: String(err) });
     }
   }
 

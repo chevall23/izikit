@@ -25,7 +25,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const ctx = makeRequestContext(req.headers);
   return withRequestContext(ctx, async () => {
-    let result: LifecycleResult = { reminded: 0, graced: 0, expired: 0, hidden: 0 };
+    let result: LifecycleResult = { reminded: 0, graced: 0, expired: 0, hidden: 0, trialEnded: 0 };
 
     await withLease(redis ?? undefined, 'subscription-lifecycle', LEASE_TTL_MS, async () => {
       result = await runSubscriptionLifecycle({ prisma, pricing: await getPricing() });

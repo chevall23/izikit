@@ -157,3 +157,39 @@ export function subscriptionExpiredNotification(
     dedupeKey: `sub-expired:${userId}:${periodEnd.toISOString()}`,
   };
 }
+
+export function trialReminderNotification(userId: string, trialEnd: Date): CreateNotificationInput {
+  return {
+    userId,
+    type: 'TRIAL_REMINDER',
+    title: 'Votre essai Pro se termine bientôt',
+    body: `Votre essai gratuit se termine le ${isoDay(trialEnd)}. Passez à Pro pour garder vos 30 annonces et vos alertes.`,
+    data: { trialEnd: trialEnd.toISOString() },
+    dedupeKey: `trial-reminder:${userId}:${trialEnd.toISOString()}`,
+  };
+}
+
+export function trialEndedNotification(
+  userId: string,
+  hiddenCount: number,
+  trialEnd: Date,
+  disabledAlerts = 0,
+): CreateNotificationInput {
+  const parts: string[] = ['Votre essai Pro est terminé, votre compte repasse au plan Gratuit.'];
+  if (hiddenCount > 0) {
+    parts.push(
+      `${hiddenCount} annonce(s) ont été masquées. Elles reviendront si vous passez à Pro.`,
+    );
+  }
+  if (disabledAlerts > 0) {
+    parts.push(`${disabledAlerts} alerte(s) secteur ont été désactivées.`);
+  }
+  return {
+    userId,
+    type: 'TRIAL_ENDED',
+    title: 'Essai Pro terminé',
+    body: parts.join(' '),
+    data: { hiddenCount, disabledAlerts, trialEnd: trialEnd.toISOString() },
+    dedupeKey: `trial-ended:${userId}:${trialEnd.toISOString()}`,
+  };
+}

@@ -177,7 +177,7 @@ describe('selection queries', () => {
   it('selects GRACE only past the 7-day window and CANCELED past the period end, oldest first', async () => {
     await run();
     const calls = prismaMock.subscription.findMany.mock.calls;
-    expect(calls).toHaveLength(3);
+    expect(calls).toHaveLength(5);
     expect(calls[2]?.[0]).toMatchObject({
       where: {
         planKey: { not: 'FREE' },
@@ -197,7 +197,7 @@ describe('selection queries', () => {
 
 describe('robustness', () => {
   it('does nothing when there are no subscriptions (including null period ends)', async () => {
-    expect(await run()).toEqual({ reminded: 0, graced: 0, expired: 0, hidden: 0 });
+    expect(await run()).toEqual({ reminded: 0, graced: 0, expired: 0, hidden: 0, trialEnded: 0 });
   });
 
   it('keeps processing the other users when one fails', async () => {
@@ -209,5 +209,82 @@ describe('robustness', () => {
       .mockResolvedValue([]);
     mockNotify.mockRejectedValueOnce(new Error('boom')).mockResolvedValue({} as never);
     expect((await run()).reminded).toBe(1);
+  });
+});
+
+describe('trial', () => {
+  // Answers the two trial queries like the database would: the reminder one
+  // (end in (now, now+3d]) and the elapsed one (end <= now).
+  const trialRows = (rows: { userId: string; currentPeriodEnd: Date }[]) =>
+    prismaMock.subscription.findMany.mockImplementation((async (a: {
+      where: { status?: unknown; currentPeriodEnd?: { gt?: Date; lte?: Date } };
+    }) => {
+      if (a.where.status !== 'TRIAL') return [];
+      const range = a.where.currentPeriodEnd ?? {};
+      return rows.filter((r) => {
+        const t = r.currentPeriodEnd.getTime();
+        return (
+          (range.gt ? t > range.gt.getTime() : true) &&
+          (range.lte ? t <= range.lte.getTime() : true)
+        );
+      });
+    }) as never);
+
+  it('reminds a trial ending within 3 days, once per trial', async () => {
+    trialRows([{ userId: 'a', currentPeriodEnd: at(2) }]);
+    const r = await run();
+    expect(r.reminded).toBe(1);
+    expect(mockNotify.mock.calls.map((c) => c[1].dedupeKey)).toContain(
+      `trial-reminder:a:${at(2).toISOString()}`,
+    );
+  });
+
+  it('asks only for trials ending within 3 days for the reminder', async () => {
+    trialRows([]);
+    await run();
+    const wheres = prismaMock.subscription.findMany.mock.calls
+      .map((c) => c[0]!.where as Record<string, unknown>)
+      .filter((w) => w.status === 'TRIAL');
+    expect(
+      wheres.some(
+        (w) => JSON.stringify(w.currentPeriodEnd) === JSON.stringify({ gt: now, lte: at(3) }),
+      ),
+    ).toBe(true);
+  });
+
+  it('ends an elapsed trial: FREE/EXPIRED, excess listings and alerts removed, notified', async () => {
+    trialRows([{ userId: 'a', currentPeriodEnd: at(-0.5) }]);
+    prismaMock.subscription.updateMany.mockResolvedValue({ count: 1 });
+    mockHide.mockResolvedValue(4);
+    mockDisable.mockResolvedValue(6);
+    const r = await run();
+    expect(r.trialEnded).toBe(1);
+    expect(prismaMock.subscription.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'a', status: 'TRIAL', currentPeriodEnd: { lte: now } },
+      data: { planKey: 'FREE', status: 'EXPIRED' },
+    });
+    expect(mockHide).toHaveBeenCalledWith(expect.anything(), 'a', 5);
+    expect(mockDisable).toHaveBeenCalledWith(expect.anything(), 'a', DEFAULT_PRICING, 'FREE');
+    expect(mockNotify.mock.calls.map((c) => c[1].dedupeKey)).toContain(
+      `trial-ended:a:${at(-0.5).toISOString()}`,
+    );
+  });
+
+  it('is idempotent: a trial already ended by another run changes nothing', async () => {
+    trialRows([{ userId: 'a', currentPeriodEnd: at(-1) }]);
+    prismaMock.subscription.updateMany.mockResolvedValue({ count: 0 });
+    const r = await run();
+    expect(r.trialEnded).toBe(0);
+    expect(mockHide).not.toHaveBeenCalled();
+    expect(mockNotify).not.toHaveBeenCalled();
+  });
+
+  it('takes the listing lock before the alert lock', async () => {
+    trialRows([{ userId: 'a', currentPeriodEnd: at(-1) }]);
+    prismaMock.subscription.updateMany.mockResolvedValue({ count: 1 });
+    await run();
+    expect(mockLock.mock.invocationCallOrder.at(-1)!).toBeLessThan(
+      mockAlertLock.mock.invocationCallOrder.at(-1)!,
+    );
   });
 });
