@@ -2,6 +2,11 @@
 import { prismaMock } from '@/test-utils/prisma-mock';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+vi.mock('@/lib/server/public/boosted', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/server/public/boosted')>()),
+  pickPinnedIds: vi.fn().mockResolvedValue([]),
+}));
+
 import { GET } from './route';
 
 function makeRow(overrides: Record<string, unknown> = {}) {
@@ -164,6 +169,7 @@ describe('GET /api/public/listings', () => {
         createdAt: '2026-08-01T00:00:00.000Z',
         primaryPhotoUrl: 'https://example.com/photo.jpg',
         photoCount: 3,
+        boosted: false,
         agent: { name: 'Kofi Atta', avatarUrl: null, seed: 'user-1', verified: false },
       },
     ]);

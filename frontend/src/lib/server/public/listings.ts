@@ -7,6 +7,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/server/prisma';
 import { LISTINGS_PAGE_SIZE } from '@/lib/listings';
 import { verifiedAgentIds } from '@/lib/server/public/agent-verification';
+import { pageWindow, pickPinnedIds } from '@/lib/server/public/boosted';
 
 export const DEFAULT_LIMIT = LISTINGS_PAGE_SIZE;
 const MAX_LIMIT = 24;
@@ -38,6 +39,8 @@ export interface PublicListingItem {
   createdAt: string;
   primaryPhotoUrl: string | null;
   photoCount: number;
+  /** Pinned at the top of page 1 because the owner boosted the listing. */
+  boosted: boolean;
   /** `verified`: all of the agent's required legal documents are validated. */
   agent: { name: string | null; avatarUrl: string | null; seed: string; verified: boolean };
 }
@@ -144,37 +147,53 @@ export async function searchPublicListings(q: ListingSearch): Promise<PublicList
   }
 
   const baseWhere = buildWhere();
+  const now = new Date();
+  const pinnedIds = await pickPinnedIds(baseWhere, now, limit);
+  const win = pageWindow(page, limit, pinnedIds.length);
+  const restWhere: Prisma.ListingWhereInput =
+    pinnedIds.length > 0 ? { ...baseWhere, id: { notIn: pinnedIds } } : baseWhere;
 
-  const [rows, total, countryFacet, propertyTypeFacet, transactionTypeFacet] = await Promise.all([
-    prisma.listing.findMany({
-      where: baseWhere,
-      orderBy: SORT_ORDER_BY[q.sort],
-      skip: (page - 1) * limit,
-      take: limit,
-      select: LISTING_SELECT,
-    }),
-    prisma.listing.count({ where: baseWhere }),
-    prisma.listing.groupBy({
-      by: ['country'],
-      where: buildWhere('country'),
-      _count: { _all: true },
-      _min: { price: true },
-    }),
-    prisma.listing.groupBy({
-      by: ['propertyType'],
-      where: buildWhere('propertyType'),
-      _count: { _all: true },
-    }),
-    prisma.listing.groupBy({
-      by: ['transactionType'],
-      where: buildWhere('transactionType'),
-      _count: { _all: true },
-    }),
-  ]);
+  const [rows, pinnedRows, total, countryFacet, propertyTypeFacet, transactionTypeFacet] =
+    await Promise.all([
+      prisma.listing.findMany({
+        where: restWhere,
+        orderBy: SORT_ORDER_BY[q.sort],
+        skip: win.skip,
+        take: win.take,
+        select: LISTING_SELECT,
+      }),
+      // Pinned listings only appear on page 1; later pages just exclude them.
+      page === 1 && pinnedIds.length > 0
+        ? prisma.listing.findMany({
+            where: { id: { in: pinnedIds } },
+            select: LISTING_SELECT,
+          })
+        : Promise.resolve([]),
+      prisma.listing.count({ where: baseWhere }),
+      prisma.listing.groupBy({
+        by: ['country'],
+        where: buildWhere('country'),
+        _count: { _all: true },
+        _min: { price: true },
+      }),
+      prisma.listing.groupBy({
+        by: ['propertyType'],
+        where: buildWhere('propertyType'),
+        _count: { _all: true },
+      }),
+      prisma.listing.groupBy({
+        by: ['transactionType'],
+        where: buildWhere('transactionType'),
+        _count: { _all: true },
+      }),
+    ]);
 
-  const verifiedAgents = await verifiedAgentIds(rows.map((r) => r.user.id));
+  const pinnedOrdered = pinnedIds
+    .map((id) => pinnedRows.find((r) => r.id === id))
+    .filter((r): r is NonNullable<typeof r> => r !== undefined);
+  const verifiedAgents = await verifiedAgentIds([...pinnedOrdered, ...rows].map((r) => r.user.id));
 
-  const items = rows.map((r) => ({
+  const toItem = (r: (typeof rows)[number], boosted: boolean): PublicListingItem => ({
     id: r.id,
     title: r.title,
     city: r.city,
@@ -189,13 +208,18 @@ export async function searchPublicListings(q: ListingSearch): Promise<PublicList
     createdAt: new Date(r.createdAt).toISOString(),
     primaryPhotoUrl: r.photos[0]?.url ?? null,
     photoCount: r._count.photos,
+    boosted,
     agent: {
       name: r.user.name,
       avatarUrl: r.user.avatarUrl,
       seed: r.user.id,
       verified: verifiedAgents.has(r.user.id),
     },
-  }));
+  });
+  const items = [
+    ...pinnedOrdered.map((r) => toItem(r, true)),
+    ...rows.map((r) => toItem(r, false)),
+  ];
 
   const toFacet = (rows: { _count: { _all: number } }[], key: string) =>
     rows

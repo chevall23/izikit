@@ -5,6 +5,7 @@ import 'server-only';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/server/prisma';
 import { verifiedAgentIds } from '@/lib/server/public/agent-verification';
+import { pageWindow, pickPinnedIds } from '@/lib/server/public/boosted';
 import { listingSearchHeading, slugify } from '@/lib/seo/listing';
 import {
   COUNTRY_BY_SLUG,
@@ -47,32 +48,42 @@ export async function resolveCitySlug(country: string, citySlug: string): Promis
   return cities.find((c) => slugify(c.city) === citySlug)?.city ?? null;
 }
 
+const LANDING_SELECT = {
+  id: true,
+  title: true,
+  city: true,
+  country: true,
+  propertyType: true,
+  transactionType: true,
+  price: true,
+  currency: true,
+  bedrooms: true,
+  bathrooms: true,
+  surfaceM2: true,
+  createdAt: true,
+  photos: { where: { isPrimary: true }, take: 1, select: { url: true } },
+  _count: { select: { photos: true } },
+  user: { select: { id: true, name: true, avatarUrl: true } },
+} as const;
+
 export async function loadLanding(f: LandingFilter, page: number) {
   const w = where(f);
-  const [rows, total, cities, types, transactions] = await Promise.all([
+  const pinnedIds = await pickPinnedIds(w, new Date(), LANDING_PAGE_SIZE);
+  const win = pageWindow(page, LANDING_PAGE_SIZE, pinnedIds.length);
+  const restWhere: Prisma.ListingWhereInput =
+    pinnedIds.length > 0 ? { ...w, id: { notIn: pinnedIds } } : w;
+  const [rows, pinnedRows, total, cities, types, transactions] = await Promise.all([
     prisma.listing.findMany({
-      where: w,
+      where: restWhere,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      skip: (page - 1) * LANDING_PAGE_SIZE,
-      take: LANDING_PAGE_SIZE,
-      select: {
-        id: true,
-        title: true,
-        city: true,
-        country: true,
-        propertyType: true,
-        transactionType: true,
-        price: true,
-        currency: true,
-        bedrooms: true,
-        bathrooms: true,
-        surfaceM2: true,
-        createdAt: true,
-        photos: { where: { isPrimary: true }, take: 1, select: { url: true } },
-        _count: { select: { photos: true } },
-        user: { select: { id: true, name: true, avatarUrl: true } },
-      },
+      skip: win.skip,
+      take: win.take,
+      select: LANDING_SELECT,
     }),
+    // Pinned listings only appear on page 1; later pages just exclude them.
+    page === 1 && pinnedIds.length > 0
+      ? prisma.listing.findMany({ where: { id: { in: pinnedIds } }, select: LANDING_SELECT })
+      : Promise.resolve([]),
     prisma.listing.count({ where: w }),
     // Internal-linking facets: sibling cities (same country + offer),
     // and the types / transactions available at this location.
@@ -95,9 +106,12 @@ export async function loadLanding(f: LandingFilter, page: number) {
     }),
   ]);
 
-  const verifiedAgents = await verifiedAgentIds(rows.map((r) => r.user.id));
+  const pinnedOrdered = pinnedIds
+    .map((id) => pinnedRows.find((r) => r.id === id))
+    .filter((r): r is NonNullable<typeof r> => r !== undefined);
+  const verifiedAgents = await verifiedAgentIds([...pinnedOrdered, ...rows].map((r) => r.user.id));
 
-  const items: PublicListingItem[] = rows.map((r) => ({
+  const toItem = (r: (typeof rows)[number], boosted: boolean): PublicListingItem => ({
     id: r.id,
     title: r.title,
     city: r.city,
@@ -112,13 +126,18 @@ export async function loadLanding(f: LandingFilter, page: number) {
     createdAt: r.createdAt.toISOString(),
     primaryPhotoUrl: r.photos[0]?.url ?? null,
     photoCount: r._count.photos,
+    boosted,
     agent: {
       name: r.user.name,
       avatarUrl: r.user.avatarUrl,
       seed: r.user.id,
       verified: verifiedAgents.has(r.user.id),
     },
-  }));
+  });
+  const items: PublicListingItem[] = [
+    ...pinnedOrdered.map((r) => toItem(r, true)),
+    ...rows.map((r) => toItem(r, false)),
+  ];
 
   return {
     items,
