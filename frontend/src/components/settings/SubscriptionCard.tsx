@@ -10,7 +10,15 @@ import {
   SUBSCRIPTION_CURRENCY,
   type PlanKey,
 } from '@/lib/subscription-plans';
-import { listingsQuotaLabel, planMaxListings, planPriceFcfa } from '@/lib/pricing';
+import {
+  alertsQuotaLabel,
+  listingsQuotaLabel,
+  planMaxAlerts,
+  planMaxListings,
+  planMonthlyTokens,
+  planPriceFcfa,
+  tokensPerMonthLabel,
+} from '@/lib/pricing';
 import { usePricing } from '@/lib/use-pricing';
 import { getRenewalState } from '@/lib/subscription-renewal';
 import { PasswordConfirmModal } from './PasswordConfirmModal';
@@ -167,8 +175,14 @@ export function SubscriptionCard() {
                 {planPriceFcfa(pricing, plan.key) === 0 ? 'À vie' : 'par mois'}
               </p>
               <ul className="mb-5 flex flex-col gap-2">
-                {[listingsQuotaLabel(planMaxListings(pricing, plan.key)), ...plan.features].map(
-                  (feature) => (
+                {[
+                  listingsQuotaLabel(planMaxListings(pricing, plan.key)),
+                  tokensPerMonthLabel(planMonthlyTokens(pricing, plan.key)),
+                  alertsQuotaLabel(planMaxAlerts(pricing, plan.key)),
+                  ...plan.features,
+                ]
+                  .filter((feature): feature is string => feature !== null)
+                  .map((feature) => (
                     <li
                       key={feature}
                       className="flex items-center gap-2 text-[12.5px] text-neutral-700"
@@ -178,8 +192,7 @@ export function SubscriptionCard() {
                       </span>
                       {feature}
                     </li>
-                  ),
-                )}
+                  ))}
               </ul>
               <button
                 type="button"
