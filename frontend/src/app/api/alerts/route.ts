@@ -19,6 +19,8 @@ import { prisma } from '@/lib/server/prisma';
 import { clampLimit, cursorWhere, decodeCursor, buildPage } from '@/lib/server/pagination/paginate';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { runMatchingForNewAlert } from '@/lib/server/alerts/matching';
+import { checkAlertQuota, lockUserAlertQuota } from '@/lib/server/alerts/quota';
+import { getPricing } from '@/lib/server/pricing';
 import { createLogger } from '@/lib/server/logger';
 
 const log = createLogger();
@@ -144,23 +146,44 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    const alert = await prisma.alert.create({
-      data: {
-        userId: auth.user.sub,
-        name: data.name,
-        transactionType: data.transactionType,
-        propertyTypes: data.propertyTypes,
-        country: data.country,
-        cities: data.cities,
-        priceMin: data.priceMin ?? null,
-        priceMax: data.priceMax ?? null,
-        frequency: data.frequency,
-        notifWhatsapp: data.notifWhatsapp,
-        notifEmail: data.notifEmail,
-        notifSms: data.notifSms,
-      },
-      select: { id: true, name: true, active: true, createdAt: true },
+    // The count and the insert must be atomic per user (same advisory-lock pattern
+    // as listing publication), so parallel creates cannot both pass at limit-1.
+    const pricing = await getPricing();
+    const outcome = await prisma.$transaction(async (tx) => {
+      await lockUserAlertQuota(tx, auth.user.sub);
+      const quota = await checkAlertQuota(tx, auth.user.sub, pricing);
+      if (!quota.allowed) return { quota } as const;
+      const created = await tx.alert.create({
+        data: {
+          userId: auth.user.sub,
+          name: data.name,
+          transactionType: data.transactionType,
+          propertyTypes: data.propertyTypes,
+          country: data.country,
+          cities: data.cities,
+          priceMin: data.priceMin ?? null,
+          priceMax: data.priceMax ?? null,
+          frequency: data.frequency,
+          notifWhatsapp: data.notifWhatsapp,
+          notifEmail: data.notifEmail,
+          notifSms: data.notifSms,
+        },
+        select: { id: true, name: true, active: true, createdAt: true },
+      });
+      return { alert: created } as const;
     });
+    if ('quota' in outcome) {
+      return NextResponse.json(
+        {
+          error: 'ALERT_QUOTA_REACHED',
+          message: "Limite d'alertes atteinte pour votre plan.",
+          planKey: outcome.quota.planKey,
+          limit: outcome.quota.limit,
+        },
+        { status: 403, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
+    const alert = outcome.alert;
 
     try {
       await runMatchingForNewAlert(prisma, {

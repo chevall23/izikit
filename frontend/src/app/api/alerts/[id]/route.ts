@@ -21,6 +21,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
+import { checkAlertQuota, lockUserAlertQuota } from '@/lib/server/alerts/quota';
+import { getPricing } from '@/lib/server/pricing';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
@@ -122,7 +124,10 @@ export async function PATCH(
       );
     }
 
-    const existing = await prisma.alert.findUnique({ where: { id }, select: { userId: true } });
+    const existing = await prisma.alert.findUnique({
+      where: { id },
+      select: { userId: true, active: true },
+    });
     if (!existing || existing.userId !== auth.user.sub) {
       return NextResponse.json(
         { error: 'ALERT_NOT_FOUND', message: 'Alert not found' },
@@ -130,11 +135,40 @@ export async function PATCH(
       );
     }
 
-    const alert = await prisma.alert.update({
-      where: { id },
-      data: { active: parsed.data.active },
-      select: ALERT_SELECT,
-    });
+    let alert;
+    if (parsed.data.active === true && !existing.active) {
+      // Reactivation counts against the plan, atomically per user.
+      const pricing = await getPricing();
+      const outcome = await prisma.$transaction(async (tx) => {
+        await lockUserAlertQuota(tx, auth.user.sub);
+        const quota = await checkAlertQuota(tx, auth.user.sub, pricing, { excludeAlertId: id });
+        if (!quota.allowed) return { quota } as const;
+        const row = await tx.alert.update({
+          where: { id },
+          data: { active: true },
+          select: ALERT_SELECT,
+        });
+        return { alert: row } as const;
+      });
+      if ('quota' in outcome) {
+        return NextResponse.json(
+          {
+            error: 'ALERT_QUOTA_REACHED',
+            message: "Limite d'alertes atteinte pour votre plan.",
+            planKey: outcome.quota.planKey,
+            limit: outcome.quota.limit,
+          },
+          { status: 403, headers: { 'x-request-id': reqCtx.requestId } },
+        );
+      }
+      alert = outcome.alert;
+    } else {
+      alert = await prisma.alert.update({
+        where: { id },
+        data: { active: parsed.data.active },
+        select: ALERT_SELECT,
+      });
+    }
 
     return NextResponse.json(
       { alert },
