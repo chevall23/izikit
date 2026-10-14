@@ -6,6 +6,7 @@
 
 export const PLAN_KEYS = ['FREE', 'PRO_AGENT', 'AGENCY_PREMIUM'] as const;
 export type PlanKey = (typeof PLAN_KEYS)[number];
+export type StatsLevel = 'BASIC' | 'FULL' | 'ADVANCED';
 
 export interface PlanDefinition {
   key: PlanKey;
@@ -16,6 +17,7 @@ export interface PlanDefinition {
   monthlyTokens: number; // tokens granted on every paid subscription period
   includedBoosts: number; // 7-day boosts included per period (consumed by phase 1B)
   maxAlerts: number | null; // active sector alerts for agent accounts; null = unlimited
+  statsLevel: StatsLevel; // what /statistiques shows and allows (see lib/server/stats/level.ts)
   // Static perks only — the listing-quota line is generated from the live
   // pricing (see listingsQuotaLabel in lib/pricing.ts).
   features: string[];
@@ -33,6 +35,7 @@ export const PLAN_CATALOG: Record<PlanKey, PlanDefinition> = {
     monthlyTokens: 0,
     includedBoosts: 0,
     maxAlerts: 0,
+    statsLevel: 'BASIC',
     features: ['Statistiques basiques'],
   },
   PRO_AGENT: {
@@ -44,6 +47,7 @@ export const PLAN_CATALOG: Record<PlanKey, PlanDefinition> = {
     monthlyTokens: 10,
     includedBoosts: 1,
     maxAlerts: 10,
+    statsLevel: 'FULL',
     features: ['Statistiques complètes'],
   },
   AGENCY_PREMIUM: {
@@ -55,6 +59,7 @@ export const PLAN_CATALOG: Record<PlanKey, PlanDefinition> = {
     monthlyTokens: 40,
     includedBoosts: 4,
     maxAlerts: null,
+    statsLevel: 'ADVANCED',
     features: ['Statistiques avancées'],
   },
 };
