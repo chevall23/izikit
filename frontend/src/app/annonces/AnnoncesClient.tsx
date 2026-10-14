@@ -804,6 +804,11 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
                             listing.transactionType}
                         </span>
                       </div>
+                      {listing.boosted && (
+                        <span className="absolute bottom-2.5 left-2.5 rounded-full bg-amber-500 px-2.5 py-1 text-[11px] font-bold whitespace-nowrap text-white">
+                          Sponsorisé
+                        </span>
+                      )}
                     </Link>
                     <div className="flex-1 p-4">
                       <p className="mb-1.5 text-[15px] leading-snug font-bold">{listing.title}</p>
@@ -875,6 +880,11 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
                             listing.transactionType}
                         </span>
                       </div>
+                      {listing.boosted && (
+                        <span className="absolute bottom-2.5 left-2.5 rounded-full bg-amber-500 px-2.5 py-1 text-[11px] font-bold whitespace-nowrap text-white">
+                          Sponsorisé
+                        </span>
+                      )}
                       <span className="absolute right-2.5 bottom-2.5 flex items-center gap-1 rounded-full bg-black/70 px-2 py-[3px] text-[11px] font-semibold whitespace-nowrap text-white">
                         <ImageIcon className="h-[11px] w-[11px]" aria-hidden />
                         {listing.photoCount}

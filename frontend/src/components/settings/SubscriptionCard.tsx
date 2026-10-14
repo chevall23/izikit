@@ -12,7 +12,9 @@ import {
 } from '@/lib/subscription-plans';
 import {
   alertsQuotaLabel,
+  boostsIncludedLabel,
   listingsQuotaLabel,
+  planIncludedBoosts,
   planMaxAlerts,
   planMaxListings,
   planMonthlyTokens,
@@ -178,6 +180,7 @@ export function SubscriptionCard() {
                 {[
                   listingsQuotaLabel(planMaxListings(pricing, plan.key)),
                   tokensPerMonthLabel(planMonthlyTokens(pricing, plan.key)),
+                  boostsIncludedLabel(planIncludedBoosts(pricing, plan.key)),
                   alertsQuotaLabel(planMaxAlerts(pricing, plan.key)),
                   ...plan.features,
                 ]

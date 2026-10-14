@@ -18,11 +18,13 @@ import {
   ChevronRight,
   Building2,
   Loader2,
+  Zap,
 } from 'lucide-react';
 import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { api, ApiError } from '@/lib/api';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
+import { BoostModal } from '@/components/listings/BoostModal';
 import {
   STATUS_LABEL,
   TRANSACTION_TYPE_LABEL,
@@ -79,6 +81,7 @@ export default function ListingsPage() {
   const { toast } = useToast();
 
   const [fetchedPages, setFetchedPages] = useState<Listing[][]>([]);
+  const [boostTarget, setBoostTarget] = useState<Listing | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
@@ -482,6 +485,20 @@ export default function ListingsPage() {
                               <Pencil className="h-[13px] w-[13px]" aria-hidden />
                             </Link>
                           )}
+                          {l.status === 'VERIFIED' && (
+                            <button
+                              type="button"
+                              title={
+                                l.boostedUntil && new Date(l.boostedUntil) > new Date()
+                                  ? `Boostée jusqu'au ${DATE_FORMATTER.format(new Date(l.boostedUntil))}`
+                                  : 'Booster l’annonce'
+                              }
+                              onClick={() => setBoostTarget(l)}
+                              className="flex h-[30px] w-[30px] items-center justify-center rounded-md border border-amber-200 text-amber-600 hover:bg-amber-50"
+                            >
+                              <Zap className="h-[13px] w-[13px]" aria-hidden />
+                            </button>
+                          )}
                           <button
                             type="button"
                             disabled={deletingId === l.id}
@@ -558,6 +575,22 @@ export default function ListingsPage() {
           </div>
         )}
       </div>
+      {boostTarget && (
+        <BoostModal
+          listingId={boostTarget.id}
+          listingTitle={boostTarget.title}
+          onClose={() => setBoostTarget(null)}
+          onBoosted={(boostedUntil) => {
+            setFetchedPages((prev) =>
+              prev.map((page) =>
+                page.map((row) => (row.id === boostTarget.id ? { ...row, boostedUntil } : row)),
+              ),
+            );
+            toast('Annonce boostée.', 'success');
+            setBoostTarget(null);
+          }}
+        />
+      )}
     </DashboardShell>
   );
 }

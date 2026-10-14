@@ -23,6 +23,7 @@ interface PublicListingItem {
   bathrooms: number | null;
   surfaceM2: number | null;
   primaryPhotoUrl: string | null;
+  boosted?: boolean;
   /** `verified`: the agent's required legal documents are all validated. */
   agent: { verified: boolean };
 }
@@ -163,6 +164,11 @@ export function FeaturedListingsSection({ initial }: { initial: PublicListingsRe
                       </div>
                     )}
                   </Link>
+                  {listing.boosted && (
+                    <span className="absolute bottom-2.5 left-2.5 rounded-full bg-amber-500 px-2.5 py-1 text-[11px] font-bold whitespace-nowrap text-white">
+                      Sponsorisé
+                    </span>
+                  )}
                   <div className="pointer-events-none absolute top-3.5 right-3.5 left-3.5 flex items-center justify-between gap-2">
                     {listing.agent.verified && (
                       <span className="rounded-full bg-emerald-500 px-2.5 py-1 text-[11px] font-bold whitespace-nowrap text-white">

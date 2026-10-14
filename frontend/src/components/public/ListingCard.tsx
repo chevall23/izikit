@@ -26,6 +26,11 @@ export function ListingCard({ listing }: { listing: PublicListingItem }) {
         <span className="absolute top-3 left-3 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-neutral-800">
           {TRANSACTION_TYPE_LABEL[listing.transactionType] ?? listing.transactionType}
         </span>
+        {listing.boosted && (
+          <span className="absolute bottom-2.5 left-2.5 rounded-full bg-amber-500 px-2.5 py-1 text-[11px] font-bold whitespace-nowrap text-white">
+            Sponsorisé
+          </span>
+        )}
       </Link>
       <div className="p-4">
         <p className="text-[11px] font-semibold tracking-[0.08em] text-brand uppercase">
