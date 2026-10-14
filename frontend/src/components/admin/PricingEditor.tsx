@@ -85,6 +85,13 @@ export function PricingEditor() {
     }));
   }
 
+  function setEntitlement(
+    key: (typeof PLAN_ROWS)[number]['key'],
+    patch: Partial<{ monthlyTokens: number; includedBoosts: number; maxAlerts: number | null }>,
+  ) {
+    setDraft((d) => ({ ...d, plans: { ...d.plans, [key]: { ...d.plans[key], ...patch } } }));
+  }
+
   function setPack(
     key: (typeof PACK_ROWS)[number]['key'],
     patch: Partial<{ tokens: number; discountPct: number }>,
@@ -120,7 +127,7 @@ export function PricingEditor() {
   return (
     <AdminSettingsSection
       title="Tarifs des abonnements et des jetons"
-      description="Prix des plans, quotas d'annonces actives, prix de base du jeton et remises des packs."
+      description="Prix des plans, quotas d'annonces, jetons offerts, boosts inclus, alertes, prix de base du jeton et remises des packs."
       footer={
         <AdminSettingsButton
           variant="primary"
@@ -133,19 +140,24 @@ export function PricingEditor() {
       }
     >
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] border-collapse text-left">
+        <table className="w-full min-w-[900px] border-collapse text-left">
           <thead>
             <tr className="bg-gray-50">
               <th className={TH_CLASS}>Plan</th>
               <th className={TH_CLASS}>Prix mensuel (FCFA)</th>
               <th className={TH_CLASS}>Annonces actives max</th>
               <th className={TH_CLASS}>Illimité</th>
+              <th className={TH_CLASS}>Jetons offerts / mois</th>
+              <th className={TH_CLASS}>Boosts 7 j inclus</th>
+              <th className={TH_CLASS}>Alertes max</th>
+              <th className={TH_CLASS}>Illimitées</th>
             </tr>
           </thead>
           <tbody>
             {PLAN_ROWS.map(({ key, label }) => {
               const plan = draft.plans[key];
               const unlimited = plan.maxActiveListings === null;
+              const alertsUnlimited = plan.maxAlerts === null;
               return (
                 <tr key={key} className="border-t border-black/[0.05]">
                   <td className="px-3.5 py-2.5 text-[13px] font-semibold whitespace-nowrap text-neutral-900">
@@ -176,6 +188,39 @@ export function PricingEditor() {
                       aria-label={`Annonces illimitées ${label}`}
                       checked={unlimited}
                       onChange={(e) => setQuota(key, e.target.checked ? null : 0)}
+                      className="h-4 w-4 accent-[var(--color-brand,currentColor)]"
+                    />
+                  </td>
+                  <td className="px-3.5 py-2.5">
+                    <NumberInput
+                      label={`Jetons offerts par mois ${label}`}
+                      value={plan.monthlyTokens}
+                      onChange={(n) => setEntitlement(key, { monthlyTokens: n })}
+                    />
+                  </td>
+                  <td className="px-3.5 py-2.5">
+                    <NumberInput
+                      label={`Boosts inclus ${label}`}
+                      value={plan.includedBoosts}
+                      onChange={(n) => setEntitlement(key, { includedBoosts: n })}
+                    />
+                  </td>
+                  <td className="px-3.5 py-2.5">
+                    <NumberInput
+                      label={`Alertes max ${label}`}
+                      value={plan.maxAlerts ?? 0}
+                      disabled={alertsUnlimited}
+                      onChange={(n) => setEntitlement(key, { maxAlerts: n })}
+                    />
+                  </td>
+                  <td className="px-3.5 py-2.5">
+                    <input
+                      type="checkbox"
+                      aria-label={`Alertes illimitées ${label}`}
+                      checked={alertsUnlimited}
+                      onChange={(e) =>
+                        setEntitlement(key, { maxAlerts: e.target.checked ? null : 0 })
+                      }
                       className="h-4 w-4 accent-[var(--color-brand,currentColor)]"
                     />
                   </td>
