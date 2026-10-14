@@ -11,6 +11,7 @@ import {
   Coins,
   BarChart2,
   LifeBuoy,
+  Target,
 } from 'lucide-react';
 
 export type NavKey =
@@ -23,6 +24,7 @@ export type NavKey =
   | 'contacts'
   | 'visits'
   | 'tokens'
+  | 'leads'
   | 'stats'
   | 'help';
 
@@ -57,6 +59,7 @@ export const NAV_GROUPS: { label: string; items: NavEntry[] }[] = [
     items: [
       { key: 'stats', label: 'Statistiques', icon: BarChart2, href: '/statistiques' },
       { key: 'tokens', label: 'Jetons & visites VR', icon: Coins, href: '/jetons' },
+      { key: 'leads', label: 'Leads acheteurs', icon: Target, href: '/leads' },
     ],
   },
   {

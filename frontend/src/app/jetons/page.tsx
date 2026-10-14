@@ -26,7 +26,7 @@ import {
 import { customTokenPriceFcfa, tokenPackPriceFcfa, tokenPackTokens } from '@/lib/pricing';
 import { usePricing } from '@/lib/use-pricing';
 
-type TxType = 'achat' | 'utilisation' | 'bonus';
+type TxType = 'achat' | 'utilisation' | 'bonus' | 'remboursement';
 
 interface Transaction {
   id: string;
@@ -40,6 +40,7 @@ interface Transaction {
 function mapTxType(apiType: string): TxType {
   if (apiType === 'PURCHASE') return 'achat';
   if (apiType === 'USAGE') return 'utilisation';
+  if (apiType === 'REFUND') return 'remboursement';
   return 'bonus';
 }
 
@@ -47,6 +48,11 @@ const TX_STYLE: Record<TxType, { label: string; className: string; icon: typeof 
   achat: { label: 'Achat', className: 'bg-emerald-50 text-emerald-700', icon: ArrowUpRight },
   utilisation: { label: 'Utilisation', className: 'bg-red-50 text-red-600', icon: ArrowDownRight },
   bonus: { label: 'Bonus', className: 'bg-brand/10 text-brand', icon: Gift },
+  remboursement: {
+    label: 'Remboursement',
+    className: 'bg-emerald-50 text-emerald-700',
+    icon: ArrowUpRight,
+  },
 };
 
 export default function JetonsPage() {
