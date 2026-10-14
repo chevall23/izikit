@@ -84,22 +84,23 @@ model User {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  verificationCodes VerificationCode[]
-  uploads           FileUpload[]
-  legalDocuments    LegalDocument[]
-  subscription      Subscription?
-  notifications     Notification[]
-  notifPrefs        NotificationPreferences?
-  orders            Order[]
-  withdrawals       Withdrawal[]
-  oauthAccounts     OAuthAccount[]
-  adminActions      AdminAction[]
-  listings          Listing[]                @relation("ListingOwner")
-  moderatedListings Listing[]                @relation("ListingModerator")
-  propertyRequests  PropertyRequest[]
-  alerts            Alert[]
-  tokenWallet       TokenWallet?
-  tokenTransactions TokenTransaction[]
+  verificationCodes        VerificationCode[]
+  uploads                  FileUpload[]
+  legalDocuments           LegalDocument[]
+  subscription             Subscription?
+  notifications            Notification[]
+  notifPrefs               NotificationPreferences?
+  orders                   Order[]
+  withdrawals              Withdrawal[]
+  oauthAccounts            OAuthAccount[]
+  adminActions             AdminAction[]
+  listings                 Listing[]                 @relation("ListingOwner")
+  moderatedListings        Listing[]                 @relation("ListingModerator")
+  propertyRequests         PropertyRequest[]
+  alerts                   Alert[]
+  tokenWallet              TokenWallet?
+  boosts                   Boost[]
+  tokenTransactions        TokenTransaction[]
   paymentMethodPreferences PaymentMethodPreference[]
 
   // Multi-tenancy is opt-in per project: by default no resource is org-scoped.
@@ -374,6 +375,7 @@ model Subscription {
   status           String    @default("ACTIVE") // ACTIVE | GRACE | EXPIRED | CANCELED
   currentPeriodEnd DateTime?
   canceledAt       DateTime?
+  boostCredits     Int       @default(0) // included 7-day boosts left, credited on payment
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -614,8 +616,11 @@ model Listing {
   inquiries ListingInquiry[]
   reports   ListingReport[]
   views     ListingView[]
+  boosts    Boost[]
 
   viewCount Int @default(0)
+
+  boostedUntil DateTime? // end of the latest boost; ranking pins the listing while in the future
 
   // Identifiant de l'ancien site — voir scripts/legacy-import/. null si créé ici.
   legacyId String? @unique
@@ -626,6 +631,27 @@ model Listing {
   @@index([userId, createdAt])
   @@index([status])
   @@index([status, createdAt])
+  @@index([status, boostedUntil])
+}
+
+// One row per purchased boost (history/audit). The live ranking reads the
+// denormalised Listing.boostedUntil; a boost simply stops mattering once it
+// is in the past or the listing leaves VERIFIED.
+model Boost {
+  id          String   @id @default(cuid())
+  listingId   String
+  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startsAt    DateTime
+  endsAt      DateTime
+  days        Int // 7 | 15 | 30
+  source      String // TOKENS | INCLUDED
+  tokensSpent Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([listingId, endsAt])
+  @@index([userId, createdAt])
 }
 
 // One row per successful public-detail-page view — written best-effort
@@ -773,9 +799,9 @@ model PropertyRequest {
   // Fiabilité de la demande (voir lib/server/requests/trust.ts). Une demande
   // REVIEW ou REJECTED n'est jamais proposée aux agents (correspondance avec
   // les alertes, liste publique) tant qu'un admin ne l'a pas approuvée.
-  trustStatus   String @default("TRUSTED") // TRUSTED | REVIEW | REJECTED
-  trustScore    Int    @default(100) // 0–100
-  trustFlags    Json   @default("[]") // string[] — signaux détectés
+  trustStatus    String  @default("TRUSTED") // TRUSTED | REVIEW | REJECTED
+  trustScore     Int     @default(100) // 0–100
+  trustFlags     Json    @default("[]") // string[] — signaux détectés
   // 8 derniers chiffres du téléphone, pour détecter les doublons / le spam.
   clientPhoneKey String?
 
