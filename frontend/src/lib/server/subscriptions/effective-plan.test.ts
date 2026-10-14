@@ -77,3 +77,27 @@ describe('getEffectivePlanKey', () => {
     ).toBe('FREE');
   });
 });
+
+describe('getEffectivePlanKey — trial', () => {
+  const trial = (offsetMs: number) => ({
+    planKey: 'PRO_AGENT',
+    status: 'TRIAL',
+    currentPeriodEnd: end(offsetMs),
+  });
+
+  it('gives the trial plan until the end of the trial, boundary included', () => {
+    expect(getEffectivePlanKey(trial(DAY), now)).toBe('PRO_AGENT');
+    expect(getEffectivePlanKey(trial(0), now)).toBe('PRO_AGENT');
+  });
+
+  it('has no grace window: FREE right after the trial end, even if the cron is late', () => {
+    expect(getEffectivePlanKey(trial(-1), now)).toBe('FREE');
+    expect(getEffectivePlanKey(trial(-DAY), now)).toBe('FREE');
+  });
+
+  it('a trial without an end date is not a free pass', () => {
+    expect(
+      getEffectivePlanKey({ planKey: 'PRO_AGENT', status: 'TRIAL', currentPeriodEnd: null }, now),
+    ).toBe('FREE');
+  });
+});

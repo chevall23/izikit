@@ -14,6 +14,12 @@ export interface SubscriptionLike {
 export function getEffectivePlanKey(sub: SubscriptionLike | null, now: Date): PlanKey {
   if (!sub || !isPlanKey(sub.planKey) || sub.planKey === 'FREE') return 'FREE';
   if (sub.status === 'EXPIRED') return 'FREE';
+  // A trial has a hard end: no grace window, and no end date means no trial.
+  if (sub.status === 'TRIAL') {
+    return sub.currentPeriodEnd && now.getTime() <= sub.currentPeriodEnd.getTime()
+      ? sub.planKey
+      : 'FREE';
+  }
   const end = sub.currentPeriodEnd;
   if (!end) return sub.planKey; // no period (manual grant): never lapses by itself
   if (sub.status === 'CANCELED') return now.getTime() <= end.getTime() ? sub.planKey : 'FREE';

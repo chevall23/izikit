@@ -373,9 +373,10 @@ model Subscription {
   userId           String    @unique
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   planKey          String    @default("FREE") // FREE | PRO_AGENT | AGENCY_PREMIUM
-  status           String    @default("ACTIVE") // ACTIVE | GRACE | EXPIRED | CANCELED
+  status           String    @default("ACTIVE") // ACTIVE | GRACE | EXPIRED | CANCELED | TRIAL
   currentPeriodEnd DateTime?
   canceledAt       DateTime?
+  trialStartedAt   DateTime? // set once when the 14-day Pro trial is taken, kept after it ends
   boostCredits     Int       @default(0) // included 7-day boosts left, credited on payment
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
