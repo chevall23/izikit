@@ -118,6 +118,31 @@ describe('subscription renewal and reactivation', () => {
     );
   });
 
+  it('paying during a trial starts a full period from payment and keeps the trial marker', async () => {
+    subscriptionFindUnique.mockResolvedValue({
+      planKey: 'PRO_AGENT',
+      status: 'TRIAL',
+      currentPeriodEnd: at(5),
+    });
+    await fulfillPaidOrder(tx, subOrder('PRO_AGENT'));
+    const args = subscriptionUpsert.mock.calls[0]![0];
+    expect(args.update.status).toBe('ACTIVE');
+    expect(args.update.currentPeriodEnd).toEqual(at(30));
+    expect(args.update).not.toHaveProperty('trialStartedAt');
+  });
+
+  it('paying during a trial grants the plan tokens, keyed by the order', async () => {
+    subscriptionFindUnique.mockResolvedValue({
+      planKey: 'PRO_AGENT',
+      status: 'TRIAL',
+      currentPeriodEnd: at(5),
+    });
+    await fulfillPaidOrder(tx, subOrder('PRO_AGENT'));
+    expect(tokenTransactionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ type: 'BONUS', amount: 10, grantKey: 'plan:o1' }),
+    });
+  });
+
   it('starts from now after the grace period and clears canceledAt', async () => {
     subscriptionFindUnique.mockResolvedValue({
       planKey: 'PRO_AGENT',
