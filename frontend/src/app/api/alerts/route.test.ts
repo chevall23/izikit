@@ -89,13 +89,12 @@ describe('POST /api/alerts quota', () => {
     expect(prismaMock.alert.count).not.toHaveBeenCalled();
   });
 
-  it('lets a FREE seeker create up to 20, then refuses', async () => {
+  it('refuses a seeker with AGENT_ONLY, nothing created', async () => {
     prismaMock.user.findUnique.mockResolvedValue({ accountType: 'TENANT_BUYER' } as never);
-    prismaMock.alert.count.mockResolvedValue(19 as never);
-    expect((await POST(makePost())).status).toBe(201);
-    prismaMock.alert.count.mockResolvedValue(20 as never);
+    prismaMock.alert.count.mockResolvedValue(0 as never);
     const res = await POST(makePost());
     expect(res.status).toBe(403);
-    expect(await res.json()).toMatchObject({ limit: 20 });
+    expect((await res.json()).error).toBe('AGENT_ONLY');
+    expect(prismaMock.alert.create).not.toHaveBeenCalled();
   });
 });

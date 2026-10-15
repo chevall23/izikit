@@ -106,6 +106,20 @@ export default function AlertesPage() {
 
   if (!user) return null;
 
+  if (user.accountType !== 'OWNER_AGENT') {
+    return (
+      <DashboardShell active="alerts" searchPlaceholder="Rechercher une annonce, un contact…">
+        <h1 className="font-sora text-xl font-semibold text-neutral-900 lg:text-[22px]">
+          Alerte Secteur
+        </h1>
+        <p className="mt-2 max-w-xl text-[13.5px] text-gray-500">
+          Les alertes secteur sont réservées aux agents. Déposez simplement votre demande : les
+          agents de votre zone vous contacteront.
+        </p>
+      </DashboardShell>
+    );
+  }
+
   return (
     <DashboardShell active="alerts" searchPlaceholder="Rechercher une annonce, un contact…">
       {/* PAGE HEADER */}

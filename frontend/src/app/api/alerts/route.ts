@@ -19,7 +19,7 @@ import { prisma } from '@/lib/server/prisma';
 import { clampLimit, cursorWhere, decodeCursor, buildPage } from '@/lib/server/pagination/paginate';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { runMatchingForNewAlert } from '@/lib/server/alerts/matching';
-import { checkAlertQuota, lockUserAlertQuota } from '@/lib/server/alerts/quota';
+import { alertQuotaRefusal, checkAlertQuota, lockUserAlertQuota } from '@/lib/server/alerts/quota';
 import { getPricing } from '@/lib/server/pricing';
 import { createLogger } from '@/lib/server/logger';
 
@@ -173,15 +173,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return { alert: created } as const;
     });
     if ('quota' in outcome) {
-      return NextResponse.json(
-        {
-          error: 'ALERT_QUOTA_REACHED',
-          message: "Limite d'alertes atteinte pour votre plan.",
-          planKey: outcome.quota.planKey,
-          limit: outcome.quota.limit,
-        },
-        { status: 403, headers: { 'x-request-id': ctx.requestId } },
-      );
+      return NextResponse.json(alertQuotaRefusal(outcome.quota), {
+        status: 403,
+        headers: { 'x-request-id': ctx.requestId },
+      });
     }
     const alert = outcome.alert;
 

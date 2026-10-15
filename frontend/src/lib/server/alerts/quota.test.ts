@@ -1,7 +1,7 @@
 import { prismaMock } from '@/test-utils/prisma-mock';
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_PRICING } from '@/lib/pricing';
-import { checkAlertQuota, disableExcessAlerts, SEEKER_ALERT_CAP } from './quota';
+import { alertQuotaRefusal, checkAlertQuota, disableExcessAlerts, SEEKER_ALERT_CAP } from './quota';
 
 const now = new Date('2026-11-01T12:00:00Z');
 const agent = () =>
@@ -53,17 +53,24 @@ describe('checkAlertQuota', () => {
     expect(prismaMock.alert.count).not.toHaveBeenCalled();
   });
 
-  it('caps a seeker at 20 whatever the plan, so a FREE seeker can still create alerts', async () => {
+  it('a seeker never gets alerts, whatever the plan', async () => {
     seeker();
     noSub();
-    prismaMock.alert.count.mockResolvedValue(19);
-    expect(await checkAlertQuota(prismaMock, 'u1', DEFAULT_PRICING, { now })).toMatchObject({
-      allowed: true,
-      limit: SEEKER_ALERT_CAP,
-    });
-    prismaMock.alert.count.mockResolvedValue(20);
+    prismaMock.alert.count.mockResolvedValue(0);
     expect(await checkAlertQuota(prismaMock, 'u1', DEFAULT_PRICING, { now })).toMatchObject({
       allowed: false,
+      limit: SEEKER_ALERT_CAP,
+      agent: false,
+    });
+    expect(SEEKER_ALERT_CAP).toBe(0);
+  });
+
+  it('alertQuotaRefusal says AGENT_ONLY for a seeker and the plan limit for an agent', () => {
+    const base = { allowed: false, planKey: 'FREE' as const, limit: 0, used: 0 };
+    expect(alertQuotaRefusal({ ...base, agent: false }).error).toBe('AGENT_ONLY');
+    expect(alertQuotaRefusal({ ...base, agent: true })).toMatchObject({
+      error: 'ALERT_QUOTA_REACHED',
+      limit: 0,
     });
   });
 

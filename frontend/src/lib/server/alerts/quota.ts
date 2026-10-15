@@ -1,5 +1,6 @@
 // Sector-alert quota per effective plan. Only agent accounts (OWNER_AGENT) are
-// bound by the plan; seekers keep free alerts behind a fixed anti-abuse cap.
+// bound by the plan. Seekers only submit property requests (agents then contact
+// them): sector alerts are a prospecting tool for agents, so seekers get none.
 // Excess alerts are deactivated (active = false), never deleted — same spirit
 // as hiding listings (listings/quota.ts).
 import 'server-only';
@@ -9,7 +10,7 @@ import type { PlanKey } from '@/lib/subscription-plans';
 import type { TxClient } from '../withdrawals/lock';
 import { getEffectivePlanKey } from '../subscriptions/effective-plan';
 
-export const SEEKER_ALERT_CAP = 20;
+export const SEEKER_ALERT_CAP = 0;
 const AGENT_ACCOUNT_TYPE = 'OWNER_AGENT';
 
 /**
@@ -25,6 +26,24 @@ export interface AlertQuotaCheck {
   planKey: PlanKey;
   limit: number | null;
   used: number;
+  /** false for seeker accounts, which never get alerts whatever their plan. */
+  agent: boolean;
+}
+
+/** 403 body for a refused create/reactivate: AGENT_ONLY for seekers, else the plan limit. */
+export function alertQuotaRefusal(quota: AlertQuotaCheck) {
+  if (!quota.agent) {
+    return {
+      error: 'AGENT_ONLY',
+      message: 'Les alertes secteur sont réservées aux comptes agent.',
+    } as const;
+  }
+  return {
+    error: 'ALERT_QUOTA_REACHED',
+    message: "Limite d'alertes atteinte pour votre plan.",
+    planKey: quota.planKey,
+    limit: quota.limit,
+  } as const;
 }
 
 export async function checkAlertQuota(
@@ -40,9 +59,9 @@ export async function checkAlertQuota(
     select: { planKey: true, status: true, currentPeriodEnd: true },
   });
   const planKey = getEffectivePlanKey(sub, now);
-  const limit =
-    user?.accountType === AGENT_ACCOUNT_TYPE ? planMaxAlerts(pricing, planKey) : SEEKER_ALERT_CAP;
-  if (limit === null) return { allowed: true, planKey, limit, used: 0 };
+  const agent = user?.accountType === AGENT_ACCOUNT_TYPE;
+  const limit = agent ? planMaxAlerts(pricing, planKey) : SEEKER_ALERT_CAP;
+  if (limit === null) return { allowed: true, planKey, limit, used: 0, agent };
 
   const used = await db.alert.count({
     where: {
@@ -51,7 +70,7 @@ export async function checkAlertQuota(
       ...(opts.excludeAlertId ? { id: { not: opts.excludeAlertId } } : {}),
     },
   });
-  return { allowed: used < limit, planKey, limit, used };
+  return { allowed: used < limit, planKey, limit, used, agent };
 }
 
 export async function disableExcessAlerts(

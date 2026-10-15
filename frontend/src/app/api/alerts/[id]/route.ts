@@ -21,7 +21,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
-import { checkAlertQuota, lockUserAlertQuota } from '@/lib/server/alerts/quota';
+import { alertQuotaRefusal, checkAlertQuota, lockUserAlertQuota } from '@/lib/server/alerts/quota';
 import { getPricing } from '@/lib/server/pricing';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
@@ -150,15 +150,10 @@ export async function PATCH(
         return { alert: row } as const;
       });
       if ('quota' in outcome) {
-        return NextResponse.json(
-          {
-            error: 'ALERT_QUOTA_REACHED',
-            message: "Limite d'alertes atteinte pour votre plan.",
-            planKey: outcome.quota.planKey,
-            limit: outcome.quota.limit,
-          },
-          { status: 403, headers: { 'x-request-id': reqCtx.requestId } },
-        );
+        return NextResponse.json(alertQuotaRefusal(outcome.quota), {
+          status: 403,
+          headers: { 'x-request-id': reqCtx.requestId },
+        });
       }
       alert = outcome.alert;
     } else {
