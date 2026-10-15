@@ -52,8 +52,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       },
       select: {
         ...PREVIEW_SELECT,
+        // Any purchase row, refunded included: a refunded agent can never buy the same request again.
         _count: { select: { leadPurchases: { where: { status: 'ACTIVE' } } } },
-        leadPurchases: { where: { agentId, status: 'ACTIVE' }, select: { id: true } },
+        leadPurchases: { where: { agentId }, select: { id: true } },
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,

@@ -67,6 +67,11 @@ describe('GET /api/listings/stats/export', () => {
     expect(prismaMock.listingView.count).not.toHaveBeenCalled();
   });
 
+  it('400 on an inherited Object property used as period', async () => {
+    const res = await get('?period=constructor');
+    expect(res.status).toBe(400);
+  });
+
   it('400 on an unknown period', async () => {
     const res = await get('?period=bogus');
     expect(res.status).toBe(400);

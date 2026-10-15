@@ -116,6 +116,16 @@ describe('GET /api/leads', () => {
     expect(where).toMatchObject({ AND: expect.any(Array) });
   });
 
+  it('looks up the agent purchases whatever their status, so a refunded lead is not offered again', async () => {
+    prismaMock.propertyRequest.findMany.mockResolvedValue([row('a', 0, true)] as never);
+    const body = await (await get()).json();
+    expect(body.items[0].purchased).toBe(true);
+    const arg = prismaMock.propertyRequest.findMany.mock.calls[0]![0] as {
+      select: { leadPurchases: { where: unknown } };
+    };
+    expect(arg.select.leadPurchases.where).toEqual({ agentId: 'agent-1' });
+  });
+
   it('paginates with a cursor', async () => {
     prismaMock.propertyRequest.findMany.mockResolvedValue([
       row('a', 0, false, '2026-10-03T00:00:00Z'),

@@ -94,6 +94,20 @@ describe('POST /api/subscriptions/trial', () => {
     expect(prismaMock.tokenTransaction.create).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['already used a trial', { planKey: 'FREE', status: 'EXPIRED', trialStartedAt: new Date() }],
+    ['currently on trial', { planKey: 'PRO_AGENT', status: 'TRIAL', trialStartedAt: new Date() }],
+    ['paying subscriber', { planKey: 'PRO_AGENT', status: 'ACTIVE', trialStartedAt: null }],
+    ['expired after paying', { planKey: 'FREE', status: 'EXPIRED', trialStartedAt: null }],
+  ])('409 TRIAL_NOT_AVAILABLE for an agent who is %s, nothing written', async (_n, existing) => {
+    prismaMock.subscription.findUnique.mockResolvedValue(existing as never);
+    const res = await call();
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe('TRIAL_NOT_AVAILABLE');
+    expect(prismaMock.subscription.upsert).not.toHaveBeenCalled();
+    expect(mockReactivate).not.toHaveBeenCalled();
+  });
+
   it('reactivates hidden listings within the Pro quota', async () => {
     await call();
     expect(mockReactivate).toHaveBeenCalledWith(expect.anything(), 'u1', 30);

@@ -62,6 +62,7 @@ describe('pickPinnedIds', () => {
       expect.objectContaining({
         where: { status: 'VERIFIED', city: 'Cotonou', boostedUntil: { gt: now } },
         select: { id: true },
+        orderBy: { id: 'asc' },
       }),
     );
     expect([...out].sort()).toEqual(['a', 'b']);

@@ -55,6 +55,7 @@ export async function pickPinnedIds(
   const rows = await prisma.listing.findMany({
     where: { ...where, boostedUntil: { gt: now } },
     select: { id: true },
+    orderBy: { id: 'asc' },
     take: CANDIDATE_LIMIT,
   });
   return selectPinned(

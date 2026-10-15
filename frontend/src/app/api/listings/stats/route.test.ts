@@ -255,6 +255,12 @@ describe('levels', () => {
     expect((await GET(makeGet('?period=30j'))).status).toBe(200);
   });
 
+  it('an inherited Object property as period falls back to 30j', async () => {
+    asFree();
+    const body = await (await GET(makeGet('?period=constructor'))).json();
+    expect(body.period).toBe('30j');
+  });
+
   it('an unknown period falls back to 30j and is allowed for a free agent', async () => {
     asFree();
     expect((await GET(makeGet('?period=bogus'))).status).toBe(200);

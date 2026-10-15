@@ -259,6 +259,7 @@ describe('trial', () => {
     mockDisable.mockResolvedValue(6);
     const r = await run();
     expect(r.trialEnded).toBe(1);
+    expect(r.hidden).toBe(4);
     expect(prismaMock.subscription.updateMany).toHaveBeenCalledWith({
       where: { userId: 'a', status: 'TRIAL', currentPeriodEnd: { lte: now } },
       data: { planKey: 'FREE', status: 'EXPIRED' },

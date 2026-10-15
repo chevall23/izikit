@@ -34,11 +34,12 @@ const request = (over: Record<string, unknown> = {}) => ({
   notes: 'rappeler',
   ...over,
 });
-const call = () =>
+const call = (body?: unknown) =>
   POST(
     new NextRequest('http://test/api/leads/r1/purchase', {
       method: 'POST',
       headers: { 'x-csrf-token': 't' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     }),
     { params: Promise.resolve({ id: 'r1' }) },
   );
@@ -115,6 +116,18 @@ describe('POST /api/leads/[id]/purchase', () => {
     expect(prismaMock.tokenWallet.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { balance: { decrement: 5 } } }),
     );
+  });
+
+  it('409 PRICE_CHANGED when the price shown is not the current price, no debit', async () => {
+    const res = await call({ expectedPrice: 3 });
+    expect(res.status).toBe(201);
+    prismaMock.propertyRequest.findUnique.mockResolvedValue(
+      request({ priority: 'Urgent' }) as never,
+    );
+    const stale = await call({ expectedPrice: 3 });
+    expect(stale.status).toBe(409);
+    expect(await stale.json()).toMatchObject({ error: 'PRICE_CHANGED', price: 5 });
+    expect(prismaMock.tokenWallet.update).toHaveBeenCalledTimes(1);
   });
 
   it('422 INSUFFICIENT_TOKENS with required/balance, nothing written', async () => {

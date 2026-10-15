@@ -25,6 +25,12 @@ class LeadRefusal extends Error {
   }
 }
 
+class PriceChanged extends Error {
+  constructor(readonly price: number) {
+    super('PRICE_CHANGED');
+  }
+}
+
 class NotEnoughTokens extends Error {
   constructor(
     readonly required: number,
@@ -53,6 +59,9 @@ export async function POST(
     }
 
     const { id } = await ctx.params;
+    // The price the agent was shown. Optional: absent = accept the current price.
+    const body = (await req.json().catch(() => null)) as { expectedPrice?: unknown } | null;
+    const expectedPrice = typeof body?.expectedPrice === 'number' ? body.expectedPrice : null;
     const pricing = await getPricing();
 
     try {
@@ -108,6 +117,7 @@ export async function POST(
         }
 
         const cost = leadTokenCost(pricing, request.priority);
+        if (expectedPrice !== null && expectedPrice !== cost) throw new PriceChanged(cost);
         const before = await tx.tokenWallet.findUnique({
           where: { userId: agentId },
           select: { balance: true },
@@ -140,6 +150,16 @@ export async function POST(
 
       return NextResponse.json(result, { status: result.charged ? 201 : 200, headers });
     } catch (err) {
+      if (err instanceof PriceChanged) {
+        return NextResponse.json(
+          {
+            error: 'PRICE_CHANGED',
+            message: 'Le prix de ce lead a changé. Rouvrez la fenêtre d’achat.',
+            price: err.price,
+          },
+          { status: 409, headers },
+        );
+      }
       if (err instanceof NotEnoughTokens) {
         return NextResponse.json(
           {

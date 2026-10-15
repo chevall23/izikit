@@ -201,6 +201,7 @@ export async function runSubscriptionLifecycle(opts: {
           trialEndedNotification(sub.userId, outcome.hidden, end, outcome.alertsDisabled),
         );
         result.trialEnded++;
+        result.hidden += outcome.hidden;
       }
     } catch (err) {
       log.warn('trial end failed', { userId: sub.userId, error: String(err) });

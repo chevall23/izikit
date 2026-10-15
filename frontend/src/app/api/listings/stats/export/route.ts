@@ -31,7 +31,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
 
     const period = req.nextUrl.searchParams.get('period') ?? '30j';
-    const days = PERIOD_DAYS[period];
+    const days = Object.hasOwn(PERIOD_DAYS, period) ? PERIOD_DAYS[period] : undefined;
     if (!days) {
       return NextResponse.json(
         { error: 'VALIDATION_FAILED', message: 'Période invalide.' },

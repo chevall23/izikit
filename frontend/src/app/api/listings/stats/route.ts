@@ -28,7 +28,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const userId = auth.user.sub;
 
     const requested = req.nextUrl.searchParams.get('period') ?? '30j';
-    const periodParam = requested in PERIOD_DAYS ? requested : '30j';
+    const periodParam = Object.hasOwn(PERIOD_DAYS, requested) ? requested : '30j';
     const days = PERIOD_DAYS[periodParam]!;
     const level = await getStatsLevel(prisma, userId);
     if (!periodAllowed(level, periodParam)) {

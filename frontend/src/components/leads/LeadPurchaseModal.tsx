@@ -47,7 +47,7 @@ export function LeadPurchaseModal({ requestId, summary, price, onClose, onPurcha
     try {
       const res = await api<{ contact: LeadContact; tokenBalance: number }>(
         `/api/leads/${requestId}/purchase`,
-        { method: 'POST' },
+        { method: 'POST', body: { expectedPrice: price } },
       );
       onPurchased(res.contact, res.tokenBalance);
     } catch (err) {

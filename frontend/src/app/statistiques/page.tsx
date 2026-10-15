@@ -265,6 +265,14 @@ export default function StatistiquesPage() {
           {stats?.canExport ? (
             <a
               href={`/api/listings/stats/export?period=${period}`}
+              // A plain download cannot refresh an expired access token: renew the session first.
+              onClick={(e) => {
+                e.preventDefault();
+                const url = e.currentTarget.href;
+                api('/api/auth/me')
+                  .then(() => window.location.assign(url))
+                  .catch(() => toast('Session expirée, reconnectez-vous pour exporter.', 'error'));
+              }}
               className="flex items-center gap-1.5 rounded-lg border border-black/[0.08] px-4 py-2.5 text-[13px] font-medium text-neutral-800 hover:bg-gray-50"
             >
               <Download className="h-[14px] w-[14px]" aria-hidden />
