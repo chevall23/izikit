@@ -13,7 +13,7 @@
 
 export type PromptTrigger = 'timer' | 'empty-search' | 'listings-viewed' | 'exit-intent';
 
-export const PROMPT_TIMER_DELAY_MS = 10_000;
+export const PROMPT_TIMER_DELAY_MS = 60_000;
 export const PROMPT_EMPTY_SEARCH_DELAY_MS = 1_500;
 // Third listing page of the session: wait a little so it never lands on arrival.
 export const PROMPT_LISTINGS_VIEWED_DELAY_MS = 8_000;
