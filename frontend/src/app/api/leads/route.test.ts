@@ -11,6 +11,7 @@ vi.mock('@/lib/server/pricing', async () => {
 });
 
 import { requireAuth } from '@/lib/server/middleware';
+import { encodeCursor } from '@/lib/server/notifications/cursor';
 import { GET } from './route';
 
 const mockRequireAuth = vi.mocked(requireAuth);
@@ -63,21 +64,25 @@ describe('GET /api/leads', () => {
     await get('?country=Bénin&city=Cotonou');
     const arg = prismaMock.propertyRequest.findMany.mock.calls[0]![0]!;
     expect(arg.where).toMatchObject({
-      userId: null,
-      trustStatus: 'TRUSTED',
-      status: { not: 'CLOTUREE' },
-      createdAt: { gte: new Date('2026-11-01T00:00:00.000Z') },
-      country: 'Bénin',
-      city: 'Cotonou',
+      AND: [
+        {
+          userId: null,
+          trustStatus: 'TRUSTED',
+          status: { not: 'CLOTUREE' },
+          createdAt: { gte: new Date('2026-11-01T00:00:00.000Z') },
+        },
+        { country: 'Bénin', city: 'Cotonou' },
+        {},
+      ],
     });
   });
 
   it('lists nothing while the sale start date is unset', async () => {
     delete process.env.LEADS_SALE_FROM;
     await get();
-    expect(prismaMock.propertyRequest.findMany.mock.calls[0]![0]!.where).toMatchObject({
-      id: { in: [] },
-    });
+    expect(JSON.stringify(prismaMock.propertyRequest.findMany.mock.calls[0]![0]!.where)).toContain(
+      '"id":{"in":[]}',
+    );
   });
 
   it('exposes price, slots left and no contact data', async () => {
@@ -99,6 +104,16 @@ describe('GET /api/leads', () => {
     const body = await (await get()).json();
     expect(body.items.map((i: { id: string }) => i.id)).toEqual(['mine']);
     expect(body.items[0].purchased).toBe(true);
+  });
+
+  it('keeps the consent filter on the source when a cursor is given (page 2)', async () => {
+    const cursor = encodeCursor({ createdAt: new Date('2026-11-05T00:00:00Z'), id: 'c1' });
+    await get(`?cursor=${encodeURIComponent(cursor)}`);
+    const where = prismaMock.propertyRequest.findMany.mock.calls[0]![0]!.where!;
+    const json = JSON.stringify(where);
+    expect(json).toContain('ancien-site'); // the source exclusion survives
+    expect(json).toContain('"lt"'); // and so does the cursor
+    expect(where).toMatchObject({ AND: expect.any(Array) });
   });
 
   it('paginates with a cursor', async () => {

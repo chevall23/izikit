@@ -41,11 +41,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const city = url.searchParams.get('city')?.trim();
 
     const rows = await prisma.propertyRequest.findMany({
+      // AND, not a spread: sellableWhere() and cursorWhere() both use an OR
+      // clause and one would silently overwrite the other.
       where: {
-        ...sellableWhere(),
-        ...(country ? { country } : {}),
-        ...(city ? { city } : {}),
-        ...cursorWhere(cursor),
+        AND: [
+          sellableWhere(),
+          { ...(country ? { country } : {}), ...(city ? { city } : {}) },
+          cursorWhere(cursor),
+        ],
       },
       select: {
         ...PREVIEW_SELECT,

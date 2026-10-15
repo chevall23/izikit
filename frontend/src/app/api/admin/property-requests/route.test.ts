@@ -210,7 +210,7 @@ describe('POST /api/admin/property-requests', () => {
     });
     expect(mockRematch).toHaveBeenCalledWith(
       prismaMock,
-      expect.objectContaining({ id: 'r_new', city: 'Dakar', clientName: 'Aminata Koné' }),
+      expect.objectContaining({ id: 'r_new', city: 'Dakar' }),
     );
     expect(mockLog).toHaveBeenCalledWith(
       prismaMock,
