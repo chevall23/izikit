@@ -1,25 +1,30 @@
-import type { FlagCode } from './CountryFlag';
+import { DIAL_COUNTRIES, type DialCountry, type FlagCode } from './country-data';
 
-export interface DialCountry {
-  code: FlagCode;
-  name: string;
-  dial: string;
-}
+export { DIAL_COUNTRIES, type DialCountry, type FlagCode };
 
-// The four markets come first, then common neighbours / diaspora.
-export const DIAL_COUNTRIES: DialCountry[] = [
-  { code: 'BJ', name: 'Bénin', dial: '+229' },
-  { code: 'TG', name: 'Togo', dial: '+228' },
-  { code: 'CI', name: "Côte d'Ivoire", dial: '+225' },
-  { code: 'SN', name: 'Sénégal', dial: '+221' },
-  { code: 'BF', name: 'Burkina Faso', dial: '+226' },
-  { code: 'ML', name: 'Mali', dial: '+223' },
-  { code: 'GN', name: 'Guinée', dial: '+224' },
-  { code: 'FR', name: 'France', dial: '+33' },
+// Several countries share a calling code (+1, +7, +44…): reading a stored
+// "+1 …" back picks the main one of the group.
+const MAIN_FOR_SHARED_DIAL: FlagCode[] = [
+  'US',
+  'RU',
+  'GB',
+  'AU',
+  'IT',
+  'FI',
+  'GP',
+  'CW',
+  'RE',
+  'MA',
+  'NO',
+  'SH',
 ];
 
 // Longest dial first so "+2290…" can never be read as a shorter code.
-const BY_DIAL_LENGTH = [...DIAL_COUNTRIES].sort((a, b) => b.dial.length - a.dial.length);
+export const BY_DIAL_LENGTH = [...DIAL_COUNTRIES].sort(
+  (a, b) =>
+    b.dial.length - a.dial.length ||
+    Number(MAIN_FOR_SHARED_DIAL.includes(b.code)) - Number(MAIN_FOR_SHARED_DIAL.includes(a.code)),
+);
 
 export function dialFor(code: FlagCode): string {
   return DIAL_COUNTRIES.find((c) => c.code === code)?.dial ?? '+229';
@@ -45,4 +50,16 @@ export function composePhone(dial: string, local: string): string {
   if (!local.trim()) return '';
   if (local.trimStart().startsWith('+')) return local.trim();
   return `${dial} ${local}`;
+}
+
+/** Dropdown search: by country name, by calling code ("+33", "33") or by ISO code ("fr"). */
+export function filterDialCountries(query: string): DialCountry[] {
+  const needle = query.trim().toLowerCase().replace(/^\+/, '');
+  if (!needle) return DIAL_COUNTRIES;
+  return DIAL_COUNTRIES.filter(
+    (c) =>
+      c.name.toLowerCase().includes(needle) ||
+      c.dial.slice(1).startsWith(needle) ||
+      c.code.toLowerCase() === needle,
+  );
 }

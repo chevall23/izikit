@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CountryFlag, type FlagCode } from './CountryFlag';
-import { DIAL_COUNTRIES } from './dial-countries';
+import { BY_DIAL_LENGTH, DIAL_COUNTRIES, filterDialCountries } from './dial-countries';
 
 export { DIAL_COUNTRIES, type DialCountry } from './dial-countries';
 
@@ -17,9 +17,7 @@ export function flagCodeForCountryName(name: string): FlagCode | null {
 export function splitPhone(phone: string): { code: FlagCode | null; local: string } {
   const trimmed = phone.trim();
   if (!trimmed.startsWith('+')) return { code: null, local: trimmed };
-  const match = [...DIAL_COUNTRIES]
-    .sort((a, b) => b.dial.length - a.dial.length)
-    .find((c) => trimmed.startsWith(c.dial));
+  const match = BY_DIAL_LENGTH.find((c) => trimmed.startsWith(c.dial));
   if (!match) return { code: null, local: trimmed };
   return { code: match.code, local: trimmed.slice(match.dial.length).trim() };
 }
@@ -34,11 +32,15 @@ export function PhoneCountrySelect({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
   const selected = DIAL_COUNTRIES.find((c) => c.code === value) ?? DIAL_COUNTRIES[0]!;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setQuery('');
+      return;
+    }
     function onDown(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
@@ -52,6 +54,8 @@ export function PhoneCountrySelect({
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
+
+  const shown = filterDialCountries(query);
 
   return (
     <div ref={ref} className="relative flex-shrink-0">
@@ -75,34 +79,47 @@ export function PhoneCountrySelect({
       </button>
 
       {open && (
-        <ul
-          role="listbox"
-          className="absolute top-[calc(100%+6px)] left-0 z-30 max-h-[280px] w-[260px] overflow-y-auto rounded-xl border border-black/[0.08] bg-white p-1.5 shadow-[0_16px_40px_rgba(15,23,42,0.16)]"
-        >
-          {DIAL_COUNTRIES.map((c) => {
-            const active = c.code === value;
-            return (
-              <li key={c.code} role="option" aria-selected={active}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onChange(c.code);
-                    setOpen(false);
-                  }}
-                  className={cn(
-                    'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-gray-50',
-                    active && 'bg-brand/[0.08]',
-                  )}
-                >
-                  <CountryFlag code={c.code} size={24} />
-                  <span className="flex-1 font-medium text-neutral-900">{c.name}</span>
-                  <span className="text-gray-500">{c.dial}</span>
-                  {active && <Check className="h-4 w-4 text-brand" aria-hidden />}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="absolute top-[calc(100%+6px)] left-0 z-30 w-[280px] rounded-xl border border-black/[0.08] bg-white shadow-[0_16px_40px_rgba(15,23,42,0.16)]">
+          <div className="border-b border-black/[0.06] p-2">
+            <input
+              type="search"
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Rechercher un pays ou un indicatif"
+              aria-label="Rechercher un pays"
+              className="w-full rounded-lg border border-black/[0.1] bg-gray-50 px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+          </div>
+          <ul role="listbox" className="max-h-[260px] overflow-y-auto p-1.5">
+            {shown.length === 0 && (
+              <li className="px-3 py-2.5 text-sm text-gray-400">Aucun pays trouvé</li>
+            )}
+            {shown.map((c) => {
+              const active = c.code === value;
+              return (
+                <li key={c.code} role="option" aria-selected={active}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(c.code);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-gray-50',
+                      active && 'bg-brand/[0.08]',
+                    )}
+                  >
+                    <CountryFlag code={c.code} size={24} />
+                    <span className="flex-1 font-medium text-neutral-900">{c.name}</span>
+                    <span className="text-gray-500">{c.dial}</span>
+                    {active && <Check className="h-4 w-4 text-brand" aria-hidden />}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </div>
   );
