@@ -50,7 +50,6 @@ const REQUEST: RequestForMatching = {
   city: 'Cotonou',
   budgetMin: null,
   budgetMax: null,
-  clientName: 'Awa',
 };
 
 function alertRow(overrides: Record<string, unknown> = {}) {
@@ -97,7 +96,7 @@ describe('runMatchingForNewRequest — channel fan-out', () => {
     expect(whatsappSend).toHaveBeenCalledTimes(1);
     expect(whatsappSend.mock.calls[0]?.[0]).toEqual({
       to: '+2250700000000',
-      params: ['Villas à Cotonou', expect.stringContaining('demande de Awa')],
+      params: ['Villas à Cotonou', expect.not.stringContaining('Awa')],
     });
 
     expect(smsSend).not.toHaveBeenCalled();

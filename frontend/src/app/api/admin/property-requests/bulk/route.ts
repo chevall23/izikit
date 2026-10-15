@@ -95,7 +95,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
               city: row.city,
               budgetMin: row.budgetMin,
               budgetMax: row.budgetMax,
-              clientName: row.clientName,
             });
           } catch (err) {
             log.warn('admin property-request bulk: rematch failed for a row', {

@@ -31,7 +31,6 @@ function makeRow(overrides: Record<string, unknown> = {}) {
       city: 'Cotonou',
       budgetMin: null,
       budgetMax: null,
-      clientName: 'Awa',
       createdAt: new Date('2026-08-15T00:00:00Z'),
     },
     ...overrides,
@@ -71,9 +70,16 @@ describe('GET /api/alerts/matches/recent', () => {
         id: 'match-1',
         alertId: 'alert-1',
         alertName: 'Villas Cotonou',
-        propertyRequest: expect.objectContaining({ clientName: 'Awa' }),
+        propertyRequest: expect.not.objectContaining({ clientName: expect.anything() }),
       }),
     ]);
+  });
+
+  it('never selects the client name of a request (it is sold, not broadcast)', async () => {
+    await GET(makeGet());
+    expect(JSON.stringify(prismaMock.alertMatch.findMany.mock.calls[0]![0])).not.toContain(
+      'clientName',
+    );
   });
 
   it('clamps an over-large limit to 20', async () => {

@@ -397,7 +397,7 @@ export default function AlertesPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13.5px] font-semibold text-neutral-900">
-                    Demande de {r.clientName}
+                    Nouvelle demande de client
                   </p>
                   <div className="mt-1 flex flex-wrap items-center gap-2.5 text-xs text-gray-400">
                     <span className="flex items-center gap-1 whitespace-nowrap">

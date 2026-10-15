@@ -37,7 +37,6 @@ export interface AlertMatchRequest {
   city: string;
   budgetMin: number | null;
   budgetMax: number | null;
-  clientName: string;
   createdAt: string;
 }
 

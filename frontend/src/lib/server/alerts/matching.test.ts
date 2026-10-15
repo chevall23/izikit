@@ -33,7 +33,6 @@ function makeRequest(overrides: Partial<RequestForMatching> = {}): RequestForMat
     city: 'Cotonou',
     budgetMin: null,
     budgetMax: null,
-    clientName: 'Awa',
     ...overrides,
   };
 }

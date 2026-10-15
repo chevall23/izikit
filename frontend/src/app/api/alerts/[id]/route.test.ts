@@ -10,7 +10,7 @@ vi.mock('@/lib/server/middleware', () => ({ requireAuth: vi.fn() }));
 vi.mock('@/lib/server/auth', () => ({ verifyCsrf: vi.fn(() => null) }));
 
 import { requireAuth } from '@/lib/server/middleware';
-import { PATCH } from './route';
+import { GET, PATCH } from './route';
 
 const mockRequireAuth = vi.mocked(requireAuth);
 
@@ -22,6 +22,18 @@ function makePatch(id: string, payload: unknown) {
   });
   return { req, ctx: { params: Promise.resolve({ id }) } };
 }
+
+describe('GET /api/alerts/[id] privacy', () => {
+  it('never selects the client name of the matched requests', async () => {
+    prismaMock.alert.findUnique.mockResolvedValue({ userId: 'user-1', matches: [] } as never);
+    const req = new NextRequest('http://test/api/alerts/a1', { method: 'GET' });
+    const res = await GET(req, { params: Promise.resolve({ id: 'a1' }) });
+    expect(res.status).toBe(200);
+    expect(JSON.stringify(prismaMock.alert.findUnique.mock.calls[0]![0])).not.toContain(
+      'clientName',
+    );
+  });
+});
 
 const stored = (active: boolean) => ({ userId: 'user-1', active }) as never;
 const updated = { id: 'a1', name: 'x', active: true } as never;

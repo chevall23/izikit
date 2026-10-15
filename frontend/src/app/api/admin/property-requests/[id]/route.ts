@@ -232,7 +232,6 @@ export async function PATCH(
           city: merged.city,
           budgetMin: merged.budgetMin ?? null,
           budgetMax: merged.budgetMax ?? null,
-          clientName: merged.clientName,
         });
       } catch (err) {
         notifiedAgents = 0;

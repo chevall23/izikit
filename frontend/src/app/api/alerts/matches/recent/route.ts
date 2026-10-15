@@ -38,7 +38,6 @@ const MATCH_SELECT = {
       city: true,
       budgetMin: true,
       budgetMax: true,
-      clientName: true,
       createdAt: true,
     },
   },

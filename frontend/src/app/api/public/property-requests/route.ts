@@ -176,7 +176,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           city: data.city,
           budgetMin: data.budgetMin ?? null,
           budgetMax: data.budgetMax ?? null,
-          clientName: data.clientName,
         });
       }
     } catch (err) {

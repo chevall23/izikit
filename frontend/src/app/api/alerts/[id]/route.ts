@@ -61,7 +61,6 @@ const ALERT_WITH_MATCHES_SELECT = {
           city: true,
           budgetMin: true,
           budgetMax: true,
-          clientName: true,
           createdAt: true,
         },
       },

@@ -56,7 +56,6 @@ export type RequestForMatching = Pick<
   | 'city'
   | 'budgetMin'
   | 'budgetMax'
-  | 'clientName'
 >;
 
 const ALERT_SELECT = {
@@ -83,7 +82,6 @@ const REQUEST_SELECT = {
   city: true,
   budgetMin: true,
   budgetMax: true,
-  clientName: true,
 } as const;
 
 function priceRangesOverlap(
@@ -159,7 +157,7 @@ async function dispatchMatchNotifications(
   const transactionLabel =
     TRANSACTION_TYPE_LABEL[request.transactionType] ?? request.transactionType;
   const propertyLabel = PROPERTY_TYPE_LABEL[request.propertyType] ?? request.propertyType;
-  const summary = `${propertyLabel} · ${transactionLabel} · ${request.city} — demande de ${request.clientName}`;
+  const summary = `${propertyLabel} · ${transactionLabel} · ${request.city} — nouvelle demande`;
 
   await createNotification(
     prisma,
