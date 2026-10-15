@@ -30,6 +30,11 @@ vi.mock('@/lib/server/prisma', () => ({
 vi.mock('@/lib/server/listings/quota', () => ({
   lockUserListingQuota: vi.fn(),
   reactivateHiddenListings: vi.fn(),
+  hideExcessListings: vi.fn(),
+}));
+vi.mock('@/lib/server/alerts/quota', () => ({
+  lockUserAlertQuota: vi.fn(),
+  disableExcessAlerts: vi.fn(),
 }));
 vi.mock('@/lib/server/pricing', async () => {
   const { DEFAULT_PRICING } = await import('@/lib/pricing');
