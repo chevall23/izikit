@@ -5,7 +5,7 @@ const RENEWAL_WINDOW_MS = 7 * 24 * 3600 * 1000;
 
 export interface RenewableSubscription {
   planKey: 'FREE' | 'PRO_AGENT' | 'AGENCY_PREMIUM';
-  status: 'ACTIVE' | 'CANCELED' | 'GRACE' | 'TRIAL';
+  status: 'ACTIVE' | 'CANCELED' | 'GRACE' | 'TRIAL' | 'EXPIRED';
   currentPeriodEnd: string | null;
 }
 

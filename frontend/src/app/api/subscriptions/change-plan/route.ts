@@ -73,10 +73,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     try {
       subscription = await prisma.$transaction(async (tx) => {
         await lockUserListingQuota(tx, auth.user.sub);
+        // An account that had a paid plan (or a trial, or already lapsed) goes
+        // back to FREE as EXPIRED, like after a natural expiry — never as a
+        // pristine FREE/ACTIVE row, which would make it eligible to the one-off
+        // Pro trial again. Only a never-subscribed account stays ACTIVE.
+        const previous = await tx.subscription.findUnique({
+          where: { userId: auth.user.sub },
+          select: { planKey: true, status: true },
+        });
+        const hadSubscription = previous
+          ? previous.planKey !== 'FREE' || previous.status === 'EXPIRED'
+          : false;
         const sub = await tx.subscription.upsert({
           where: { userId: auth.user.sub },
           create: { userId: auth.user.sub, planKey: 'FREE', status: 'ACTIVE' },
-          update: { planKey: 'FREE', status: 'ACTIVE', currentPeriodEnd: null, canceledAt: null },
+          update: {
+            planKey: 'FREE',
+            status: hadSubscription ? 'EXPIRED' : 'ACTIVE',
+            currentPeriodEnd: null,
+            canceledAt: null,
+          },
           select: { planKey: true, status: true, currentPeriodEnd: true, canceledAt: true },
         });
         await hideExcessListings(tx, auth.user.sub, planMaxListings(pricing, 'FREE'));

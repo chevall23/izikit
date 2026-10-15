@@ -27,7 +27,7 @@ import { PasswordConfirmModal } from './PasswordConfirmModal';
 
 interface Subscription {
   planKey: PlanKey;
-  status: 'ACTIVE' | 'CANCELED' | 'GRACE' | 'TRIAL';
+  status: 'ACTIVE' | 'CANCELED' | 'GRACE' | 'TRIAL' | 'EXPIRED';
   currentPeriodEnd: string | null;
   canceledAt: string | null;
   trialStartedAt?: string | null;

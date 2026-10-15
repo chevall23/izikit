@@ -73,6 +73,67 @@ beforeEach(async () => {
     fn(prismaMock)) as never);
 });
 
+describe('POST /api/subscriptions/change-plan — trial eligibility is not reset', () => {
+  const downgrade = () =>
+    POST(
+      makeReq({
+        bearer: validToken,
+        body: { planKey: 'FREE' },
+        csrf: CSRF_TOKEN,
+        csrfCookieValue: CSRF_TOKEN,
+      }),
+    );
+  const upsertArgs = () => prismaMock.subscription.upsert.mock.calls.at(-1)![0];
+
+  beforeEach(() => {
+    prismaMock.subscription.upsert.mockResolvedValue({
+      planKey: 'FREE',
+      status: 'ACTIVE',
+      currentPeriodEnd: null,
+      canceledAt: null,
+    } as never);
+  });
+
+  it.each([
+    ['an active Pro', { planKey: 'PRO_AGENT', status: 'ACTIVE' }],
+    ['a Pro in grace', { planKey: 'PRO_AGENT', status: 'GRACE' }],
+    ['a canceled Pro', { planKey: 'PRO_AGENT', status: 'CANCELED' }],
+    ['a running trial', { planKey: 'PRO_AGENT', status: 'TRIAL' }],
+    ['an Agence', { planKey: 'AGENCY_PREMIUM', status: 'ACTIVE' }],
+    ['a lapsed account', { planKey: 'FREE', status: 'EXPIRED' }],
+  ])(
+    'leaves a "has been paid/subscribed" mark (EXPIRED) when %s goes back to FREE',
+    async (_n, row) => {
+      prismaMock.subscription.findUnique.mockResolvedValue(row as never);
+      expect((await downgrade()).status).toBe(200);
+      expect(upsertArgs().update).toMatchObject({ planKey: 'FREE', status: 'EXPIRED' });
+    },
+  );
+
+  it('keeps a never-subscribed account ACTIVE on FREE (it can still try the trial)', async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue({
+      planKey: 'FREE',
+      status: 'ACTIVE',
+    } as never);
+    await downgrade();
+    expect(upsertArgs().update).toMatchObject({ planKey: 'FREE', status: 'ACTIVE' });
+  });
+
+  it('creates an ACTIVE FREE row when there is none', async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue(null);
+    await downgrade();
+    expect(upsertArgs().create).toMatchObject({ planKey: 'FREE', status: 'ACTIVE' });
+  });
+
+  it('reads the previous row under the listing-quota lock', async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue(null);
+    await downgrade();
+    expect(vi.mocked(lockUserListingQuota).mock.invocationCallOrder.at(-1)!).toBeLessThan(
+      prismaMock.subscription.findUnique.mock.invocationCallOrder.at(-1)!,
+    );
+  });
+});
+
 describe('POST /api/subscriptions/change-plan', () => {
   it('downgrades to FREE immediately (no charge)', async () => {
     prismaMock.subscription.upsert.mockResolvedValue({
