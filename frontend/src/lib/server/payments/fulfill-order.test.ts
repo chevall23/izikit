@@ -4,6 +4,11 @@ import { DEFAULT_PRICING } from '@/lib/pricing';
 vi.mock('@/lib/server/listings/quota', () => ({
   lockUserListingQuota: vi.fn(),
   reactivateHiddenListings: vi.fn(),
+  hideExcessListings: vi.fn(),
+}));
+vi.mock('@/lib/server/alerts/quota', () => ({
+  lockUserAlertQuota: vi.fn(),
+  disableExcessAlerts: vi.fn(),
 }));
 vi.mock('@/lib/server/pricing', () => ({ readStoredPricing: vi.fn() }));
 const logError = vi.hoisted(() => vi.fn());
@@ -11,12 +16,20 @@ vi.mock('@/lib/server/logger', () => ({
   createLogger: () => ({ error: logError, warn: vi.fn(), info: vi.fn(), debug: vi.fn() }),
 }));
 
-import { lockUserListingQuota, reactivateHiddenListings } from '@/lib/server/listings/quota';
+import {
+  hideExcessListings,
+  lockUserListingQuota,
+  reactivateHiddenListings,
+} from '@/lib/server/listings/quota';
+import { disableExcessAlerts, lockUserAlertQuota } from '@/lib/server/alerts/quota';
 import { readStoredPricing } from '@/lib/server/pricing';
 import { fulfillPaidOrder } from './fulfill-order';
 
 const mockLock = vi.mocked(lockUserListingQuota);
 const mockReactivate = vi.mocked(reactivateHiddenListings);
+const mockHide = vi.mocked(hideExcessListings);
+const mockDisable = vi.mocked(disableExcessAlerts);
+const mockAlertLock = vi.mocked(lockUserAlertQuota);
 const subscriptionFindUnique = vi.fn();
 const subscriptionUpsert = vi.fn();
 const subscriptionUpdate = vi.fn();
@@ -40,6 +53,9 @@ beforeEach(() => {
   subscriptionFindUnique.mockReset().mockResolvedValue(null);
   mockLock.mockReset().mockResolvedValue(undefined);
   mockReactivate.mockReset().mockResolvedValue(0);
+  mockHide.mockReset().mockResolvedValue(0);
+  mockDisable.mockReset().mockResolvedValue(0);
+  mockAlertLock.mockReset().mockResolvedValue(undefined);
   vi.mocked(readStoredPricing).mockResolvedValue(DEFAULT_PRICING);
   logError.mockReset();
   subscriptionUpsert.mockReset();
@@ -190,6 +206,27 @@ describe('subscription renewal and reactivation', () => {
     );
     expect(mockLock.mock.invocationCallOrder[0]).toBeLessThan(
       mockReactivate.mock.invocationCallOrder[0] as number,
+    );
+  });
+
+  it('trims alerts and listings to the plan paid when moving to a smaller plan', async () => {
+    subscriptionFindUnique.mockResolvedValue({
+      planKey: 'AGENCY_PREMIUM',
+      status: 'ACTIVE',
+      currentPeriodEnd: at(10),
+    });
+    await fulfillPaidOrder(tx, subOrder('PRO_AGENT'));
+    expect(mockDisable).toHaveBeenCalledWith(tx, 'u1', DEFAULT_PRICING, 'PRO_AGENT');
+    expect(mockHide).toHaveBeenCalledWith(tx, 'u1', 30);
+  });
+
+  it('takes the alert lock after the listing lock, and trims after writing the subscription', async () => {
+    await fulfillPaidOrder(tx, subOrder('PRO_AGENT'));
+    expect(mockLock.mock.invocationCallOrder.at(-1)!).toBeLessThan(
+      mockAlertLock.mock.invocationCallOrder.at(-1)!,
+    );
+    expect(subscriptionUpsert.mock.invocationCallOrder.at(-1)!).toBeLessThan(
+      mockDisable.mock.invocationCallOrder.at(-1)!,
     );
   });
 

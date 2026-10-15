@@ -10,7 +10,12 @@ import type { PrismaTransactionClient } from '../webhook/handler';
 import { enqueueOutbox } from '../outbox';
 import { readStoredPricing } from '../pricing';
 import { createLogger } from '../logger';
-import { lockUserListingQuota, reactivateHiddenListings } from '../listings/quota';
+import {
+  hideExcessListings,
+  lockUserListingQuota,
+  reactivateHiddenListings,
+} from '../listings/quota';
+import { disableExcessAlerts, lockUserAlertQuota } from '../alerts/quota';
 import {
   planIncludedBoosts,
   planMaxListings,
@@ -239,5 +244,11 @@ async function grantSubscription(
   const pricing = await readStoredPricing(tx);
   // Bring back listings hidden by a previous expiry, within the new quota.
   await reactivateHiddenListings(tx, userId, planMaxListings(pricing, planKey));
+  // Paying for a SMALLER plan than the one in force (e.g. Agence → Pro) must
+  // bring listings and alerts back within the new quotas, like an expiry does.
+  // Listing lock first, alert lock second (fixed order, no deadlock).
+  await hideExcessListings(tx, userId, planMaxListings(pricing, planKey));
+  await lockUserAlertQuota(tx, userId);
+  await disableExcessAlerts(tx, userId, pricing, planKey);
   await grantPlanPerks(tx, userId, planKey, orderId, pricing);
 }
