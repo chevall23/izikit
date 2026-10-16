@@ -1,8 +1,10 @@
 // REQUESTS-03 — GET /api/requests/[id]
 //
 // Single PropertyRequest detail (frontend/src/app/demandes/[id]/page.tsx).
-// Only the owning agent can view their own request — 404 (not 403) on
-// mismatch/missing, same convention as GET /api/listings/[id] would use.
+// The owning agent sees the full request. So does an agent whose sector alert
+// matched it (the eye icon on /alertes): product decision 2026-10-16, a match
+// gives access to every field including the requester's contact details.
+// Anyone else gets a 404 (not 403), same convention as GET /api/listings/[id].
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -14,6 +16,7 @@ import { makeRequestContext, withRequestContext } from '@/lib/server/observabili
 const REQUEST_SELECT = {
   id: true,
   userId: true,
+  trustStatus: true,
   transactionType: true,
   propertyType: true,
   country: true,
@@ -38,6 +41,12 @@ const REQUEST_SELECT = {
   updatedAt: true,
 } as const;
 
+function omit<T extends object, K extends keyof T>(obj: T, ...keys: K[]): Omit<T, K> {
+  const copy = { ...obj };
+  for (const key of keys) delete copy[key];
+  return copy;
+}
+
 export async function GET(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
@@ -49,20 +58,40 @@ export async function GET(
 
     const { id } = await ctx.params;
 
+    const headers = { 'x-request-id': reqCtx.requestId };
+    const notFound = () =>
+      NextResponse.json(
+        { error: 'REQUEST_NOT_FOUND', message: 'Property request not found' },
+        { status: 404, headers },
+      );
+
     const propertyRequest = await prisma.propertyRequest.findUnique({
       where: { id },
       select: REQUEST_SELECT,
     });
-    if (!propertyRequest || propertyRequest.userId !== auth.user.sub) {
+    if (!propertyRequest) return notFound();
+
+    if (propertyRequest.userId === auth.user.sub) {
+      // trustStatus is read for the checks below, not part of the owner's payload.
       return NextResponse.json(
-        { error: 'REQUEST_NOT_FOUND', message: 'Property request not found' },
-        { status: 404, headers: { 'x-request-id': reqCtx.requestId } },
+        { propertyRequest: omit(propertyRequest, 'trustStatus') },
+        { status: 200, headers },
       );
     }
 
+    // Not the owner: allowed only through a sector-alert match on a request the
+    // admin review let through. Anyone else gets a 404 so existence is not leaked.
+    if (propertyRequest.trustStatus !== 'TRUSTED') return notFound();
+    const matched = await prisma.alertMatch.findFirst({
+      where: { propertyRequestId: id, alert: { userId: auth.user.sub } },
+      select: { id: true },
+    });
+    if (!matched) return notFound();
+
+    // The owner's id is not shared with the matched agent.
     return NextResponse.json(
-      { propertyRequest },
-      { status: 200, headers: { 'x-request-id': reqCtx.requestId } },
+      { propertyRequest: omit(propertyRequest, 'userId', 'trustStatus') },
+      { status: 200, headers },
     );
   });
 }

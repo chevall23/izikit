@@ -126,7 +126,7 @@ export default function LeadsPage() {
         </h1>
         <p className="mt-1 text-[13.5px] text-gray-500">
           Des acheteurs et locataires qui cherchent un bien. Payez en jetons pour obtenir leurs
-          coordonnées — 3 agents au maximum par demande.
+          coordonnées (3 achats au maximum par demande).
         </p>
       </div>
 

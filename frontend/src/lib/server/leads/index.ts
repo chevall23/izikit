@@ -11,8 +11,10 @@ export const REFUND_CAP = 2;
 export const REFUND_WINDOW_MS = 30 * 86_400_000;
 export const LEAD_REPORTED_FLAG = 'LEAD_REPORTED_INVALID_NUMBER';
 
-// Consent: the request form only mentions the sharing of contact details with
-// up to 3 agents from the day this text is live (LEADS_SALE_FROM, ISO date).
+// Consent: the request form mentions the sharing of contact details with the
+// agents whose sector alert matches the request (who see them for free, see
+// GET /api/requests/[id]) from the day this text is live (LEADS_SALE_FROM, ISO date).
+// Buying a lead is capped at MAX_BUYERS per request; matched agents are not.
 // Older requests, requests imported from the legacy site and requests typed in
 // by an admin were collected without it and are never sold. Unset or invalid
 // date = nothing is sold.

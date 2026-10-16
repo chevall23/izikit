@@ -937,8 +937,9 @@ export default function NouvelleDemandePage() {
                         />
                         J&apos;accepte la politique de confidentialité et le traitement de mes
                         données personnelles. Je comprends que mes coordonnées (nom, téléphone,
-                        e-mail) peuvent être transmises à 3 agents immobiliers au maximum afin
-                        qu&apos;ils me contactent au sujet de ma demande.
+                        e-mail) peuvent être transmises aux agents immobiliers de la plateforme dont
+                        les critères correspondent à ma demande, afin qu&apos;ils me contactent à ce
+                        sujet.
                       </label>
                     </div>
 

@@ -51,12 +51,12 @@ const FAQ = [
   {
     icon: HelpCircle,
     q: 'Est-ce gratuit de déposer une demande ?',
-    a: "Oui, le dépôt d'une demande immobilière est entièrement gratuit pour les particuliers. Seuls les agents payent pour accéder aux coordonnées complètes des demandeurs.",
+    a: "Oui, le dépôt d'une demande immobilière est entièrement gratuit pour les particuliers.",
   },
   {
     icon: ShieldCheck,
     q: 'Mes coordonnées sont-elles protégées ?',
-    a: "Vos coordonnées ne sont jamais affichées publiquement. Elles ne sont transmises qu'à 3 agents immobiliers au maximum, qui les obtiennent pour vous recontacter au sujet de votre demande.",
+    a: "Vos coordonnées ne sont jamais affichées publiquement. Elles ne sont transmises qu'aux agents immobiliers de la plateforme dont les critères correspondent à votre demande, pour vous recontacter à ce sujet.",
   },
   {
     icon: Clock,
