@@ -1,3 +1,5 @@
+import { MIN_REAL_PRICE } from './seo/listing';
+
 /**
  * Listings per page on /annonces — shared by the server render, the client
  * refetches and the GET /api/public/listings default. 18 = six rows of the
@@ -125,4 +127,13 @@ export const STATUS_STYLE: Record<string, { label: string; className: string }> 
 /** Format a listing price stored in its smallest currency unit (e.g. XOF has no decimals). */
 export function formatListingPrice(price: number, currency: string): string {
   return `${price.toLocaleString('fr-FR')} ${currency === 'XOF' ? 'FCFA' : currency}`;
+}
+
+/**
+ * Price as shown to the public: a placeholder amount ("1 FCFA", "0" on imported
+ * listings) reads "Prix sur demande". Owner/admin screens keep formatListingPrice
+ * so the real stored value stays visible and fixable.
+ */
+export function formatPublicListingPrice(price: number, currency: string): string {
+  return price >= MIN_REAL_PRICE ? formatListingPrice(price, currency) : 'Prix sur demande';
 }

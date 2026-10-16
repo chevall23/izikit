@@ -32,7 +32,7 @@ import {
   LISTINGS_PAGE_SIZE,
   PROPERTY_TYPE_LABEL,
   TRANSACTION_TYPE_LABEL,
-  formatListingPrice,
+  formatPublicListingPrice,
 } from '@/lib/listings';
 import { COUNTRY_FLAG, formatDate } from '@/lib/alerts';
 
@@ -836,7 +836,7 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
                       </div>
                       <div className="flex items-center justify-between gap-2 border-t border-black/[0.06] pt-2.5">
                         <p className="text-lg font-extrabold tracking-[-0.03em] text-brand">
-                          {formatListingPrice(listing.price, listing.currency)}
+                          {formatPublicListingPrice(listing.price, listing.currency)}
                         </p>
                         <Link
                           href={listingPath(listing)}
@@ -897,7 +897,7 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
                             {listing.title}
                           </p>
                           <p className="flex-shrink-0 text-right text-xl font-extrabold whitespace-nowrap text-brand">
-                            {formatListingPrice(listing.price, listing.currency)}
+                            {formatPublicListingPrice(listing.price, listing.currency)}
                           </p>
                         </div>
                         <p className="mb-2.5 flex items-center gap-1.5 text-[13px] text-gray-500">

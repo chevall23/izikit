@@ -52,7 +52,7 @@ import {
   TRANSACTION_TYPE_LABEL,
   STANDING_LABEL,
   AMENITY_LABEL,
-  formatListingPrice,
+  formatPublicListingPrice,
 } from '@/lib/listings';
 import { COUNTRY_FLAG, formatDate } from '@/lib/alerts';
 
@@ -382,7 +382,7 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
                 </div>
                 <div className="flex-shrink-0 text-right">
                   <div className="text-[26px] font-extrabold whitespace-nowrap text-brand lg:text-[30px]">
-                    {formatListingPrice(listing.price, listing.currency)}
+                    {formatPublicListingPrice(listing.price, listing.currency)}
                   </div>
                 </div>
               </div>
@@ -557,7 +557,7 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
                           {s.city} · {COUNTRY_FLAG[s.country] ?? ''} {s.country}
                         </p>
                         <p className="text-[15px] font-extrabold text-brand">
-                          {formatListingPrice(s.price, s.currency)}
+                          {formatPublicListingPrice(s.price, s.currency)}
                         </p>
                       </div>
                     </Link>
@@ -572,7 +572,7 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
             {/* PRICE + AGENT + CTA */}
             <div className="rounded-2xl bg-white p-[22px]">
               <div className="mb-[18px] text-[26px] font-extrabold whitespace-nowrap text-brand">
-                {formatListingPrice(listing.price, listing.currency)}
+                {formatPublicListingPrice(listing.price, listing.currency)}
               </div>
 
               <div className="mb-[18px] flex items-center gap-3 rounded-xl bg-gray-50 p-3.5">
@@ -859,7 +859,7 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
               <p className="truncate text-sm font-bold">{listing.title}</p>
               <p className="truncate text-xs text-gray-500">
                 <span className="font-extrabold text-brand">
-                  {formatListingPrice(listing.price, listing.currency)}
+                  {formatPublicListingPrice(listing.price, listing.currency)}
                 </span>
                 {' · '}
                 {listing.agent.name ?? 'Agent'}

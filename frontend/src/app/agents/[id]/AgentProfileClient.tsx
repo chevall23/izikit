@@ -30,7 +30,11 @@ import { useToast } from '@/contexts/ToastContext';
 import { PublicNavbar } from '@/components/public/PublicNavbar';
 import { PublicFooter } from '@/components/public/PublicFooter';
 import { InitialsAvatar } from '@/components/dashboard/InitialsAvatar';
-import { PROPERTY_TYPE_LABEL, TRANSACTION_TYPE_LABEL, formatListingPrice } from '@/lib/listings';
+import {
+  PROPERTY_TYPE_LABEL,
+  TRANSACTION_TYPE_LABEL,
+  formatPublicListingPrice,
+} from '@/lib/listings';
 import { COUNTRY_FLAG, formatDate } from '@/lib/alerts';
 
 const UNLOCK_COST_TOKENS = 1;
@@ -434,7 +438,7 @@ export function AgentProfileClient({ initialAgent }: { initialAgent: AgentDetail
                           {COUNTRY_FLAG[l.country] ?? ''} {l.city}
                         </div>
                         <div className="text-[15px] font-extrabold tracking-[-0.02em] text-brand">
-                          {formatListingPrice(l.price, l.currency)}
+                          {formatPublicListingPrice(l.price, l.currency)}
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-3">
                           {l.bedrooms != null && (
