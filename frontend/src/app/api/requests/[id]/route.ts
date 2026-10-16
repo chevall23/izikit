@@ -5,10 +5,19 @@
 // matched it (the eye icon on /alertes): product decision 2026-10-16, a match
 // gives access to every field including the requester's contact details.
 // Anyone else gets a 404 (not 403), same convention as GET /api/listings/[id].
+//
+// REQUESTS-04 — PATCH /api/requests/[id]
+//
+// The requester closes their own request ("Marquer comme traitée" and "Clôturer
+// la demande" on the detail page both end in CLOTUREE). Product decision
+// 2026-10-16: closing is final, a closed request is never reopened. Owner only;
+// anyone else gets a 404.
 export const runtime = 'nodejs';
 
 import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
+import { z } from 'zod';
+import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
@@ -93,5 +102,58 @@ export async function GET(
       { propertyRequest: { ...omit(propertyRequest, 'userId', 'trustStatus'), isOwner: false } },
       { status: 200, headers },
     );
+  });
+}
+
+const PatchBody = z.object({ status: z.literal('CLOTUREE') });
+
+export async function PATCH(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const reqCtx = makeRequestContext(req.headers);
+  return withRequestContext(reqCtx, async () => {
+    const headers = { 'x-request-id': reqCtx.requestId };
+
+    const csrfFail = verifyCsrf(req);
+    if (csrfFail) return csrfFail;
+
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
+    const { id } = await ctx.params;
+
+    const parsed = PatchBody.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'VALIDATION_FAILED', message: 'Invalid request body' },
+        { status: 400, headers },
+      );
+    }
+
+    const existing = await prisma.propertyRequest.findUnique({
+      where: { id },
+      select: { userId: true, status: true },
+    });
+    if (!existing || existing.userId !== auth.user.sub) {
+      return NextResponse.json(
+        { error: 'REQUEST_NOT_FOUND', message: 'Property request not found' },
+        { status: 404, headers },
+      );
+    }
+
+    // The status guard sits in the WHERE so two concurrent closes cannot both win.
+    const { count } = await prisma.propertyRequest.updateMany({
+      where: { id, userId: auth.user.sub, status: { not: 'CLOTUREE' } },
+      data: { status: 'CLOTUREE' },
+    });
+    if (count === 0) {
+      return NextResponse.json(
+        { error: 'REQUEST_ALREADY_CLOSED', message: 'This request is already closed' },
+        { status: 409, headers },
+      );
+    }
+
+    return NextResponse.json({ status: 'CLOTUREE' }, { status: 200, headers });
   });
 }

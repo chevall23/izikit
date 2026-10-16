@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   ChevronRight,
-  Pencil,
   CheckCircle,
   XCircle,
   Hash,
@@ -73,6 +72,7 @@ export default function DemandeDetailPage({ params }: { params: Promise<{ id: st
   const { id } = use(params);
 
   const [request, setRequest] = useState<PropertyRequestDetail | null | undefined>(undefined);
+  const [closing, setClosing] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -94,6 +94,26 @@ export default function DemandeDetailPage({ params }: { params: Promise<{ id: st
       cancelled = true;
     };
   }, [user, id]);
+
+  // Both "Marquer comme traitée" and "Clôturer la demande" end in CLOTUREE, for good.
+  async function closeRequest(confirmation: string) {
+    if (!request || closing) return;
+    if (!window.confirm(confirmation)) return;
+    setClosing(true);
+    try {
+      await api(`/api/requests/${id}`, { method: 'PATCH', body: { status: 'CLOTUREE' } });
+      setRequest({ ...request, status: 'CLOTUREE', updatedAt: new Date().toISOString() });
+      toast('Demande clôturée.', 'success');
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'REQUEST_ALREADY_CLOSED') {
+        setRequest({ ...request, status: 'CLOTUREE' });
+      } else {
+        toast(e instanceof ApiError ? e.message : 'Impossible de clôturer la demande.', 'error');
+      }
+    } finally {
+      setClosing(false);
+    }
+  }
 
   if (!user) return null;
 
@@ -168,28 +188,6 @@ export default function DemandeDetailPage({ params }: { params: Promise<{ id: st
           <ChevronRight className="h-[13px] w-[13px]" aria-hidden />
           <span className="font-semibold text-neutral-900">Détail de la demande #{shortRef}</span>
         </div>
-        {isOwner && (
-          <div className="ml-auto flex items-center gap-2.5">
-            <button
-              type="button"
-              disabled
-              title="Bientôt disponible"
-              className="flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-black/[0.08] px-4 py-2 text-[13px] font-semibold text-gray-400"
-            >
-              <Pencil className="h-[13px] w-[13px]" aria-hidden />
-              Modifier
-            </button>
-            <button
-              type="button"
-              disabled
-              title="Bientôt disponible"
-              className="flex cursor-not-allowed items-center gap-1.5 rounded-lg bg-brand/40 px-4 py-2 text-[13px] font-semibold text-white"
-            >
-              <CheckCircle className="h-[13px] w-[13px]" aria-hidden />
-              Marquer traitée
-            </button>
-          </div>
-        )}
       </div>
 
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1fr_340px]">
@@ -461,28 +459,45 @@ export default function DemandeDetailPage({ params }: { params: Promise<{ id: st
                   </span>
                 </div>
               </div>
-              {isOwner && (
-                <div className="flex flex-col gap-1.5 pt-1">
-                  <button
-                    type="button"
-                    disabled
-                    title="Bientôt disponible"
-                    className="flex cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[13px] font-semibold text-emerald-400"
-                  >
-                    <CheckCircle className="h-[13px] w-[13px]" aria-hidden />
-                    Marquer comme traitée
-                  </button>
-                  <button
-                    type="button"
-                    disabled
-                    title="Bientôt disponible"
-                    className="flex cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[13px] font-semibold text-red-300"
-                  >
-                    <XCircle className="h-[13px] w-[13px]" aria-hidden />
-                    Clôturer la demande
-                  </button>
-                </div>
-              )}
+              {isOwner &&
+                (status === 'CLOTUREE' ? (
+                  <p className="pt-1 text-[12.5px] text-gray-400">
+                    Cette demande est clôturée. Elle ne peut pas être rouverte.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      disabled={closing}
+                      onClick={() =>
+                        void closeRequest(
+                          'Marquer cette demande comme traitée ? Elle sera clôturée et ne pourra pas être rouverte.',
+                        )
+                      }
+                      className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[13px] font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {closing ? (
+                        <Loader2 className="h-[13px] w-[13px] animate-spin" aria-hidden />
+                      ) : (
+                        <CheckCircle className="h-[13px] w-[13px]" aria-hidden />
+                      )}
+                      Marquer comme traitée
+                    </button>
+                    <button
+                      type="button"
+                      disabled={closing}
+                      onClick={() =>
+                        void closeRequest(
+                          'Clôturer cette demande ? Cette action est définitive, elle ne pourra pas être rouverte.',
+                        )
+                      }
+                      className="flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[13px] font-semibold text-red-600 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <XCircle className="h-[13px] w-[13px]" aria-hidden />
+                      Clôturer la demande
+                    </button>
+                  </div>
+                ))}
             </div>
           </div>
         </div>
