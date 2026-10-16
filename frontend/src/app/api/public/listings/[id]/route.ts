@@ -9,16 +9,37 @@
 // render must not have: Listing.viewCount increment (best-effort — a lost
 // increment under a race is an acceptable trade-off for a vanity counter),
 // a ListingView row, and city geocoding via Nominatim (best-effort).
+// A view counts once per visitor per 24 h (lib/server/analytics/view-dedup.ts)
+// and never when the listing's owner looks at their own listing.
 export const runtime = 'nodejs';
 
 import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/server/prisma';
+import { optionalAuth } from '@/lib/server/middleware';
+import { clientIp } from '@/lib/server/middleware/rate-limit-by-email';
+import { isFirstViewInWindow } from '@/lib/server/analytics/view-dedup';
 import { geocodeCity } from '@/lib/server/geocode';
 import { classifySource } from '@/lib/server/analytics/classify-source';
 import { getPublicListing } from '@/lib/server/public/listing';
 import { log } from '@/lib/server/observability/log';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+
+/** Owners looking at their own listing never count; everyone else counts once per 24 h. */
+async function shouldCountView(req: NextRequest, listingId: string): Promise<boolean> {
+  const viewer = await optionalAuth(req.headers.get('authorization')).catch(() => null);
+  if (viewer) {
+    const owner = await prisma.listing
+      .findUnique({ where: { id: listingId }, select: { userId: true } })
+      .catch(() => null);
+    if (owner?.userId === viewer.user.sub) return false;
+  }
+  return isFirstViewInWindow({
+    listingId,
+    ip: clientIp(req),
+    userAgent: req.headers.get('user-agent') ?? '',
+  });
+}
 
 export async function GET(
   req: NextRequest,
@@ -37,31 +58,33 @@ export async function GET(
     }
 
     let viewCount = listing.viewCount;
-    try {
-      const updated = await prisma.listing.update({
-        where: { id },
-        data: { viewCount: { increment: 1 } },
-        select: { viewCount: true },
-      });
-      viewCount = updated.viewCount;
-    } catch (err) {
-      log.warn('listing-detail: viewCount increment failed', {
-        listingId: id,
-        err: err instanceof Error ? err.message : String(err),
-      });
-    }
+    if (await shouldCountView(req, id)) {
+      try {
+        const updated = await prisma.listing.update({
+          where: { id },
+          data: { viewCount: { increment: 1 } },
+          select: { viewCount: true },
+        });
+        viewCount = updated.viewCount;
+      } catch (err) {
+        log.warn('listing-detail: viewCount increment failed', {
+          listingId: id,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
 
-    const source = classifySource(
-      req.headers.get('referer'),
-      req.nextUrl.searchParams.get('utm_source'),
-    );
-    try {
-      await prisma.listingView.create({ data: { listingId: id, source } });
-    } catch (err) {
-      log.warn('listing-detail: ListingView write failed', {
-        listingId: id,
-        err: err instanceof Error ? err.message : String(err),
-      });
+      const source = classifySource(
+        req.headers.get('referer'),
+        req.nextUrl.searchParams.get('utm_source'),
+      );
+      try {
+        await prisma.listingView.create({ data: { listingId: id, source } });
+      } catch (err) {
+        log.warn('listing-detail: ListingView write failed', {
+          listingId: id,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
 
     const location = await geocodeCity(listing.city, listing.country).catch(() => null);

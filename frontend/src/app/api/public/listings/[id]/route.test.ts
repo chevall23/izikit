@@ -7,7 +7,13 @@ vi.mock('@/lib/server/geocode', () => ({
   geocodeCity: vi.fn().mockResolvedValue({ lat: 6.36, lon: 2.42 }),
 }));
 
+vi.mock('@/lib/server/middleware', () => ({ optionalAuth: vi.fn() }));
+
+import { optionalAuth } from '@/lib/server/middleware';
+import { __resetViewDedup } from '@/lib/server/analytics/view-dedup';
 import { GET } from './route';
+
+const mockOptionalAuth = vi.mocked(optionalAuth);
 
 function makeListingRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -40,18 +46,23 @@ function makeListingRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function makeGet(id = 'listing-1'): {
+function makeGet(
+  id = 'listing-1',
+  headers: Record<string, string> = {},
+): {
   req: NextRequest;
   ctx: { params: Promise<{ id: string }> };
 } {
   return {
-    req: new NextRequest(`http://test/api/public/listings/${id}`),
+    req: new NextRequest(`http://test/api/public/listings/${id}`, { headers }),
     ctx: { params: Promise.resolve({ id }) },
   };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  __resetViewDedup();
+  mockOptionalAuth.mockResolvedValue(null);
   prismaMock.listing.findUnique.mockResolvedValue(makeListingRow() as never);
   prismaMock.listing.update.mockResolvedValue({ viewCount: 11 } as never);
   prismaMock.listing.findMany.mockResolvedValue([] as never);
@@ -168,5 +179,70 @@ describe('GET /api/public/listings/[id]', () => {
         take: 3,
       }),
     );
+  });
+});
+
+describe('GET /api/public/listings/[id] view counting', () => {
+  async function call(id = 'listing-1', headers: Record<string, string> = {}) {
+    const { req, ctx } = makeGet(id, headers);
+    return GET(req, ctx);
+  }
+
+  const visitor = { 'x-forwarded-for': '203.0.113.7', 'user-agent': 'Mozilla/5.0 test' };
+
+  it('counts a visitor once, however many times they reload the page', async () => {
+    for (let i = 0; i < 12; i++) {
+      const { req, ctx } = makeGet('listing-1', visitor);
+      expect((await GET(req, ctx)).status).toBe(200);
+    }
+    expect(prismaMock.listing.update).toHaveBeenCalledTimes(1);
+    expect(prismaMock.listingView.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns the stored count, not an incremented one, on a repeated visit', async () => {
+    await call('listing-1', visitor);
+    const { req, ctx } = makeGet('listing-1', visitor);
+    const body = await (await GET(req, ctx)).json();
+    expect(body.viewCount).toBe(10);
+  });
+
+  it('counts a different visitor (other IP) separately', async () => {
+    await call('listing-1', visitor);
+    const other = { ...visitor, 'x-forwarded-for': '198.51.100.9' };
+    await call('listing-1', other);
+    expect(prismaMock.listing.update).toHaveBeenCalledTimes(2);
+  });
+
+  it('counts the same visitor again on another listing', async () => {
+    await call('listing-1', visitor);
+    prismaMock.listing.findUnique.mockResolvedValue(makeListingRow({ id: 'listing-2' }) as never);
+    await call('listing-2', visitor);
+    expect(prismaMock.listing.update).toHaveBeenCalledTimes(2);
+  });
+
+  it('never counts the owner looking at their own listing', async () => {
+    mockOptionalAuth.mockResolvedValue({ user: { sub: 'user-1' } } as never);
+    // The real lookup selects userId; the listing row of this suite does not carry it.
+    prismaMock.listing.findUnique.mockResolvedValue(makeListingRow({ userId: 'user-1' }) as never);
+    const { req, ctx } = makeGet('listing-1', visitor);
+    expect((await GET(req, ctx)).status).toBe(200);
+    expect(prismaMock.listing.update).not.toHaveBeenCalled();
+    expect(prismaMock.listingView.create).not.toHaveBeenCalled();
+  });
+
+  it('counts a logged-in visitor who is not the owner', async () => {
+    mockOptionalAuth.mockResolvedValue({ user: { sub: 'someone-else' } } as never);
+    prismaMock.listing.findUnique.mockResolvedValue(makeListingRow({ userId: 'user-1' }) as never);
+    const { req, ctx } = makeGet('listing-1', visitor);
+    await GET(req, ctx);
+    expect(prismaMock.listing.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('always counts a visitor whose IP is unknown (cannot be told apart)', async () => {
+    for (let i = 0; i < 3; i++) {
+      const { req, ctx } = makeGet('listing-1');
+      await GET(req, ctx);
+    }
+    expect(prismaMock.listing.update).toHaveBeenCalledTimes(3);
   });
 });
