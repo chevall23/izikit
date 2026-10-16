@@ -87,9 +87,13 @@ export function BoostModal({ listingId, listingTitle, onClose, onBoosted }: Boos
           </button>
         </div>
         <p className="mb-4 line-clamp-2 text-[13.5px] text-gray-600">{listingTitle}</p>
-        <p className="mb-4 text-[12.5px] text-gray-500">
-          Votre annonce passe en tête des résultats avec le badge « Sponsorisé » pendant la durée
-          choisie.
+        <p className="mb-2 text-[12.5px] text-gray-500">
+          Votre annonce est mise en avant avec le badge « Sponsorisé » pendant la durée choisie : en
+          haut des résultats de recherche et dans « Annonces à la une » de la page d’accueil.
+        </p>
+        <p className="mb-4 text-[12px] text-gray-400">
+          3 emplacements par page : si plus de 3 annonces sont boostées, elles tournent toutes les
+          heures. Il faut au moins une photo et un prix réel.
         </p>
 
         <div className="mb-4 grid grid-cols-3 gap-2">

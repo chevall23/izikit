@@ -25,6 +25,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { api, ApiError } from '@/lib/api';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { BoostModal } from '@/components/listings/BoostModal';
+import { MIN_REAL_PRICE } from '@/lib/seo/listing';
 import {
   STATUS_LABEL,
   TRANSACTION_TYPE_LABEL,
@@ -485,20 +486,31 @@ export default function ListingsPage() {
                               <Pencil className="h-[13px] w-[13px]" aria-hidden />
                             </Link>
                           )}
-                          {l.status === 'VERIFIED' && (
-                            <button
-                              type="button"
-                              title={
-                                l.boostedUntil && new Date(l.boostedUntil) > new Date()
-                                  ? `Boostée jusqu'au ${DATE_FORMATTER.format(new Date(l.boostedUntil))}`
-                                  : 'Booster l’annonce'
-                              }
-                              onClick={() => setBoostTarget(l)}
-                              className="flex h-[30px] w-[30px] items-center justify-center rounded-md border border-amber-200 text-amber-600 hover:bg-amber-50"
-                            >
-                              <Zap className="h-[13px] w-[13px]" aria-hidden />
-                            </button>
-                          )}
+                          {l.status === 'VERIFIED' &&
+                            (() => {
+                              // Boosted listings go in the shop window: they need a photo and a real price.
+                              const boostBlock = !l.primaryPhotoUrl
+                                ? 'Ajoutez une photo pour pouvoir booster cette annonce.'
+                                : l.price < MIN_REAL_PRICE
+                                  ? 'Indiquez le prix réel pour pouvoir booster cette annonce.'
+                                  : null;
+                              return (
+                                <button
+                                  type="button"
+                                  disabled={boostBlock !== null}
+                                  title={
+                                    boostBlock ??
+                                    (l.boostedUntil && new Date(l.boostedUntil) > new Date()
+                                      ? `Boostée jusqu'au ${DATE_FORMATTER.format(new Date(l.boostedUntil))}`
+                                      : 'Booster l’annonce')
+                                  }
+                                  onClick={() => setBoostTarget(l)}
+                                  className="flex h-[30px] w-[30px] items-center justify-center rounded-md border border-amber-200 text-amber-600 hover:bg-amber-50 disabled:cursor-not-allowed disabled:border-black/[0.08] disabled:text-gray-300 disabled:hover:bg-transparent"
+                                >
+                                  <Zap className="h-[13px] w-[13px]" aria-hidden />
+                                </button>
+                              );
+                            })()}
                           <button
                             type="button"
                             disabled={deletingId === l.id}

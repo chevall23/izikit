@@ -1,7 +1,10 @@
 // BOOST-01 — POST /api/listings/[id]/boost
 //
 // Boosts a VERIFIED listing for 7, 15 or 30 days: it is pinned at the top of
-// page 1 of the public results (see lib/server/public/boosted.ts). Paid with
+// page 1 of the public results and in "Annonces à la une" on the home page (see
+// lib/server/public/boosted.ts). The listing must have at least one photo and a
+// real price (>= MIN_REAL_PRICE): it is shown in the shop window, so a bare card
+// or a "1 FCFA" placeholder would hurt the site. Paid with
 // tokens (priced in PricingConfig) or with one of the plan's included 7-day
 // boosts. A boost on a still-running boost extends it, capped 60 days ahead.
 // Everything runs in one transaction under a per-user advisory lock, modelled
@@ -18,6 +21,7 @@ import { getPricing } from '@/lib/server/pricing';
 import { InsufficientTokensError, assertBalanceNotNegative } from '@/lib/server/token-wallet';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { boostTokenCost } from '@/lib/pricing';
+import { MIN_REAL_PRICE } from '@/lib/seo/listing';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_HORIZON_MS = 60 * DAY_MS;
@@ -27,9 +31,17 @@ const Body = z.object({
   useIncluded: z.boolean().optional(),
 });
 
+const NEEDS_PHOTO_MESSAGE = 'Ajoutez au moins une photo avant de booster cette annonce.';
+const NEEDS_PRICE_MESSAGE = 'Indiquez le prix réel de cette annonce avant de la booster.';
+
 class BoostRefusal extends Error {
   constructor(
-    readonly code: 'LISTING_NOT_BOOSTABLE' | 'NO_INCLUDED_BOOST' | 'BOOST_HORIZON',
+    readonly code:
+      | 'LISTING_NOT_BOOSTABLE'
+      | 'LISTING_NEEDS_PHOTO'
+      | 'LISTING_NEEDS_PRICE'
+      | 'NO_INCLUDED_BOOST'
+      | 'BOOST_HORIZON',
     readonly httpMessage: string,
   ) {
     super(code);
@@ -70,7 +82,13 @@ export async function POST(
     const { id } = await ctx.params;
     const listing = await prisma.listing.findUnique({
       where: { id },
-      select: { userId: true, status: true, boostedUntil: true },
+      select: {
+        userId: true,
+        status: true,
+        boostedUntil: true,
+        price: true,
+        _count: { select: { photos: true } },
+      },
     });
     if (!listing || listing.userId !== userId) {
       return NextResponse.json(
@@ -84,6 +102,19 @@ export async function POST(
           error: 'LISTING_NOT_BOOSTABLE',
           message: 'Seule une annonce vérifiée peut être boostée.',
         },
+        { status: 409, headers },
+      );
+    }
+
+    if (listing._count.photos === 0) {
+      return NextResponse.json(
+        { error: 'LISTING_NEEDS_PHOTO', message: NEEDS_PHOTO_MESSAGE },
+        { status: 409, headers },
+      );
+    }
+    if (listing.price < MIN_REAL_PRICE) {
+      return NextResponse.json(
+        { error: 'LISTING_NEEDS_PRICE', message: NEEDS_PRICE_MESSAGE },
         { status: 409, headers },
       );
     }
@@ -114,13 +145,24 @@ export async function POST(
         // Re-read under the lock: the listing may have changed since the check above.
         const fresh = await tx.listing.findUnique({
           where: { id },
-          select: { status: true, boostedUntil: true },
+          select: {
+            status: true,
+            boostedUntil: true,
+            price: true,
+            _count: { select: { photos: true } },
+          },
         });
         if (!fresh || fresh.status !== 'VERIFIED') {
           throw new BoostRefusal(
             'LISTING_NOT_BOOSTABLE',
             'Seule une annonce vérifiée peut être boostée.',
           );
+        }
+        if (fresh._count.photos === 0) {
+          throw new BoostRefusal('LISTING_NEEDS_PHOTO', NEEDS_PHOTO_MESSAGE);
+        }
+        if (fresh.price < MIN_REAL_PRICE) {
+          throw new BoostRefusal('LISTING_NEEDS_PRICE', NEEDS_PRICE_MESSAGE);
         }
         const now = new Date();
         const startsAt =

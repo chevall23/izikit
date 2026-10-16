@@ -25,7 +25,14 @@ function makePost(payload: unknown, id = 'l1') {
 }
 
 const listing = (over: Record<string, unknown> = {}) =>
-  ({ userId: 'user-1', status: 'VERIFIED', boostedUntil: null, ...over }) as never;
+  ({
+    userId: 'user-1',
+    status: 'VERIFIED',
+    boostedUntil: null,
+    price: 150_000,
+    _count: { photos: 2 },
+    ...over,
+  }) as never;
 
 const createdBoost = () =>
   prismaMock.boost.create.mock.calls[0]![0].data as {
@@ -99,6 +106,44 @@ describe('POST /api/listings/[id]/boost — guards', () => {
       expect(prismaMock.boost.create).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('POST /api/listings/[id]/boost — shop-window quality', () => {
+  it('409 LISTING_NEEDS_PHOTO without a photo, spending nothing', async () => {
+    prismaMock.listing.findUnique.mockResolvedValue(listing({ _count: { photos: 0 } }));
+    const { req, ctx } = makePost({ days: 7 });
+    const res = await POST(req, ctx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe('LISTING_NEEDS_PHOTO');
+    expect(prismaMock.boost.create).not.toHaveBeenCalled();
+    expect(prismaMock.tokenWallet.update).not.toHaveBeenCalled();
+  });
+
+  it.each([0, 1, 999])('409 LISTING_NEEDS_PRICE for a placeholder price of %i', async (price) => {
+    prismaMock.listing.findUnique.mockResolvedValue(listing({ price }));
+    const { req, ctx } = makePost({ days: 7 });
+    const res = await POST(req, ctx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe('LISTING_NEEDS_PRICE');
+    expect(prismaMock.boost.create).not.toHaveBeenCalled();
+  });
+
+  it('accepts the smallest real price (1 000)', async () => {
+    prismaMock.listing.findUnique.mockResolvedValue(listing({ price: 1000 }));
+    const { req, ctx } = makePost({ days: 7 });
+    expect((await POST(req, ctx)).status).toBe(201);
+  });
+
+  it('re-checks the photo under the lock: a photo deleted meanwhile refuses the boost', async () => {
+    prismaMock.listing.findUnique
+      .mockResolvedValueOnce(listing())
+      .mockResolvedValueOnce(listing({ _count: { photos: 0 } }));
+    const { req, ctx } = makePost({ days: 7 });
+    const res = await POST(req, ctx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe('LISTING_NEEDS_PHOTO');
+    expect(prismaMock.boost.create).not.toHaveBeenCalled();
+  });
 });
 
 describe('POST /api/listings/[id]/boost — paying with tokens', () => {
