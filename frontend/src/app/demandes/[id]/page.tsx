@@ -54,6 +54,8 @@ interface PropertyRequestDetail {
   status: string;
   createdAt: string;
   updatedAt: string;
+  /** false when the viewer got here through one of their sector-alert matches. */
+  isOwner: boolean;
 }
 
 function initials(name: string): string {
@@ -127,6 +129,19 @@ export default function DemandeDetailPage({ params }: { params: Promise<{ id: st
   const transactionLabel =
     TRANSACTION_TYPE_LABEL[request.transactionType] ?? request.transactionType;
   const shortRef = request.id.slice(-8).toUpperCase();
+  // Manage actions belong to the owner. An agent who arrives from a sector-alert
+  // match goes back to their alerts, not to a request list that is not theirs.
+  const { isOwner } = request;
+  const shellActive = isOwner ? 'requests' : 'alerts';
+  const backHref = isOwner ? '/demandes' : '/alertes';
+  const backLabel = isOwner ? 'Demande Immobilière' : 'Alerte secteur';
+  const phoneDigits = request.clientPhone.replace(/\D/g, '');
+  const statusTone =
+    status === 'EN_ATTENTE'
+      ? { box: 'bg-amber-100', icon: 'text-amber-700', text: 'text-amber-900' }
+      : status === 'EN_COURS'
+        ? { box: 'bg-emerald-100', icon: 'text-emerald-700', text: 'text-emerald-900' }
+        : { box: 'bg-gray-100', icon: 'text-gray-500', text: 'text-neutral-700' };
 
   const characteristics = [
     request.bedrooms && { label: 'Chambres', value: request.bedrooms },
@@ -136,40 +151,45 @@ export default function DemandeDetailPage({ params }: { params: Promise<{ id: st
   ].filter((c): c is { label: string; value: string } => Boolean(c));
 
   return (
-    <DashboardShell active="requests" searchPlaceholder="Rechercher une annonce, un contact…">
+    <DashboardShell active={shellActive} searchPlaceholder="Rechercher une annonce, un contact…">
       {/* HEADER */}
       <div className="mb-6 flex flex-wrap items-center gap-3.5">
         <Link
-          href="/demandes"
+          href={backHref}
+          aria-label={`Retour à ${backLabel}`}
           className="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-neutral-700"
         >
           <ArrowLeft className="h-[15px] w-[15px]" aria-hidden />
         </Link>
         <div className="flex items-center gap-1.5 text-[13px] text-gray-400">
-          <span>Demande Immobilière</span>
+          <Link href={backHref} className="hover:text-neutral-700">
+            {backLabel}
+          </Link>
           <ChevronRight className="h-[13px] w-[13px]" aria-hidden />
           <span className="font-semibold text-neutral-900">Détail de la demande #{shortRef}</span>
         </div>
-        <div className="ml-auto flex items-center gap-2.5">
-          <button
-            type="button"
-            disabled
-            title="Bientôt disponible"
-            className="flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-black/[0.08] px-4 py-2 text-[13px] font-semibold text-gray-400"
-          >
-            <Pencil className="h-[13px] w-[13px]" aria-hidden />
-            Modifier
-          </button>
-          <button
-            type="button"
-            disabled
-            title="Bientôt disponible"
-            className="flex cursor-not-allowed items-center gap-1.5 rounded-lg bg-brand/40 px-4 py-2 text-[13px] font-semibold text-white"
-          >
-            <CheckCircle className="h-[13px] w-[13px]" aria-hidden />
-            Marquer traitée
-          </button>
-        </div>
+        {isOwner && (
+          <div className="ml-auto flex items-center gap-2.5">
+            <button
+              type="button"
+              disabled
+              title="Bientôt disponible"
+              className="flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-black/[0.08] px-4 py-2 text-[13px] font-semibold text-gray-400"
+            >
+              <Pencil className="h-[13px] w-[13px]" aria-hidden />
+              Modifier
+            </button>
+            <button
+              type="button"
+              disabled
+              title="Bientôt disponible"
+              className="flex cursor-not-allowed items-center gap-1.5 rounded-lg bg-brand/40 px-4 py-2 text-[13px] font-semibold text-white"
+            >
+              <CheckCircle className="h-[13px] w-[13px]" aria-hidden />
+              Marquer traitée
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1fr_340px]">
@@ -349,12 +369,16 @@ export default function DemandeDetailPage({ params }: { params: Promise<{ id: st
             </div>
             <div className="flex items-center gap-2.5 border-b border-black/[0.06] py-2 text-[13px] text-neutral-700">
               <Phone className="h-[13px] w-[13px] flex-shrink-0 text-brand" aria-hidden />
-              <span>{request.clientPhone}</span>
+              <a href={`tel:${request.clientPhone}`} className="hover:text-brand">
+                {request.clientPhone}
+              </a>
             </div>
             {request.clientEmail && (
               <div className="flex items-center gap-2.5 border-b border-black/[0.06] py-2 text-[13px] text-neutral-700">
                 <Mail className="h-[13px] w-[13px] flex-shrink-0 text-brand" aria-hidden />
-                <span className="truncate">{request.clientEmail}</span>
+                <a href={`mailto:${request.clientEmail}`} className="truncate hover:text-brand">
+                  {request.clientEmail}
+                </a>
               </div>
             )}
             <div className="flex items-center gap-2.5 py-2 text-[13px] text-neutral-700">
@@ -367,24 +391,22 @@ export default function DemandeDetailPage({ params }: { params: Promise<{ id: st
               <p className="mt-2 text-[11.5px] text-gray-400">Connu via : {request.source}</p>
             )}
             <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                disabled
-                title="Bientôt disponible"
-                className="flex flex-1 cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border border-black/[0.08] px-2.5 py-2 text-[12.5px] font-semibold text-gray-400"
+              <a
+                href={`https://wa.me/${phoneDigits}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-black/[0.08] px-2.5 py-2 text-[12.5px] font-semibold text-neutral-700 hover:bg-gray-50"
               >
                 <MessageCircle className="h-[13px] w-[13px]" aria-hidden />
                 Message
-              </button>
-              <button
-                type="button"
-                disabled
-                title="Bientôt disponible"
-                className="flex flex-1 cursor-not-allowed items-center justify-center gap-1.5 rounded-lg bg-brand/40 px-2.5 py-2 text-[12.5px] font-semibold text-white"
+              </a>
+              <a
+                href={`tel:${request.clientPhone}`}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand px-2.5 py-2 text-[12.5px] font-semibold text-white hover:opacity-90"
               >
                 <Phone className="h-[13px] w-[13px]" aria-hidden />
                 Appeler
-              </button>
+              </a>
             </div>
           </div>
 
@@ -401,9 +423,9 @@ export default function DemandeDetailPage({ params }: { params: Promise<{ id: st
                 <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-gray-400 uppercase">
                   Statut actuel
                 </p>
-                <div className="flex items-center gap-2 rounded-lg bg-amber-100 px-4 py-3">
-                  <Clock className="h-4 w-4 text-amber-700" aria-hidden />
-                  <span className="text-[13.5px] font-semibold text-amber-900">
+                <div className={cn('flex items-center gap-2 rounded-lg px-4 py-3', statusTone.box)}>
+                  <Clock className={cn('h-4 w-4', statusTone.icon)} aria-hidden />
+                  <span className={cn('text-[13.5px] font-semibold', statusTone.text)}>
                     {status === 'EN_ATTENTE'
                       ? 'En attente de traitement'
                       : status === 'EN_COURS'
@@ -439,26 +461,28 @@ export default function DemandeDetailPage({ params }: { params: Promise<{ id: st
                   </span>
                 </div>
               </div>
-              <div className="flex flex-col gap-1.5 pt-1">
-                <button
-                  type="button"
-                  disabled
-                  title="Bientôt disponible"
-                  className="flex cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[13px] font-semibold text-emerald-400"
-                >
-                  <CheckCircle className="h-[13px] w-[13px]" aria-hidden />
-                  Marquer comme traitée
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  title="Bientôt disponible"
-                  className="flex cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[13px] font-semibold text-red-300"
-                >
-                  <XCircle className="h-[13px] w-[13px]" aria-hidden />
-                  Clôturer la demande
-                </button>
-              </div>
+              {isOwner && (
+                <div className="flex flex-col gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    disabled
+                    title="Bientôt disponible"
+                    className="flex cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[13px] font-semibold text-emerald-400"
+                  >
+                    <CheckCircle className="h-[13px] w-[13px]" aria-hidden />
+                    Marquer comme traitée
+                  </button>
+                  <button
+                    type="button"
+                    disabled
+                    title="Bientôt disponible"
+                    className="flex cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[13px] font-semibold text-red-300"
+                  >
+                    <XCircle className="h-[13px] w-[13px]" aria-hidden />
+                    Clôturer la demande
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

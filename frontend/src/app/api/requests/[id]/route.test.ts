@@ -58,6 +58,7 @@ describe('GET /api/requests/[id]', () => {
     expect(status).toBe(200);
     expect(body.propertyRequest.clientPhone).toBe('+22997000000');
     expect(body.propertyRequest.userId).toBe('agent-1');
+    expect(body.propertyRequest.isOwner).toBe(true);
     expect(body.propertyRequest.trustStatus).toBeUndefined();
     expect(prismaMock.alertMatch.findFirst).not.toHaveBeenCalled();
   });
@@ -81,6 +82,7 @@ describe('GET /api/requests/[id]', () => {
       clientPhone: '+22997000000',
       clientEmail: 'awa@example.com',
       source: 'Site web',
+      isOwner: false,
     });
   });
 

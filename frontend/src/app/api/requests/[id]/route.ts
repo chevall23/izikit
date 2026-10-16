@@ -74,7 +74,7 @@ export async function GET(
     if (propertyRequest.userId === auth.user.sub) {
       // trustStatus is read for the checks below, not part of the owner's payload.
       return NextResponse.json(
-        { propertyRequest: omit(propertyRequest, 'trustStatus') },
+        { propertyRequest: { ...omit(propertyRequest, 'trustStatus'), isOwner: true } },
         { status: 200, headers },
       );
     }
@@ -90,7 +90,7 @@ export async function GET(
 
     // The owner's id is not shared with the matched agent.
     return NextResponse.json(
-      { propertyRequest: omit(propertyRequest, 'userId', 'trustStatus') },
+      { propertyRequest: { ...omit(propertyRequest, 'userId', 'trustStatus'), isOwner: false } },
       { status: 200, headers },
     );
   });
