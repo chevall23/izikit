@@ -249,6 +249,16 @@ async function recordMatchAndNotify(
     ) {
       return false; // Already matched — never re-notify for the same pair.
     }
+    if (
+      typeof err === 'object' &&
+      err !== null &&
+      'code' in err &&
+      (err as { code: unknown }).code === 'P2003'
+    ) {
+      // The alert (or request) was deleted after we loaded it: the agent
+      // removed it, so nobody must be notified — and the rest of the loop goes on.
+      return false;
+    }
     throw err;
   }
 

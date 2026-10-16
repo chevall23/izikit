@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { verifyCsrf } from '@/lib/server/auth';
 import { requireAdmin } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
+import { deleteAlertWithNotifications } from '@/lib/server/alerts/delete';
 import { logAdminAction } from '@/lib/server/admin/audit';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     for (const row of rows) {
       try {
         if (action === 'delete') {
-          await prisma.alert.delete({ where: { id: row.id } });
+          await deleteAlertWithNotifications(prisma, row.id);
         } else {
           const next = action === 'activate';
           if (row.active !== next) {

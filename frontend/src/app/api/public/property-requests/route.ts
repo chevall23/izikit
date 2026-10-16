@@ -28,6 +28,7 @@ import { runMatchingForNewRequest } from '@/lib/server/alerts/matching';
 import { createLogger } from '@/lib/server/logger';
 import { requestBodyIssues } from '@/lib/request-validation';
 import { assessRequestTrust } from '@/lib/server/requests/trust';
+import { notifyAdminsOfReviewRequest } from '@/lib/server/requests/review-notify';
 
 const log = createLogger();
 
@@ -164,6 +165,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       },
       select: { id: true, status: true, createdAt: true },
     });
+
+    // A doubtful request waits for an admin: tell them (best-effort, never throws).
+    if (trust.status === 'REVIEW') {
+      await notifyAdminsOfReviewRequest(
+        prisma,
+        {
+          id: propertyRequest.id,
+          transactionType: data.transactionType,
+          propertyType: data.propertyType,
+          country: data.country,
+          city: data.city,
+        },
+        trust.flags,
+      );
+    }
 
     try {
       if (trust.status === 'TRUSTED') {

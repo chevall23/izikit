@@ -74,6 +74,25 @@ export function alertMatchNotification(
 }
 
 /**
+ * Dispatched to every admin when a new PropertyRequest lands in REVIEW
+ * (trust score under the threshold — see lib/server/requests/trust.ts).
+ */
+export function requestNeedsReviewNotification(
+  adminId: string,
+  requestId: string,
+  summary: string,
+): CreateNotificationInput {
+  return {
+    userId: adminId,
+    type: 'REQUEST_REVIEW',
+    title: 'Demande à vérifier',
+    body: summary,
+    data: { requestId },
+    dedupeKey: `request-review:${adminId}:${requestId}`,
+  };
+}
+
+/**
  * Dispatched to a Listing's owner when a visitor submits the public
  * detail page's contact form (a general message or a VR-visit request).
  */

@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { verifyCsrf } from '@/lib/server/auth';
 import { requireAdmin } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
+import { deleteAlertWithNotifications } from '@/lib/server/alerts/delete';
 import { logAdminAction } from '@/lib/server/admin/audit';
 import { runMatchingForNewAlert } from '@/lib/server/alerts/matching';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
@@ -280,7 +281,7 @@ export async function DELETE(
     });
     if (!existing) return jsonError('ALERT_NOT_FOUND', 'Alert not found', 404, reqCtx.requestId);
 
-    await prisma.alert.delete({ where: { id } });
+    await deleteAlertWithNotifications(prisma, id);
     await logAdminAction(prisma, {
       actorId: auth.admin.id,
       action: 'alert.delete',

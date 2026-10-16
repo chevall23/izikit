@@ -199,6 +199,21 @@ export function alertMatchEmail(args: { alertName: string; summary: string }): E
   });
 }
 
+export function requestNeedsReviewEmail(args: { summary: string; flags: string[] }): EmailContent {
+  return renderEmail({
+    subject: 'Demande immobilière à vérifier',
+    preheader: args.summary,
+    paragraphs: [
+      "Une demande immobilière a été jugée douteuse par le contrôle automatique. Elle reste cachée des agents tant qu'un administrateur ne l'a pas approuvée.",
+    ],
+    details: [
+      { label: 'Demande', value: args.summary },
+      ...(args.flags.length > 0 ? [{ label: 'Signaux', value: args.flags.join(', ') }] : []),
+    ],
+    button: { label: 'Examiner la demande', path: '/admin/demandes' },
+  });
+}
+
 // ── Payments & compliance ───────────────────────────────────────────────────
 
 const ZERO_DECIMAL = new Set(['XOF', 'XAF', 'GNF']);

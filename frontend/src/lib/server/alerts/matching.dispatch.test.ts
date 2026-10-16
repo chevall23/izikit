@@ -146,4 +146,17 @@ describe('runMatchingForNewRequest — channel fan-out', () => {
     expect(enqueue).not.toHaveBeenCalled();
     expect(whatsappSend).not.toHaveBeenCalled();
   });
+
+  it('skips an alert deleted mid-run (FK violation) and keeps notifying the others', async () => {
+    prisma.alert.findMany.mockResolvedValue([alertRow(), alertRow()] as never);
+    prisma.alertMatch.create
+      .mockRejectedValueOnce(Object.assign(new Error('fk'), { code: 'P2003' }) as never)
+      .mockResolvedValueOnce({ id: 'm-2' } as never);
+    prisma.user.findUnique.mockResolvedValue(ownerRow() as never);
+
+    const notified = await runMatchingForNewRequest(prisma, REQUEST);
+
+    expect(notified).toBe(1);
+    expect(createNotification).toHaveBeenCalledTimes(1);
+  });
 });

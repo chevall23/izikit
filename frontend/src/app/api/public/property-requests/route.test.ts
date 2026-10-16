@@ -3,12 +3,16 @@ import { prismaMock } from '@/test-utils/prisma-mock';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
+vi.mock('@/lib/server/requests/review-notify', () => ({
+  notifyAdminsOfReviewRequest: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock('@/lib/server/alerts/matching', () => ({
   runMatchingForNewRequest: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { POST, GET } from './route';
 import { runMatchingForNewRequest } from '@/lib/server/alerts/matching';
+import { notifyAdminsOfReviewRequest } from '@/lib/server/requests/review-notify';
 
 function makePost(body: unknown, opts: { ip?: string } = {}): NextRequest {
   const headers: Record<string, string> = {
@@ -143,6 +147,17 @@ describe('POST /api/public/property-requests', () => {
       }),
     );
     expect(runMatchingForNewRequest).not.toHaveBeenCalled();
+    expect(notifyAdminsOfReviewRequest).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ id: 'preq-1', city: 'Abidjan' }),
+      expect.arrayContaining(['PHONE_PATTERN']),
+    );
+  });
+
+  it('does not notify the admins for a trusted request nor for a bot', async () => {
+    await POST(makePost(validBody));
+    await POST(makePost({ ...validBody, website: 'http://spam.example' }));
+    expect(notifyAdminsOfReviewRequest).not.toHaveBeenCalled();
   });
 
   it('answers a bot (honeypot filled) like a normal visitor but marks it REJECTED', async () => {

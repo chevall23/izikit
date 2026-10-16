@@ -23,6 +23,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { alertQuotaRefusal, checkAlertQuota, lockUserAlertQuota } from '@/lib/server/alerts/quota';
 import { getPricing } from '@/lib/server/pricing';
+import { deleteAlertWithNotifications } from '@/lib/server/alerts/delete';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
@@ -193,7 +194,7 @@ export async function DELETE(
       );
     }
 
-    await prisma.alert.delete({ where: { id } });
+    await deleteAlertWithNotifications(prisma, id);
 
     return NextResponse.json(
       { ok: true },

@@ -42,6 +42,10 @@ beforeEach(() => {
   prismaMock.alert.findMany.mockResolvedValue([row('a1'), row('a2')] as never);
   prismaMock.alert.update.mockResolvedValue({} as never);
   prismaMock.alert.delete.mockResolvedValue({} as never);
+  prismaMock.notification.deleteMany.mockResolvedValue({ count: 0 } as never);
+  prismaMock.$transaction.mockImplementation(
+    (ops: unknown) => Promise.all(ops as Promise<unknown>[]) as never,
+  );
 });
 
 describe('POST /api/admin/alerts/bulk', () => {
