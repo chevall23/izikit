@@ -2,11 +2,11 @@
 
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Search, LogOut, Bell, ChevronDown } from 'lucide-react';
+import { Search, LogOut } from 'lucide-react';
 import { useUser, useAuth } from '@/contexts/AuthContext';
 import { useApi } from '@/lib/useApi';
 import { Logo } from '@/components/Logo';
-import { InitialsAvatar } from './InitialsAvatar';
+import { NotificationBell, UserMenu } from './TopbarMenus';
 import { MobileTopbar } from './MobileTopbar';
 import { MobileNavDrawer } from './MobileNavDrawer';
 import { BottomNav } from './BottomNav';
@@ -134,29 +134,8 @@ export function DashboardShell({
             <span className="text-[13px] text-gray-400">{searchPlaceholder}</span>
           </div>
           <div className="ml-auto flex items-center gap-4">
-            <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-gray-50">
-              <Bell className="h-[18px] w-[18px] text-neutral-700" aria-hidden />
-              {unread > 0 && (
-                <span className="absolute top-1 right-1 flex h-[9px] w-[9px] items-center justify-center rounded-full border-2 border-white bg-red-500" />
-              )}
-            </div>
-            <div className="flex items-center gap-2.5">
-              <InitialsAvatar
-                name={user.name}
-                email={user.email}
-                avatarUrl={user.avatarUrl}
-                size={34}
-              />
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[13px] font-semibold whitespace-nowrap text-neutral-900">
-                  {user.name ?? user.email}
-                </span>
-                <span className="inline-block w-fit rounded-full bg-brand/10 px-2 py-px text-[10px] font-semibold whitespace-nowrap text-brand">
-                  {roleLabel}
-                </span>
-              </div>
-              <ChevronDown className="ml-0.5 h-3.5 w-3.5 text-gray-400" aria-hidden />
-            </div>
+            <NotificationBell unreadCount={unread} />
+            <UserMenu user={user} roleLabel={roleLabel} />
           </div>
         </div>
 
