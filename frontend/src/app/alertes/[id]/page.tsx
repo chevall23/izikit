@@ -17,7 +17,6 @@ import {
   Bookmark,
   SlidersHorizontal,
   ChevronDown,
-  Download,
   MapPin,
   Maximize2,
   BedDouble,
@@ -419,15 +418,6 @@ export default function AlerteDetailPage({ params }: { params: Promise<{ id: str
         <span className="ml-auto text-[12.5px] text-gray-400">
           {alert.stats.totalMatches} correspondances au total
         </span>
-        <button
-          type="button"
-          disabled
-          title="Bientôt disponible"
-          className="flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-black/[0.08] px-3.5 py-1.5 text-[12.5px] font-medium text-gray-400"
-        >
-          <Download className="h-[13px] w-[13px]" aria-hidden />
-          Exporter
-        </button>
       </div>
 
       {/* MATCHES SECTION */}

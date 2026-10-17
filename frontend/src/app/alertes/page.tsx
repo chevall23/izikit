@@ -12,7 +12,6 @@ import {
   MapPin,
   Clock,
   ArrowRight,
-  Download,
   Loader2,
   BellPlus,
   FileSearch,
@@ -379,15 +378,6 @@ export default function AlertesPage() {
               className="flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-black/[0.08] bg-gray-50 px-3 py-1.5 text-[12.5px] font-medium text-gray-400"
             >
               Toutes les alertes
-            </button>
-            <button
-              type="button"
-              disabled
-              title="Bientôt disponible"
-              className="flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-black/[0.08] px-3.5 py-1.5 text-[12.5px] font-medium text-gray-400"
-            >
-              <Download className="h-[13px] w-[13px]" aria-hidden />
-              Exporter
             </button>
           </div>
         </div>

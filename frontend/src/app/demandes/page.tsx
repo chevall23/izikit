@@ -4,12 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Search,
   Plus,
-  Download,
   SlidersHorizontal,
   ArrowUpDown,
   Eye,
-  Pencil,
-  MoreHorizontal,
   ChevronLeft,
   ChevronRight,
   TrendingUp,
@@ -159,15 +156,6 @@ export default function DemandesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            disabled
-            title="Bientôt disponible"
-            className="flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-black/[0.08] px-4 py-2.5 text-[13px] font-medium text-gray-400"
-          >
-            <Download className="h-[14px] w-[14px]" aria-hidden />
-            <span className="hidden lg:inline">Exporter</span>
-          </button>
           <Link
             href="/demandes/new"
             className="flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2.5 text-[13px] font-semibold text-white"
@@ -490,22 +478,6 @@ export default function DemandesPage() {
                           >
                             <Eye className="h-[13px] w-[13px]" aria-hidden />
                           </Link>
-                          <button
-                            type="button"
-                            disabled
-                            title="Bientôt disponible"
-                            className="flex h-[30px] w-[30px] cursor-not-allowed items-center justify-center rounded-md border border-black/[0.08] bg-gray-50 text-gray-400"
-                          >
-                            <Pencil className="h-[13px] w-[13px]" aria-hidden />
-                          </button>
-                          <button
-                            type="button"
-                            disabled
-                            title="Bientôt disponible"
-                            className="flex h-[30px] w-[30px] cursor-not-allowed items-center justify-center rounded-md border border-black/[0.08] bg-gray-50 text-gray-400"
-                          >
-                            <MoreHorizontal className="h-[13px] w-[13px]" aria-hidden />
-                          </button>
                         </div>
                       </td>
                     </tr>

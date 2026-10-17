@@ -1,17 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  Download,
-  Coins,
-  Zap,
-  Check,
-  Star,
-  ArrowUpRight,
-  ArrowDownRight,
-  Gift,
-  Filter,
-} from 'lucide-react';
+import { Coins, Zap, Check, Star, ArrowUpRight, ArrowDownRight, Gift, Filter } from 'lucide-react';
 import { DashboardShell } from '@/components/dashboard/DashboardShell';
 import { cn } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
@@ -158,15 +148,6 @@ export default function JetonsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            disabled
-            title="Bientôt disponible"
-            className="flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-black/[0.08] px-4 py-2.5 text-[13px] font-medium text-gray-400"
-          >
-            <Download className="h-[14px] w-[14px]" aria-hidden />
-            <span className="hidden lg:inline">Exporter</span>
-          </button>
           <button
             type="button"
             disabled={buying}

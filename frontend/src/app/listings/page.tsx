@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   Search,
   Plus,
-  Download,
   MapPin,
   Eye,
   EyeOff,
@@ -200,15 +199,6 @@ export default function ListingsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            disabled
-            title="Bientôt disponible"
-            className="flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-black/[0.08] px-4 py-2.5 text-[13px] font-medium text-gray-400"
-          >
-            <Download className="h-[14px] w-[14px]" aria-hidden />
-            <span className="hidden lg:inline">Exporter</span>
-          </button>
           <Link
             href="/listings/new"
             className="flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-brand/90"
