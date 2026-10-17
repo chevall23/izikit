@@ -27,6 +27,15 @@ const log = createLogger();
 
 const DAY_MS = 86_400_000;
 export const FEEDBACK_FIRST_DELAY_MS = 3 * DAY_MS;
+
+/**
+ * Delay before the first mail. Defaults to 3 days; REQUEST_FEEDBACK_FIRST_DELAY_MINUTES
+ * shortens it for end-to-end tests (leave unset in production).
+ */
+export function firstDelayMs(env: NodeJS.ProcessEnv = process.env): number {
+  const minutes = Number(env.REQUEST_FEEDBACK_FIRST_DELAY_MINUTES);
+  return Number.isFinite(minutes) && minutes > 0 ? minutes * 60_000 : FEEDBACK_FIRST_DELAY_MS;
+}
 export const FEEDBACK_REMINDER_INTERVAL_MS = 7 * DAY_MS;
 export const FEEDBACK_BATCH_SIZE = 50;
 
@@ -170,7 +179,7 @@ export async function sendDueFeedbackEmails(
       trustStatus: 'TRUSTED',
       AND: [{ clientEmail: { not: null } }, { clientEmail: { not: '' } }],
       createdAt: {
-        lte: new Date(now.getTime() - FEEDBACK_FIRST_DELAY_MS),
+        lte: new Date(now.getTime() - firstDelayMs()),
         ...(since ? { gte: since } : {}),
       },
     },

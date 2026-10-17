@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import {
   authorLabelFor,
   feedbackEnabled,
+  firstDelayMs,
   newFeedbackToken,
   optOutOfFeedback,
   sendDueFeedbackEmails,
@@ -24,6 +25,15 @@ describe('feedback helpers', () => {
       feedbackEnabled({ REQUEST_FEEDBACK_ENABLED: 'true' } as unknown as NodeJS.ProcessEnv),
     ).toBe(false);
     expect(feedbackEnabled({} as NodeJS.ProcessEnv)).toBe(false);
+  });
+
+  it('first delay defaults to 3 days and can be shortened for tests', () => {
+    const env = (v?: string) =>
+      ({ REQUEST_FEEDBACK_FIRST_DELAY_MINUTES: v }) as unknown as NodeJS.ProcessEnv;
+    expect(firstDelayMs(env())).toBe(3 * 24 * 60 * 60 * 1000);
+    expect(firstDelayMs(env('10'))).toBe(10 * 60_000);
+    expect(firstDelayMs(env('abc'))).toBe(3 * 24 * 60 * 60 * 1000);
+    expect(firstDelayMs(env('0'))).toBe(3 * 24 * 60 * 60 * 1000);
   });
 
   it('generates unguessable url-safe tokens', () => {
