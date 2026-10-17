@@ -55,6 +55,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           notifSms: true,
           active: true,
           createdAt: true,
+          // Newest match only — feeds "Dernière correspondance" on /alertes.
+          matches: { orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true } },
         },
       }),
       prisma.alert.count({ where: { userId: auth.user.sub } }),
@@ -64,7 +66,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(
       {
-        ...buildPage(rows, limit),
+        ...buildPage(
+          rows.map(({ matches, ...alert }) => ({
+            ...alert,
+            lastMatchAt: matches[0]?.createdAt ?? null,
+          })),
+          limit,
+        ),
         counts: { total, active, inactive },
       },
       { headers: { 'x-request-id': ctx.requestId } },

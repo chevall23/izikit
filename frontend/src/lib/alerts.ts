@@ -27,6 +27,8 @@ export interface AlertListItem {
   frequency: string;
   active: boolean;
   createdAt: string;
+  /** Date of the newest match, `null` when the alert never matched. */
+  lastMatchAt: string | null;
 }
 
 export interface AlertMatchRequest {
