@@ -22,6 +22,9 @@ import { prisma } from '@/lib/server/prisma';
 import { StorageNotConfiguredError, uploadBuffer } from '@/lib/server/upload/storage-client';
 import { verifyMagicBytes } from '@/lib/server/upload/sniff';
 import { isListingEditable } from '@/lib/server/listings/editable';
+import { getPricing } from '@/lib/server/pricing';
+import { getEffectivePlanKey } from '@/lib/server/subscriptions/effective-plan';
+import { planMaxPhotos } from '@/lib/pricing';
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -76,6 +79,26 @@ export async function POST(
       return NextResponse.json(
         { error: 'TOO_MANY_PHOTOS', message: `Maximum ${MAX_PHOTOS} photos per listing` },
         { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
+      );
+    }
+
+    // Plan cap (Free = 3). Only blocks NEW uploads: a listing that already has
+    // more photos (plan downgrade) keeps them, it just cannot add more.
+    const sub = await prisma.subscription.findUnique({
+      where: { userId: auth.user.sub },
+      select: { planKey: true, status: true, currentPeriodEnd: true },
+    });
+    const planKey = getEffectivePlanKey(sub, new Date());
+    const planLimit = planMaxPhotos(await getPricing(), planKey);
+    if (photoCount >= planLimit) {
+      return NextResponse.json(
+        {
+          error: 'PHOTO_LIMIT_REACHED',
+          message: `Your plan allows ${planLimit} photos per listing`,
+          limit: planLimit,
+          planKey,
+        },
+        { status: 403, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
 

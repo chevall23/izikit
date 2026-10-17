@@ -16,6 +16,7 @@ export interface PlanDefinition {
   maxActiveListings: number | null; // null = unlimited
   monthlyTokens: number; // tokens granted on every paid subscription period
   includedBoosts: number; // 7-day boosts included per period (consumed by phase 1B)
+  maxPhotosPerListing: number; // photos allowed on one listing
   maxAlerts: number | null; // active sector alerts for agent accounts; null = unlimited
   statsLevel: StatsLevel; // what /statistiques shows and allows (see lib/server/stats/level.ts)
   // Static perks only — the listing-quota line is generated from the live
@@ -34,6 +35,7 @@ export const PLAN_CATALOG: Record<PlanKey, PlanDefinition> = {
     maxActiveListings: 5,
     monthlyTokens: 0,
     includedBoosts: 0,
+    maxPhotosPerListing: 3,
     maxAlerts: 0,
     statsLevel: 'BASIC',
     features: ['Statistiques basiques'],
@@ -46,6 +48,7 @@ export const PLAN_CATALOG: Record<PlanKey, PlanDefinition> = {
     maxActiveListings: 30,
     monthlyTokens: 10,
     includedBoosts: 1,
+    maxPhotosPerListing: 20,
     maxAlerts: 10,
     statsLevel: 'FULL',
     features: ['Statistiques complètes'],
@@ -58,6 +61,7 @@ export const PLAN_CATALOG: Record<PlanKey, PlanDefinition> = {
     maxActiveListings: null,
     monthlyTokens: 40,
     includedBoosts: 4,
+    maxPhotosPerListing: 20,
     maxAlerts: null,
     statsLevel: 'ADVANCED',
     features: ['Statistiques avancées'],

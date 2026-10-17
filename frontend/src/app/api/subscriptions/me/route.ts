@@ -10,6 +10,9 @@ import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
+import { getPricing } from '@/lib/server/pricing';
+import { planMaxPhotos } from '@/lib/pricing';
+import { getEffectivePlanKey } from '@/lib/server/subscriptions/effective-plan';
 import { isTrialEligible } from '@/lib/server/subscriptions/trial';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
@@ -47,9 +50,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       trialStartedAt: null,
     };
 
+    const effectivePlan = getEffectivePlanKey(row, new Date());
+    const maxPhotosPerListing = planMaxPhotos(await getPricing(), effectivePlan);
+
     return NextResponse.json(
       {
         subscription,
+        maxPhotosPerListing,
         trialEligible: isTrialEligible(
           user?.accountType,
           row

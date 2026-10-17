@@ -27,6 +27,12 @@ const entitlements = (key: PlanKey) => ({
     .max(1_000)
     .default(PLAN_CATALOG[key].includedBoosts),
   maxAlerts: quota.default(PLAN_CATALOG[key].maxAlerts),
+  maxPhotosPerListing: z
+    .number()
+    .int()
+    .min(1)
+    .max(20)
+    .default(PLAN_CATALOG[key].maxPhotosPerListing),
 });
 const paidPlan = (key: PlanKey) =>
   z.object({
@@ -81,6 +87,7 @@ const fromCatalog = (key: PlanKey) => ({
   monthlyTokens: PLAN_CATALOG[key].monthlyTokens,
   includedBoosts: PLAN_CATALOG[key].includedBoosts,
   maxAlerts: PLAN_CATALOG[key].maxAlerts,
+  maxPhotosPerListing: PLAN_CATALOG[key].maxPhotosPerListing,
 });
 
 export const DEFAULT_PRICING: PricingData = {
@@ -124,6 +131,14 @@ export function planIncludedBoosts(p: PricingData, key: PlanKey): number {
 
 export function planMaxAlerts(p: PricingData, key: PlanKey): number | null {
   return p.plans[key].maxAlerts;
+}
+
+export function planMaxPhotos(p: PricingData, key: PlanKey): number {
+  return p.plans[key].maxPhotosPerListing;
+}
+
+export function photosPerListingLabel(max: number): string {
+  return `${max} photo${max > 1 ? 's' : ''} par annonce`;
 }
 
 export function tokensPerMonthLabel(n: number): string | null {

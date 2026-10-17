@@ -43,6 +43,7 @@ describe('GET /api/subscriptions/me', () => {
     const res = await GET(makeReq(validToken));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
+      maxPhotosPerListing: 3,
       subscription: {
         planKey: 'FREE',
         status: 'ACTIVE',

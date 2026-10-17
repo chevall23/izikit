@@ -27,6 +27,11 @@ vi.mock('@/lib/server/auth', () => ({
   verifyCsrf: vi.fn(() => null),
 }));
 
+vi.mock('@/lib/server/pricing', async () => {
+  const { DEFAULT_PRICING } = await import('@/lib/pricing');
+  return { getPricing: vi.fn(async () => DEFAULT_PRICING) };
+});
+
 import { requireAuth } from '@/lib/server/middleware';
 import { verifyCsrf } from '@/lib/server/auth';
 import { POST } from './route';
@@ -171,6 +176,38 @@ describe('POST /api/listings/[id]/photos', () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toBe('TOO_MANY_PHOTOS');
+  });
+
+  it('Free plan: the 4th photo is refused with PHOTO_LIMIT_REACHED', async () => {
+    prismaMock.subscription.findUnique.mockResolvedValueOnce(null as never);
+    prismaMock.listingPhoto.count.mockResolvedValueOnce(3 as never);
+    const file = new File([JPEG_BYTES], 'a.jpg', { type: 'image/jpeg' });
+    const { req, ctx } = makePostReq('l1', file);
+    const res = await POST(req, ctx);
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body).toMatchObject({ error: 'PHOTO_LIMIT_REACHED', limit: 3, planKey: 'FREE' });
+    expect(prismaMock.listingPhoto.create).not.toHaveBeenCalled();
+  });
+
+  it('Free plan: the 3rd photo is still accepted', async () => {
+    prismaMock.subscription.findUnique.mockResolvedValueOnce(null as never);
+    prismaMock.listingPhoto.count.mockResolvedValueOnce(2 as never);
+    const file = new File([JPEG_BYTES], 'a.jpg', { type: 'image/jpeg' });
+    const { req, ctx } = makePostReq('l1', file);
+    expect((await POST(req, ctx)).status).toBe(201);
+  });
+
+  it('paid plan: more than 3 photos are accepted', async () => {
+    prismaMock.subscription.findUnique.mockResolvedValueOnce({
+      planKey: 'PRO_AGENT',
+      status: 'ACTIVE',
+      currentPeriodEnd: new Date(Date.now() + 86_400_000),
+    } as never);
+    prismaMock.listingPhoto.count.mockResolvedValueOnce(5 as never);
+    const file = new File([JPEG_BYTES], 'a.jpg', { type: 'image/jpeg' });
+    const { req, ctx } = makePostReq('l1', file);
+    expect((await POST(req, ctx)).status).toBe(201);
   });
 
   it('first photo is auto-marked primary', async () => {

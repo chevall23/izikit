@@ -235,7 +235,7 @@ function Stepper({ value, onChange }: { value: number; onChange: (v: number) => 
 }
 
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
-const MAX_PHOTOS = 9;
+const UI_MAX_PHOTOS = 9;
 
 const LODGING_TRANSACTION_TYPES = new Set(['SEJOUR', 'AUBERGE']);
 const LODGING_PROPERTY_TYPES = ['VILLA', 'APPARTEMENT', 'MAISON'];
@@ -329,6 +329,9 @@ export function ListingForm({ mode }: { mode: ListingFormMode }) {
   );
   const [listingStatus, setListingStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Photo cap of the user's plan (Free = 3); null until /api/subscriptions/me answers.
+  const [planPhotoLimit, setPlanPhotoLimit] = useState<number | null>(null);
+  const MAX_PHOTOS = Math.min(UI_MAX_PHOTOS, planPhotoLimit ?? UI_MAX_PHOTOS);
   const [loadError, setLoadError] = useState(false);
   const bootstrappedRef = useRef(false);
 
@@ -385,6 +388,15 @@ export function ListingForm({ mode }: { mode: ListingFormMode }) {
     const cities = COUNTRIES.find((c) => c.name === value)?.cities ?? [];
     if (!cities.includes(city)) setCity('');
   }
+
+  useEffect(() => {
+    if (!user) return;
+    api<{ maxPhotosPerListing?: number }>('/api/subscriptions/me')
+      .then((res) => {
+        if (typeof res.maxPhotosPerListing === 'number') setPlanPhotoLimit(res.maxPhotosPerListing);
+      })
+      .catch(() => {});
+  }, [user]);
 
   useEffect(() => {
     if (!user || bootstrappedRef.current) return;
@@ -553,7 +565,12 @@ export function ListingForm({ mode }: { mode: ListingFormMode }) {
     let count = pendingPhotos.length;
     for (const file of Array.from(files)) {
       if (count >= MAX_PHOTOS) {
-        toast(`Maximum ${MAX_PHOTOS} photos.`, 'error');
+        toast(
+          planPhotoLimit !== null && MAX_PHOTOS === planPhotoLimit && planPhotoLimit < UI_MAX_PHOTOS
+            ? `Votre forfait permet ${MAX_PHOTOS} photos par annonce. Passez à un forfait supérieur pour en ajouter.`
+            : `Maximum ${MAX_PHOTOS} photos.`,
+          'error',
+        );
         break;
       }
       if (file.size > MAX_PHOTO_BYTES) {

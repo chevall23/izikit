@@ -14,6 +14,8 @@ import {
   alertsQuotaLabel,
   boostsIncludedLabel,
   listingsQuotaLabel,
+  photosPerListingLabel,
+  planMaxPhotos,
   planIncludedBoosts,
   planMaxAlerts,
   planMaxListings,
@@ -232,6 +234,7 @@ export function SubscriptionCard() {
               <ul className="mb-5 flex flex-col gap-2">
                 {[
                   listingsQuotaLabel(planMaxListings(pricing, plan.key)),
+                  photosPerListingLabel(planMaxPhotos(pricing, plan.key)),
                   tokensPerMonthLabel(planMonthlyTokens(pricing, plan.key)),
                   boostsIncludedLabel(planIncludedBoosts(pricing, plan.key)),
                   alertsQuotaLabel(planMaxAlerts(pricing, plan.key)),
