@@ -220,28 +220,18 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
     }
   }
 
+  // A 0 (or missing) value carries no information — e.g. a plot has no
+  // bedrooms — so those tiles are hidden rather than shown as "0".
   const FEATURES: { icon: typeof BedDouble; val: string | number; label: string }[] = [
-    ...(listing.bedrooms !== null
-      ? [{ icon: BedDouble, val: listing.bedrooms, label: 'Chambres' }]
-      : []),
-    ...(listing.bathrooms !== null
-      ? [{ icon: Bath, val: listing.bathrooms, label: 'Salles de bain' }]
-      : []),
-    ...(listing.surfaceM2 !== null
+    ...(listing.bedrooms ? [{ icon: BedDouble, val: listing.bedrooms, label: 'Chambres' }] : []),
+    ...(listing.bathrooms ? [{ icon: Bath, val: listing.bathrooms, label: 'Salles de bain' }] : []),
+    ...(listing.surfaceM2
       ? [{ icon: Move, val: `${listing.surfaceM2} m²`, label: 'Surface' }]
       : []),
-    ...(listing.roomsTotal !== null
-      ? [{ icon: LayoutList, val: listing.roomsTotal, label: 'Pièces' }]
-      : []),
-    ...(listing.kitchens !== null
-      ? [{ icon: Utensils, val: listing.kitchens, label: 'Cuisines' }]
-      : []),
-    ...(listing.capacity !== null
-      ? [{ icon: Grid2x2, val: listing.capacity, label: 'Capacité' }]
-      : []),
-    ...(listing.yearBuilt !== null
-      ? [{ icon: Calendar, val: listing.yearBuilt, label: 'Année' }]
-      : []),
+    ...(listing.roomsTotal ? [{ icon: LayoutList, val: listing.roomsTotal, label: 'Pièces' }] : []),
+    ...(listing.kitchens ? [{ icon: Utensils, val: listing.kitchens, label: 'Cuisines' }] : []),
+    ...(listing.capacity ? [{ icon: Grid2x2, val: listing.capacity, label: 'Capacité' }] : []),
+    ...(listing.yearBuilt ? [{ icon: Calendar, val: listing.yearBuilt, label: 'Année' }] : []),
     ...(listing.standing !== null
       ? [
           {

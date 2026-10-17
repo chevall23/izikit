@@ -136,9 +136,9 @@ export function FeaturedListingsSection({ initial }: { initial: PublicListingsRe
           {items.map((listing) => {
             const { amount, unit } = formatPriceParts(listing.price, listing.currency);
             const features = [
-              listing.bedrooms != null ? `${listing.bedrooms} ch.` : null,
-              listing.bathrooms != null ? `${listing.bathrooms} sdb` : null,
-              listing.surfaceM2 != null ? `${listing.surfaceM2} m²` : null,
+              listing.bedrooms ? `${listing.bedrooms} ch.` : null,
+              listing.bathrooms ? `${listing.bathrooms} sdb` : null,
+              listing.surfaceM2 ? `${listing.surfaceM2} m²` : null,
             ].filter((f): f is string => f !== null);
 
             return (

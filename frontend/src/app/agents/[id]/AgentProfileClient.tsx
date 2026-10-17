@@ -441,19 +441,19 @@ export function AgentProfileClient({ initialAgent }: { initialAgent: AgentDetail
                           {formatPublicListingPrice(l.price, l.currency)}
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-3">
-                          {l.bedrooms != null && (
+                          {!!l.bedrooms && (
                             <span className="flex items-center gap-1 text-xs whitespace-nowrap text-gray-500">
                               <Bed className="h-3 w-3" aria-hidden />
                               {l.bedrooms} ch.
                             </span>
                           )}
-                          {l.bathrooms != null && (
+                          {!!l.bathrooms && (
                             <span className="flex items-center gap-1 text-xs whitespace-nowrap text-gray-500">
                               <Bath className="h-3 w-3" aria-hidden />
                               {l.bathrooms} sdb
                             </span>
                           )}
-                          {l.surfaceM2 != null && (
+                          {!!l.surfaceM2 && (
                             <span className="flex items-center gap-1 text-xs whitespace-nowrap text-gray-500">
                               <Maximize className="h-3 w-3" aria-hidden />
                               {l.surfaceM2} m²
