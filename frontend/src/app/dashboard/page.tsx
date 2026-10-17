@@ -1,8 +1,10 @@
 'use client';
 
+import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
+  ArrowRight,
   Calendar,
-  ChevronDown,
   Users,
   Building2,
   CalendarCheck,
@@ -51,6 +53,16 @@ export default function DashboardPage() {
   const user = useUser();
   const { data, loading } = useApi<{ items: Listing[] }>('/api/listings?limit=8');
   const listings = data?.items ?? [];
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const filteredListings = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return listings.filter((l) => {
+      if (statusFilter && l.status !== statusFilter) return false;
+      if (!q) return true;
+      return [l.title, l.city, l.country, l.id.slice(-6)].some((v) => v.toLowerCase().includes(q));
+    });
+  }, [listings, search, statusFilter]);
   const { data: stats } = useApi<ListingStatsResponse>('/api/listings/stats?period=30j');
 
   const verifiedPct = stats?.statusBreakdown.find((s) => s.status === 'VERIFIED')?.pct ?? 0;
@@ -117,11 +129,15 @@ export default function DashboardPage() {
               Voici le résumé de vos annonces aujourd&apos;hui.
             </p>
           </div>
-          <div className="flex items-center gap-1.5 rounded-lg border border-white/22 bg-white/[0.13] px-2.5 py-1.5 text-[11px] font-medium whitespace-nowrap text-white lg:px-3 lg:text-xs">
+          <Link
+            href="/statistiques"
+            title="Voir les statistiques détaillées"
+            className="flex items-center gap-1.5 rounded-lg border border-white/22 bg-white/[0.13] px-2.5 py-1.5 text-[11px] font-medium whitespace-nowrap text-white hover:bg-white/20 lg:px-3 lg:text-xs"
+          >
             <Calendar className="h-[13px] w-[13px]" aria-hidden />
-            Juillet 2026
-            <ChevronDown className="h-3 w-3 text-white/70" aria-hidden />
-          </div>
+            30 derniers jours
+            <ArrowRight className="h-3 w-3 text-white/70" aria-hidden />
+          </Link>
         </div>
 
         <div className="relative z-10 mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -160,7 +176,7 @@ export default function DashboardPage() {
               Performance des annonces
             </span>
             <span className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-neutral-700">
-              30 derniers jours <ChevronDown className="h-2.5 w-2.5" aria-hidden />
+              30 derniers jours
             </span>
           </div>
           {!stats || stats.statusBreakdown.length === 0 ? (
@@ -215,7 +231,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <span className="font-sora text-sm font-semibold text-neutral-900">Contacts reçus</span>
             <span className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-neutral-700">
-              Cette semaine <ChevronDown className="h-2.5 w-2.5" aria-hidden />
+              7 derniers jours
             </span>
           </div>
           <div className="flex h-[90px] items-end gap-2">
@@ -278,31 +294,41 @@ export default function DashboardPage() {
           <span className="font-sora w-full text-[15px] font-semibold text-neutral-900 lg:mr-auto lg:w-auto">
             Mes annonces
           </span>
-          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-black/[0.08] bg-gray-50 px-3 py-1.5 lg:min-w-[200px] lg:flex-none">
+          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-black/[0.08] bg-gray-50 px-3 py-1.5 lg:min-w-[200px] lg:flex-none">
             <Search className="h-[14px] w-[14px] flex-shrink-0 text-gray-400" aria-hidden />
-            <span className="truncate text-[13px] text-gray-400">
-              <span className="lg:hidden">Rechercher…</span>
-              <span className="hidden lg:inline">Rechercher une annonce…</span>
-            </span>
-          </div>
-          <button
-            type="button"
-            disabled
-            className="flex flex-shrink-0 cursor-not-allowed items-center gap-1.5 rounded-lg border border-black/[0.08] px-3 py-1.5 text-[13px] font-medium text-gray-400 lg:px-3.5"
-          >
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher une annonce…"
+              aria-label="Rechercher une annonce"
+              className="min-w-0 flex-1 bg-transparent text-[13px] text-neutral-900 outline-none placeholder:text-gray-400"
+            />
+          </label>
+          <label className="flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-black/[0.08] px-3 py-1.5 text-[13px] font-medium text-neutral-700 lg:px-3.5">
             <SlidersHorizontal className="h-[14px] w-[14px]" aria-hidden />
-            <span className="hidden lg:inline">Filtrer</span>
-          </button>
-          <button
-            type="button"
-            disabled
-            title="Bientôt disponible — l'écran de publication n'est pas encore implémenté"
-            className="flex flex-shrink-0 cursor-not-allowed items-center gap-1.5 rounded-lg bg-brand/40 px-3.5 py-1.5 text-[13px] font-semibold text-white lg:px-4"
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              aria-label="Filtrer par statut"
+              className="max-w-[120px] bg-transparent outline-none"
+            >
+              <option value="">Tous statuts</option>
+              {Object.entries(STATUS_LABEL).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Link
+            href="/listings/new"
+            className="flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-brand px-3.5 py-1.5 text-[13px] font-semibold text-white hover:bg-brand/90 lg:px-4"
           >
             <Plus className="h-[15px] w-[15px]" aria-hidden />
             <span className="lg:hidden">Publier</span>
             <span className="hidden lg:inline">Publier une annonce</span>
-          </button>
+          </Link>
         </div>
 
         {loading ? (
@@ -313,10 +339,19 @@ export default function DashboardPage() {
               Aucune annonce pour l&apos;instant
             </p>
             <p className="max-w-xs text-xs text-gray-400">
-              L&apos;écran de publication n&apos;est pas encore construit — cette table
-              s&apos;affichera dès qu&apos;une annonce existera pour votre compte.
+              Publiez votre première annonce : elle apparaîtra ici.
             </p>
+            <Link
+              href="/listings/new"
+              className="mt-2 rounded-lg bg-brand px-4 py-2 text-[13px] font-semibold text-white hover:bg-brand/90"
+            >
+              Publier une annonce
+            </Link>
           </div>
+        ) : filteredListings.length === 0 ? (
+          <p className="py-8 text-center text-sm text-gray-400">
+            Aucune annonce ne correspond à votre recherche.
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
@@ -344,7 +379,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {listings.map((l) => {
+                {filteredListings.map((l) => {
                   const st = STATUS_STYLE[l.status] ?? STATUS_STYLE.PENDING!;
                   return (
                     <tr key={l.id} className="border-b border-black/[0.06] last:border-0">
@@ -380,20 +415,44 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-3.5 py-3">
                         <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            disabled
-                            className="flex h-7 w-7 cursor-not-allowed items-center justify-center rounded-md bg-gray-100 text-gray-400"
-                          >
-                            <Eye className="h-[13px] w-[13px]" aria-hidden />
-                          </button>
-                          <button
-                            type="button"
-                            disabled
-                            className="flex h-7 w-7 cursor-not-allowed items-center justify-center rounded-md bg-gray-100 text-gray-400"
-                          >
-                            <Pencil className="h-[13px] w-[13px]" aria-hidden />
-                          </button>
+                          {l.status === 'VERIFIED' ? (
+                            <Link
+                              href={`/annonces/${l.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Voir l'annonce publique"
+                              className="flex h-7 w-7 items-center justify-center rounded-md bg-gray-100 text-neutral-700 hover:bg-gray-200"
+                            >
+                              <Eye className="h-[13px] w-[13px]" aria-hidden />
+                            </Link>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              title="Visible une fois l'annonce vérifiée"
+                              className="flex h-7 w-7 cursor-not-allowed items-center justify-center rounded-md bg-gray-100 text-gray-300"
+                            >
+                              <Eye className="h-[13px] w-[13px]" aria-hidden />
+                            </button>
+                          )}
+                          {l.status === 'SOLD' ? (
+                            <button
+                              type="button"
+                              disabled
+                              title="Annonce vendue : non modifiable"
+                              className="flex h-7 w-7 cursor-not-allowed items-center justify-center rounded-md bg-gray-100 text-gray-300"
+                            >
+                              <Pencil className="h-[13px] w-[13px]" aria-hidden />
+                            </button>
+                          ) : (
+                            <Link
+                              href={`/listings/${l.id}/edit`}
+                              title="Modifier l'annonce"
+                              className="flex h-7 w-7 items-center justify-center rounded-md bg-gray-100 text-neutral-700 hover:bg-gray-200"
+                            >
+                              <Pencil className="h-[13px] w-[13px]" aria-hidden />
+                            </Link>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -402,6 +461,16 @@ export default function DashboardPage() {
               </tbody>
             </table>
           </div>
+        )}
+
+        {listings.length > 0 && (
+          <Link
+            href="/listings"
+            className="flex items-center justify-center gap-1.5 border-t border-black/[0.06] pt-3.5 text-[13px] font-semibold text-brand"
+          >
+            Voir toutes mes annonces
+            <ArrowRight className="h-[14px] w-[14px]" aria-hidden />
+          </Link>
         )}
       </div>
     </DashboardShell>
