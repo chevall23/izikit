@@ -64,6 +64,7 @@ export async function GET(
           createdAt: true,
           updatedAt: true,
           author: { select: { id: true, name: true, avatarUrl: true } },
+          authorLabel: true,
         },
       }),
       prisma.agentReview.count({ where: { agentId: id } }),
@@ -95,7 +96,9 @@ export async function GET(
           comment: r.comment,
           createdAt: r.createdAt,
           updatedAt: r.updatedAt,
-          author: r.author,
+          // Reviews left through a requester's feedback form have no account:
+          // show the label ("Awa S.") instead.
+          author: r.author ?? { id: null, name: r.authorLabel ?? 'Un client', avatarUrl: null },
         })),
         page,
         limit,

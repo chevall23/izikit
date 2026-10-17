@@ -9,6 +9,7 @@ import {
   ShieldAlert,
   Settings2,
   UserPlus,
+  Star,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -22,7 +23,8 @@ export type AdminNavKey =
   | 'vr'
   | 'support'
   | 'settings'
-  | 'access-requests';
+  | 'access-requests'
+  | 'avis';
 
 export interface AdminNavEntry {
   key: AdminNavKey;
@@ -69,6 +71,7 @@ export const ADMIN_NAV: AdminNavEntry[] = [
     icon: UserPlus,
     href: '/admin/demandes-acces',
   },
+  { key: 'avis', label: 'Avis demandeurs', icon: Star, href: '/admin/avis' },
 ];
 
 export const ADMIN_COUNTRY_PILLS = ['BJ', 'TG', 'CI', 'SN'] as const;

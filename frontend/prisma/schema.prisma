@@ -132,20 +132,60 @@ model User {
 // the @@unique keeps it to one review per (agent, author) pair, so a
 // resubmission is an update (upsert) rather than a new row. Published
 // immediately — no moderation queue in v1.
+//
+// A review can also come from a requester's feedback form (RequestFeedback):
+// the requester is often an anonymous visitor, so `authorId` is then null,
+// `requestFeedbackId` points at the form and `authorLabel` ("Awa S.") is what
+// the public profile shows. `comment` may be empty for those (rating only).
 // ───────────────────────────────────────────────────────────────────────
 model AgentReview {
-  id        String   @id @default(cuid())
-  agentId   String
-  agent     User     @relation("AgentReviewsReceived", fields: [agentId], references: [id], onDelete: Cascade)
-  authorId  String
-  author    User     @relation("AgentReviewsAuthored", fields: [authorId], references: [id], onDelete: Cascade)
-  rating    Int // 1-5, validated at the API layer
-  comment   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String           @id @default(cuid())
+  agentId           String
+  agent             User             @relation("AgentReviewsReceived", fields: [agentId], references: [id], onDelete: Cascade)
+  authorId          String?
+  author            User?            @relation("AgentReviewsAuthored", fields: [authorId], references: [id], onDelete: Cascade)
+  requestFeedbackId String?
+  requestFeedback   RequestFeedback? @relation(fields: [requestFeedbackId], references: [id], onDelete: Cascade)
+  authorLabel       String?
+  rating            Int // 1-5, validated at the API layer
+  comment           String           @default("")
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   @@unique([agentId, authorId])
+  @@unique([agentId, requestFeedbackId])
   @@index([agentId])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Requester feedback ("avis du demandeur") — the follow-up e-mail sent to
+// whoever submitted a PropertyRequest, asking whether an agent got in touch
+// and how it went. One row per request, created when the first e-mail goes
+// out; `token` is the secret in the public link /avis/<token>.
+//
+// Reminders: the cron re-sends every 7 days until the requester answers
+// (`submittedAt`) or opts out (`optedOutAt`). The ratings themselves are
+// AgentReview rows (so they feed the agent's public profile); the form,
+// the "contacted?" answer and the comment live here for the admin trace.
+// ───────────────────────────────────────────────────────────────────────
+model RequestFeedback {
+  id        String          @id @default(cuid())
+  requestId String          @unique
+  request   PropertyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  token     String          @unique
+
+  contacted   Boolean? // null until answered: did an agent get in touch?
+  comment     String?
+  submittedAt DateTime?
+  optedOutAt  DateTime?
+
+  reminderCount Int       @default(0) // e-mails sent so far (first one included)
+  lastSentAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  reviews AgentReview[]
+
+  @@index([submittedAt, lastSentAt])
 }
 
 // Paid contact reveal — /agents/[id] hides the agent's phone/WhatsApp
@@ -798,6 +838,7 @@ model PropertyRequest {
 
   matchedByAlerts AlertMatch[]
   leadPurchases   LeadPurchase[]
+  feedback        RequestFeedback?
 
   // Fiabilité de la demande (voir lib/server/requests/trust.ts). Une demande
   // REVIEW ou REJECTED n'est jamais proposée aux agents (correspondance avec

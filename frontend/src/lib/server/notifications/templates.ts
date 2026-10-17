@@ -92,6 +92,22 @@ export function requestNeedsReviewNotification(
   };
 }
 
+/** Admins: a requester says no agent contacted them (feedback form). */
+export function requestNoContactNotification(
+  adminId: string,
+  requestId: string,
+  summary: string,
+): CreateNotificationInput {
+  return {
+    userId: adminId,
+    type: 'REQUEST_NO_CONTACT',
+    title: 'Demande sans contact agent',
+    body: summary,
+    data: { requestId },
+    dedupeKey: `request-no-contact:${adminId}:${requestId}`,
+  };
+}
+
 /**
  * Dispatched to a Listing's owner when a visitor submits the public
  * detail page's contact form (a general message or a VR-visit request).

@@ -214,6 +214,34 @@ export function requestNeedsReviewEmail(args: { summary: string; flags: string[]
   });
 }
 
+export function requestFeedbackEmail(args: {
+  name: string;
+  summary: string;
+  token: string;
+  /** True from the second e-mail on. */
+  reminder: boolean;
+  /** Plain URL shown at the bottom to stop the reminders. */
+  stopUrl: string;
+}): EmailContent {
+  const firstName = args.name.trim().split(/s+/)[0];
+  return renderEmail({
+    subject: args.reminder
+      ? 'Rappel : un agent vous a-t-il contacté ?'
+      : 'Votre demande immobilière : un agent vous a-t-il contacté ?',
+    preheader: "Deux questions, moins d'une minute.",
+    ...(firstName ? { greetingName: firstName } : {}),
+    paragraphs: [
+      args.reminder
+        ? "Nous n'avons pas encore reçu votre retour sur votre demande immobilière."
+        : 'Vous avez déposé une demande immobilière sur Habitat Afrik.',
+      "Un agent vous a-t-il contacté ? Votre réponse nous aide à vérifier que nos agents jouent leur rôle. Cela prend moins d'une minute, sans connexion.",
+    ],
+    details: [{ label: 'Votre demande', value: args.summary }],
+    button: { label: 'Donner mon avis', path: `/avis/${args.token}` },
+    closing: [`Vous ne souhaitez plus recevoir ces rappels ? Ouvrez ce lien : ${args.stopUrl}`],
+  });
+}
+
 // ── Payments & compliance ───────────────────────────────────────────────────
 
 const ZERO_DECIMAL = new Set(['XOF', 'XAF', 'GNF']);

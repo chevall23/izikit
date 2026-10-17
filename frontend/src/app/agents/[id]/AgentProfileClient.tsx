@@ -47,7 +47,7 @@ interface AgentReview {
   comment: string;
   createdAt: string;
   updatedAt: string;
-  author: { id: string; name: string | null; avatarUrl: string | null };
+  author: { id: string | null; name: string | null; avatarUrl: string | null };
 }
 
 interface RatingBreakdown {
@@ -571,7 +571,7 @@ export function AgentProfileClient({ initialAgent }: { initialAgent: AgentDetail
                       <InitialsAvatar
                         name={r.author.name}
                         email=""
-                        seed={r.author.id}
+                        seed={r.author.id ?? r.id}
                         avatarUrl={r.author.avatarUrl}
                         size={36}
                       />
@@ -596,7 +596,9 @@ export function AgentProfileClient({ initialAgent }: { initialAgent: AgentDetail
                             {formatDate(r.createdAt)}
                           </span>
                         </div>
-                        <p className="text-sm leading-relaxed text-neutral-900">{r.comment}</p>
+                        {r.comment && (
+                          <p className="text-sm leading-relaxed text-neutral-900">{r.comment}</p>
+                        )}
                       </div>
                     </div>
                   ))}
