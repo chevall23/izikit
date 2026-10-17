@@ -25,6 +25,7 @@ const ALLOWED_DOMAINS: readonly string[] = [
   'checkout.bfrpay.net',
   'pay.bfrpay.com',
   'bictorys.com', // covers pay.bictorys.com + api.test.bictorys.com
+  'saspay.me', // covers pay.saspay.me (hosted checkout)
   'orange-money-prod-flowlinks.web.app',
   'sugu.orange-sonatel.com',
 ];
