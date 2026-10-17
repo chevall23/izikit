@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import Link from 'next/link';
 import { Logo } from '@/components/Logo';
+import { cn } from '@/lib/utils';
 
 interface AuthSplitLayoutProps {
   heroImageSrc: string;
@@ -69,7 +70,18 @@ export function AuthSplitLayout({
       {/* Right form panel */}
       <div className="flex w-full flex-col overflow-y-auto md:w-1/2">
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-8 md:max-w-none md:px-[60px] md:py-9">
-          {topRight && <div className="mb-8 flex justify-end md:mb-12">{topRight}</div>}
+          {/* Below md: the hero panel (and its logo) is hidden, so the logo lives here. */}
+          <div
+            className={cn(
+              'mb-8 flex items-center justify-between gap-3 md:mb-12 md:justify-end',
+              !topRight && 'md:hidden',
+            )}
+          >
+            <Link href="/" aria-label="HABITAT-AFRIK — retour à l'accueil" className="md:hidden">
+              <Logo height={34} />
+            </Link>
+            {topRight}
+          </div>
           {children}
         </div>
       </div>
