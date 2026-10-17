@@ -139,8 +139,8 @@ export function DashboardShell({
           </div>
         </div>
 
-        {/* Mobile topbar — hidden at lg: and up */}
-        <div className="lg:hidden">
+        {/* Mobile topbar — hidden at lg: and up; sticky so it stays pinned while the page scrolls */}
+        <div className="sticky top-0 z-30 lg:hidden">
           <MobileTopbar user={user} unreadCount={unread} onMenuClick={() => setDrawerOpen(true)} />
         </div>
 

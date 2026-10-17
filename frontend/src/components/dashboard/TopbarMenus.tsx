@@ -287,7 +287,7 @@ export function UserMenu({ user, roleLabel }: { user: AuthUser; roleLabel: strin
           <span className="text-xs font-semibold whitespace-nowrap text-neutral-900 lg:text-[13px]">
             {firstNameOf(user)}
           </span>
-          <span className="inline-block w-fit rounded-full bg-brand/10 px-1.5 py-px text-[9px] font-semibold whitespace-nowrap text-brand lg:px-2 lg:text-[10px]">
+          <span className="hidden w-fit lg:inline-block rounded-full bg-brand/10 px-1.5 py-px text-[9px] font-semibold whitespace-nowrap text-brand lg:px-2 lg:text-[10px]">
             {roleLabel}
           </span>
         </span>
