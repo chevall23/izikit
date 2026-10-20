@@ -280,6 +280,18 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
     };
   }
 
+  // Crawlable URL of a results page: the same filters, only `page` changes.
+  function pageHref(n: number): string {
+    const params = new URLSearchParams();
+    if (country) params.set('country', country);
+    if (city) params.set('city', city);
+    if (propertyType) params.set('propertyType', propertyType);
+    if (transactionType) params.set('transactionType', transactionType);
+    if (n > 1) params.set('page', String(n));
+    const qs = params.toString();
+    return qs ? `/annonces?${qs}` : '/annonces';
+  }
+
   const setCountryFiltered = setFilterAndResetPage(setCountry);
   const setCityFiltered = setFilterAndResetPage(setCity);
   const setPropertyTypeFiltered = setFilterAndResetPage(setPropertyType);
@@ -941,17 +953,34 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
               </div>
             )}
 
-            {/* PAGINATION */}
+            {/* PAGINATION — real links so search engines can follow them; the click
+                is still handled client-side (no full reload). */}
             {totalPages > 1 && (
-              <div className="mt-10 flex items-center justify-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-black/[0.08] text-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <ChevronLeft className="h-4 w-4" aria-hidden />
-                </button>
+              <nav
+                aria-label="Pagination"
+                className="mt-10 flex items-center justify-center gap-1.5"
+              >
+                {page <= 1 ? (
+                  <span
+                    aria-disabled="true"
+                    className="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-black/[0.08] text-gray-500 opacity-40"
+                  >
+                    <ChevronLeft className="h-4 w-4" aria-hidden />
+                  </span>
+                ) : (
+                  <a
+                    href={pageHref(page - 1)}
+                    rel="prev"
+                    aria-label="Page précédente"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setPage((p) => Math.max(1, p - 1));
+                    }}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-black/[0.08] text-gray-500"
+                  >
+                    <ChevronLeft className="h-4 w-4" aria-hidden />
+                  </a>
+                )}
                 {Array.from({ length: totalPages }, (_, i) => i + 1)
                   .filter((n) => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
                   .reduce<number[]>((acc, n) => {
@@ -965,10 +994,14 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
                         …
                       </span>
                     ) : (
-                      <button
+                      <a
                         key={n}
-                        type="button"
-                        onClick={() => setPage(n)}
+                        href={pageHref(n)}
+                        aria-current={n === page ? 'page' : undefined}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setPage(n);
+                        }}
                         className={cn(
                           'flex h-9 w-9 items-center justify-center rounded-lg border text-[13px] font-medium',
                           n === page
@@ -977,18 +1010,31 @@ export function AnnoncesClient({ initial }: { initial: AnnoncesInitialState }) {
                         )}
                       >
                         {n}
-                      </button>
+                      </a>
                     ),
                   )}
-                <button
-                  type="button"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-black/[0.08] text-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <ChevronRight className="h-4 w-4" aria-hidden />
-                </button>
-              </div>
+                {page >= totalPages ? (
+                  <span
+                    aria-disabled="true"
+                    className="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-black/[0.08] text-gray-500 opacity-40"
+                  >
+                    <ChevronRight className="h-4 w-4" aria-hidden />
+                  </span>
+                ) : (
+                  <a
+                    href={pageHref(page + 1)}
+                    rel="next"
+                    aria-label="Page suivante"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setPage((p) => Math.min(totalPages, p + 1));
+                    }}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-black/[0.08] text-gray-500"
+                  >
+                    <ChevronRight className="h-4 w-4" aria-hidden />
+                  </a>
+                )}
+              </nav>
             )}
           </div>
         </div>

@@ -134,10 +134,14 @@ export function listingHeading(l: ListingSlugFields): string {
   return parts.join(' ');
 }
 
-/** Search-result title: the structured heading plus the price. */
+/**
+ * Search-result title: the structured heading, the surface when known (it tells
+ * apart listings that otherwise share type, bedrooms, city and price), and the price.
+ */
 export function listingSeoTitle(l: Omit<ListingSeoFields, 'id' | 'title' | 'description'>): string {
   const price = priceLabel(l);
-  return listingHeading(l) + (price ? ` — ${price}` : '');
+  const surface = l.surfaceM2 ? ` · ${l.surfaceM2} m²` : '';
+  return listingHeading(l) + surface + (price ? ` — ${price}` : '');
 }
 
 export function listingSeoDescription(l: Omit<ListingSeoFields, 'id' | 'title'>): string {
@@ -200,6 +204,20 @@ export function listingJsonLd(l: ListingSeoFields, url: string) {
           l.transactionType === 'VENTE'
             ? 'https://purl.org/goodrelations/v1#Sell'
             : 'https://purl.org/goodrelations/v1#LeaseOut',
+      },
+    }),
+    // The property itself: rooms and floor area help search engines and AI
+    // assistants understand what is for sale or rent.
+    ...((l.bedrooms || l.bathrooms || l.surfaceM2) && {
+      about: {
+        '@type': 'Accommodation',
+        ...(l.bedrooms ? { numberOfBedrooms: l.bedrooms } : {}),
+        ...(l.bathrooms ? { numberOfBathroomsTotal: l.bathrooms } : {}),
+        ...(l.surfaceM2
+          ? {
+              floorSize: { '@type': 'QuantitativeValue', value: l.surfaceM2, unitCode: 'MTK' },
+            }
+          : {}),
       },
     }),
     contentLocation: {

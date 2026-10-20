@@ -103,12 +103,28 @@ const detail = {
 
 describe('listingSeoTitle', () => {
   it('uses structured fields and a per-month price for rentals', () => {
-    expect(listingSeoTitle(detail)).toBe('Villa 4 chambres à louer à Cotonou — 500 000 FCFA/mois');
+    expect(listingSeoTitle(detail)).toBe(
+      'Villa 4 chambres à louer à Cotonou · 250 m² — 500 000 FCFA/mois',
+    );
   });
 
   it('drops placeholder prices', () => {
-    expect(listingSeoTitle({ ...detail, transactionType: 'VENTE', price: 1, bedrooms: null })).toBe(
-      'Villa à vendre à Cotonou',
+    expect(
+      listingSeoTitle({
+        ...detail,
+        transactionType: 'VENTE',
+        price: 1,
+        bedrooms: null,
+        surfaceM2: null,
+      }),
+    ).toBe('Villa à vendre à Cotonou');
+  });
+});
+
+describe('listingSeoTitle uniqueness', () => {
+  it('tells apart two listings that differ only by surface', () => {
+    expect(listingSeoTitle({ ...detail, surfaceM2: 120 })).not.toBe(
+      listingSeoTitle({ ...detail, surfaceM2: 200 }),
     );
   });
 });
@@ -173,5 +189,19 @@ describe('listingHeading', () => {
         bedrooms: 1,
       }),
     ).toBe('Appartement 1 chambre à louer à Abomey-Calavi');
+  });
+});
+
+describe('listingJsonLd property details', () => {
+  it('describes rooms and floor area', () => {
+    const ld = listingJsonLd(detail, 'https://habitat-afrik.com/annonces/x') as {
+      about?: { numberOfBedrooms?: number; floorSize?: { value: number; unitCode: string } };
+    };
+    expect(ld.about?.numberOfBedrooms).toBe(4);
+    expect(ld.about?.floorSize).toEqual({
+      '@type': 'QuantitativeValue',
+      value: 250,
+      unitCode: 'MTK',
+    });
   });
 });

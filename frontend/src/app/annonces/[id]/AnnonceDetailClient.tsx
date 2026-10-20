@@ -333,7 +333,11 @@ export function AnnonceDetailClient({ initialListing }: { initialListing: Public
                       isActive && 'ring-2 ring-brand',
                     )}
                   >
-                    <ListingImage src={p.url} alt="" sizes="(min-width: 1024px) 300px, 25vw" />
+                    <ListingImage
+                      src={p.url}
+                      alt={`${listing.title} — photo ${i + 1}`}
+                      sizes="(min-width: 1024px) 300px, 25vw"
+                    />
                     {showOverlay && (
                       <span className="absolute inset-0 grid place-items-center bg-black/55 text-lg font-extrabold text-white">
                         +{extraCount}

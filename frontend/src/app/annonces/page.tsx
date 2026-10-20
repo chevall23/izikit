@@ -32,14 +32,19 @@ const FILTER_KEYS = ['country', 'city', 'propertyType', 'transactionType'] as co
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const params = toUrlParams(await searchParams);
   const q = parseListingSearch(params);
-  const filtered = FILTER_KEYS.some((k) => q[k]) || q.page > 1 || params.has('sort');
+  // Filtered / sorted combinations stay noindex (the /immobilier landing pages are
+  // their indexable counterparts). Unfiltered pages 2+ ARE indexable with their own
+  // canonical: they are the crawl path to listings that sit deep in the catalogue.
+  const filtered = FILTER_KEYS.some((k) => q[k]) || params.has('sort');
   const heading = listingSearchHeading(q);
+  const baseTitle = filtered ? heading : 'Annonces immobilières : maisons, terrains, appartements';
+  const paged = q.page > 1;
   return pageMetadata({
-    title: filtered ? heading : 'Annonces immobilières : maisons, terrains, appartements',
+    title: paged ? `${baseTitle} — page ${q.page}` : baseTitle,
     description: filtered
       ? `${heading} : consultez les annonces vérifiées sur Habitat-Afrik, avec photos, prix et contact direct de l'agent.`
       : DEFAULT_DESCRIPTION,
-    path: '/annonces',
+    path: paged && !filtered ? `/annonces?page=${q.page}` : '/annonces',
     noindex: filtered,
   });
 }
