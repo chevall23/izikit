@@ -12,7 +12,7 @@ const CANDIDATE_LIMIT = 200;
 const HOUR_MS = 3_600_000;
 
 // FNV-1a 32-bit — tiny, deterministic, good enough to shuffle.
-function hash(input: string): number {
+export function hash(input: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < input.length; i++) {
     h ^= input.charCodeAt(i);

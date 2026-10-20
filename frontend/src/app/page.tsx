@@ -21,9 +21,12 @@ export const metadata: Metadata = pageMetadata({
 
 export default async function HomePage() {
   const [listings, agents, popularSearches] = await Promise.all([
-    searchPublicListings({ page: 1, limit: FEATURED_LISTINGS_LIMIT, sort: 'recent' }).catch(
-      () => null,
-    ),
+    searchPublicListings({
+      page: 1,
+      limit: FEATURED_LISTINGS_LIMIT,
+      sort: 'recent',
+      featured: true,
+    }).catch(() => null),
     searchPublicAgents(new URLSearchParams({ limit: String(HOME_AGENTS_LIMIT), sort: 'listings' }))
       .then((r) => r.items)
       .catch(() => null),

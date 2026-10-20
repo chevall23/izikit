@@ -8,6 +8,7 @@ import { prisma } from '@/lib/server/prisma';
 import { LISTINGS_PAGE_SIZE } from '@/lib/listings';
 import { verifiedAgentIds } from '@/lib/server/public/agent-verification';
 import { pageWindow, pickPinnedIds } from '@/lib/server/public/boosted';
+import { FEATURED_POOL_SIZE, selectFeatured } from '@/lib/server/public/featured';
 
 export const DEFAULT_LIMIT = LISTINGS_PAGE_SIZE;
 const MAX_LIMIT = 24;
@@ -22,6 +23,11 @@ export interface ListingSearch {
   page: number;
   limit: number;
   sort: 'recent' | 'price_asc' | 'price_desc';
+  /**
+   * Home "à la une" mode: page 1 is an hourly-rotating draw from the latest
+   * listings that have a photo (see featured.ts) instead of the plain latest.
+   */
+  featured?: boolean | undefined;
 }
 
 export interface PublicListingItem {
@@ -97,6 +103,7 @@ export function parseListingSearch(params: URLSearchParams): ListingSearch {
     page: parsePage(params.get('page')),
     limit: parseLimit(params.get('limit')),
     sort: parseSort(params.get('sort')),
+    featured: params.get('featured') === '1',
   };
 }
 
@@ -153,13 +160,15 @@ export async function searchPublicListings(q: ListingSearch): Promise<PublicList
   const restWhere: Prisma.ListingWhereInput =
     pinnedIds.length > 0 ? { ...baseWhere, id: { notIn: pinnedIds } } : baseWhere;
 
-  const [rows, pinnedRows, total, countryFacet, propertyTypeFacet, transactionTypeFacet] =
+  const featured = q.featured === true && page === 1 && q.sort === 'recent';
+
+  const [poolRows, pinnedRows, total, countryFacet, propertyTypeFacet, transactionTypeFacet] =
     await Promise.all([
       prisma.listing.findMany({
-        where: restWhere,
+        where: featured ? { ...restWhere, photos: { some: {} } } : restWhere,
         orderBy: SORT_ORDER_BY[q.sort],
         skip: win.skip,
-        take: win.take,
+        take: featured ? Math.max(FEATURED_POOL_SIZE, win.take) : win.take,
         select: LISTING_SELECT,
       }),
       // Pinned listings only appear on page 1; later pages just exclude them.
@@ -188,6 +197,7 @@ export async function searchPublicListings(q: ListingSearch): Promise<PublicList
       }),
     ]);
 
+  const rows = featured ? selectFeatured(poolRows, now, win.take) : poolRows;
   const pinnedOrdered = pinnedIds
     .map((id) => pinnedRows.find((r) => r.id === id))
     .filter((r): r is NonNullable<typeof r> => r !== undefined);

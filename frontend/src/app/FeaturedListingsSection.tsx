@@ -57,7 +57,7 @@ export function FeaturedListingsSection({ initial }: { initial: PublicListingsRe
     }
     let cancelled = false;
     setLoading(true);
-    const params = new URLSearchParams({ limit: String(FEATURED_LISTINGS_LIMIT) });
+    const params = new URLSearchParams({ limit: String(FEATURED_LISTINGS_LIMIT), featured: '1' });
     if (propertyType) params.set('propertyType', propertyType);
 
     api<PublicListingsResponse>(`/api/public/listings?${params.toString()}`)
