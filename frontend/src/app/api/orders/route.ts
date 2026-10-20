@@ -259,12 +259,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // payment. Surface this as the same 503 PAYMENT_PROVIDER_UNCONFIGURED
     // disposition (boot-time misconfig). In dev/test we keep the
     // localhost fallback so local development still works.
-    const envPublicUrl = process.env.PUBLIC_URL;
+    const envPublicUrl = process.env.PUBLIC_URL || process.env.APP_URL;
     if (!envPublicUrl && process.env.NODE_ENV === 'production') {
       return NextResponse.json(
         {
           error: 'PAYMENT_PROVIDER_UNCONFIGURED',
-          message: 'PUBLIC_URL not set; cannot construct success/failure redirect URLs.',
+          message: 'PUBLIC_URL/APP_URL not set; cannot construct success/failure redirect URLs.',
         },
         { status: 503, headers: { 'x-request-id': ctx.requestId } },
       );

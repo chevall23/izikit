@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import crypto from 'node:crypto';
 import {
   createSaspayProvider,
+  feeChargeMode,
   paymentMethodFromNetwork,
   resolvePayoutRoute,
   toDecimalAmount,
@@ -78,7 +79,35 @@ describe('createSaspayProvider — env validation', () => {
   });
 });
 
+describe('feeChargeMode', () => {
+  const env = (v?: string) => ({ SASPAY_FEE_CHARGE_MODE: v }) as unknown as NodeJS.ProcessEnv;
+  it('defaults to DEDUCTED (the platform bears the fees)', () => {
+    expect(feeChargeMode(env())).toBe('DEDUCTED');
+    expect(feeChargeMode(env('garbage'))).toBe('DEDUCTED');
+  });
+  it('can be switched to ADD_ON or left to the merchant account setting', () => {
+    expect(feeChargeMode(env('add_on'))).toBe('ADD_ON');
+    expect(feeChargeMode(env('default'))).toBeNull();
+  });
+});
+
 describe('charge', () => {
+  it('asks SasPay to deduct the fees from the merchant, not the customer', async () => {
+    fetchMock.mockResolvedValue(
+      json({ data: { id: 's', checkout_url: 'https://pay.saspay.me/c', status: 'PENDING' } }, 201),
+    );
+    await make().charge({
+      amount: 5000,
+      currency: 'XOF',
+      customer: { email: 'awa@example.com' },
+      successUrl: 'https://app.test/ok',
+      failureUrl: 'https://app.test/ko',
+      externalRef: 'o',
+    });
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string).fee_charge_mode).toBe('DEDUCTED');
+  });
+
   it('creates a checkout session with a decimal amount and the order id', async () => {
     fetchMock.mockResolvedValue(
       json(

@@ -138,6 +138,21 @@ export function classifySaspayStatus(raw: string | undefined): ChargeStatus {
   return 'PENDING';
 }
 
+/**
+ * Who bears SasPay's fees on a checkout session. Product decision: the
+ * platform does (DEDUCTED — fees come out of what SasPay pays us, the customer
+ * is debited exactly the order amount). SASPAY_FEE_CHARGE_MODE=ADD_ON puts the
+ * fees on the customer; "DEFAULT" sends nothing and keeps the merchant-account
+ * setting. SasPay ignores the field unless the account allows an API override
+ * (ALLOW_CLIENT_OVERRIDE), so the dashboard default must match too.
+ */
+export function feeChargeMode(env: NodeJS.ProcessEnv = process.env): 'ADD_ON' | 'DEDUCTED' | null {
+  const raw = (env.SASPAY_FEE_CHARGE_MODE ?? '').trim().toUpperCase();
+  if (raw === 'ADD_ON' || raw === 'DEDUCTED') return raw;
+  if (raw === 'DEFAULT') return null;
+  return 'DEDUCTED';
+}
+
 /** SasPay requires customer_name — fall back to the e-mail local part. */
 function displayName(name: string | undefined, email: string | undefined): string {
   const trimmed = (name ?? '').trim();
@@ -352,6 +367,7 @@ export function createSaspayProvider(env: SaspayEnv): SaspayProviderHandle {
           // SasPay only redirects on success; failures stay on its page with a
           // "retry" button, so `failureUrl` has no equivalent.
           return_url: input.successUrl,
+          ...(feeChargeMode() ? { fee_charge_mode: feeChargeMode() } : {}),
           metadata: { orderId: input.externalRef },
         },
       },

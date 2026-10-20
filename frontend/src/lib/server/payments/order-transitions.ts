@@ -17,6 +17,12 @@ const log = createLogger();
 
 const PAYABLE_STATUSES = ['PENDING', 'EXPIRED', 'FAILED'];
 
+/** Whole smallest-unit amount from a provider decimal field ("1260.00" → 1260). */
+export function readWholeAmount(raw: unknown): number | undefined {
+  const n = readAmount(raw);
+  return n === undefined ? undefined : Math.round(n);
+}
+
 /** Reads a provider amount field, `undefined` when absent or not a number. */
 export function readAmount(raw: unknown): number | undefined {
   const n = typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : raw;
@@ -31,7 +37,13 @@ export function readAmount(raw: unknown): number | undefined {
 export async function markOrderPaid(
   tx: PrismaTransactionClient,
   order: FulfillableOrder,
-  opts: { paidAmount?: number | undefined; paymentMethod?: string | null } = {},
+  opts: {
+    paidAmount?: number | undefined;
+    paymentMethod?: string | null;
+    /** Provider fees (what the platform bears) and what it actually receives. */
+    feeAmount?: number | undefined;
+    netAmount?: number | undefined;
+  } = {},
 ): Promise<boolean> {
   if (opts.paidAmount !== undefined && opts.paidAmount !== order.amount) {
     log.error('[order-transitions] webhook amount does not match the order — not marking PAID', {
@@ -48,6 +60,8 @@ export async function markOrderPaid(
       status: 'PAID',
       paidAt: new Date(),
       ...(opts.paymentMethod ? { paymentMethod: opts.paymentMethod } : {}),
+      ...(opts.feeAmount !== undefined ? { commissionAmount: opts.feeAmount } : {}),
+      ...(opts.netAmount !== undefined ? { netAmount: opts.netAmount } : {}),
     },
   });
   if (count === 0) {

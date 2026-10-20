@@ -7,6 +7,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { verifyCronSecret } from '@/lib/server/cron/auth';
 import { withLease } from '@/lib/server/leader-lease';
 import { expirePendingOrders } from '@/lib/server/orders/expire';
+import { reconcileSaspayOrders } from '@/lib/server/payments/reconcile';
 import { prisma } from '@/lib/server/prisma';
 import { redis } from '@/lib/server/redis';
 import { createLogger } from '@/lib/server/logger';
@@ -28,6 +29,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // env (see .env.example) is documentation-only — forks adjusting checkout windows
       // tweak that value in their order-creation route (Phase 3) per RESEARCH A3.
       // This cron does NOT compute the cutoff itself.
+      // Recover payments whose webhook never arrived BEFORE expiring them.
+      const reconciled = await reconcileSaspayOrders(prisma);
+      if (reconciled.checked > 0) log.info('order reconcile', { ...reconciled });
       const { expired } = await expirePendingOrders({ prisma });
       processed = expired;
       log.info('order-expiration tick', { processed, requestId: ctx.requestId });

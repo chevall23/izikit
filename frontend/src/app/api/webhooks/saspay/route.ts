@@ -45,6 +45,7 @@ import {
   markOrderFailed,
   markOrderPaid,
   readAmount,
+  readWholeAmount,
 } from '@/lib/server/payments/order-transitions';
 import { prisma } from '@/lib/server/prisma';
 
@@ -85,6 +86,8 @@ export const POST = createWebhookHandler({
       await markOrderPaid(tx, order, {
         paidAmount: comparable ? readAmount(data.amount) : undefined,
         paymentMethod: paymentMethodFromNetwork(data.network),
+        feeAmount: comparable ? readWholeAmount(data.fee) : undefined,
+        netAmount: comparable ? readWholeAmount(data.net_amount) : undefined,
       });
       return {};
     }
