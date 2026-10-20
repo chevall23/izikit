@@ -18,6 +18,8 @@ import { z } from 'zod';
 import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
+import { notifyAgentOfReview } from '@/lib/server/notifications/review-received';
+import { authorLabelFor } from '@/lib/server/requests/feedback';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
 const ReviewBody = z.object({
@@ -90,6 +92,14 @@ export async function POST(
         author: { select: { id: true, name: true, avatarUrl: true } },
       },
     });
+
+    // Tell the agent (best-effort). Editing a review keeps the same id, so the
+    // dedupe key means the agent is not notified twice for the same review.
+    await notifyAgentOfReview(
+      prisma,
+      { id: review.id, agentId, rating: review.rating, comment: review.comment },
+      authorLabelFor(review.author?.name ?? ''),
+    );
 
     return NextResponse.json(
       { review },

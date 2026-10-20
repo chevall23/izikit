@@ -20,14 +20,14 @@
  */
 
 import type { CreateNotificationInput } from './index';
-import { formatAmount } from '../emails/templates';
+import { formatAmount, formatDateFr } from '../emails/templates';
 
 export function welcomeNotification(userId: string, email: string): CreateNotificationInput {
   return {
     userId,
     type: 'WELCOME',
     title: 'Bienvenue sur Habitat Afrik !',
-    body: `Ravi de vous compter parmi nous, ${email}.`,
+    body: `Votre compte (${email}) est créé. Complétez votre profil pour inspirer confiance, puis publiez votre première annonce ou déposez une demande.`,
     dedupeKey: `welcome:${userId}`,
   };
 }
@@ -41,12 +41,17 @@ export function paymentReceived(
   orderId: string,
   amount: number,
   currency: string,
+  /** What the payment bought ("Pack Starter : 50 jetons crédités"). */
+  description?: string,
 ): CreateNotificationInput {
+  const paid = formatAmount(amount, currency);
   return {
     userId,
     type: 'PAYMENT_RECEIVED',
-    title: 'Paiement reçu',
-    body: `Votre paiement de ${formatAmount(amount, currency)} pour la commande ${orderId} est confirmé.`,
+    title: 'Paiement confirmé',
+    body: description
+      ? `${description}. Votre paiement de ${paid} a bien été reçu, merci !`
+      : `Votre paiement de ${paid} a bien été reçu, merci !`,
     data: { orderId, amount, currency },
     dedupeKey: `payment-received:${orderId}`,
   };
@@ -66,8 +71,8 @@ export function alertMatchNotification(
   return {
     userId,
     type: 'ALERT_MATCH',
-    title: `Nouvelle correspondance — ${alertName}`,
-    body: requestSummary,
+    title: `Nouvelle demande dans votre secteur — ${alertName}`,
+    body: `${requestSummary}. Ouvrez la demande pour voir les détails et contacter le demandeur.`,
     data: { alertId, requestId },
     dedupeKey: `alert-match:${alertId}:${requestId}`,
   };
@@ -85,8 +90,8 @@ export function requestNeedsReviewNotification(
   return {
     userId: adminId,
     type: 'REQUEST_REVIEW',
-    title: 'Demande à vérifier',
-    body: summary,
+    title: 'Demande immobilière à vérifier',
+    body: `${summary} — jugée douteuse par le contrôle automatique. Approuvez-la ou rejetez-la pour qu'elle soit (ou non) visible des agents.`,
     data: { requestId },
     dedupeKey: `request-review:${adminId}:${requestId}`,
   };
@@ -101,8 +106,8 @@ export function requestNoContactNotification(
   return {
     userId: adminId,
     type: 'REQUEST_NO_CONTACT',
-    title: 'Demande sans contact agent',
-    body: summary,
+    title: "Demandeur sans contact d'agent",
+    body: `${summary} — le demandeur indique qu'aucun agent ne l'a contacté. Relancez les agents concernés.`,
     data: { requestId },
     dedupeKey: `request-no-contact:${adminId}:${requestId}`,
   };
@@ -127,13 +132,14 @@ export function listingInquiryNotification(
       inquiryType === 'VR_VISIT'
         ? `Demande de visite VR — ${listingTitle}`
         : `Nouveau message — ${listingTitle}`,
-    body: `${fromName} s'intéresse à « ${listingTitle} ».`,
+    body:
+      inquiryType === 'VR_VISIT'
+        ? `${fromName} souhaite visiter « ${listingTitle} » en visite virtuelle. Répondez-lui depuis « Contacts reçus ».`
+        : `${fromName} s'intéresse à « ${listingTitle} ». Répondez-lui rapidement depuis « Contacts reçus ».`,
     data: { listingId, inquiryId },
     dedupeKey: `listing-inquiry:${inquiryId}`,
   };
 }
-
-const isoDay = (d: Date): string => d.toISOString().slice(0, 10);
 
 export function subscriptionReminderNotification(
   userId: string,
@@ -144,7 +150,7 @@ export function subscriptionReminderNotification(
     userId,
     type: 'SUBSCRIPTION_REMINDER',
     title: `Votre abonnement expire dans ${daysLeft} jours`,
-    body: `Renouvelez avant le ${isoDay(periodEnd)} pour garder toutes vos annonces en ligne.`,
+    body: `Il prend fin le ${formatDateFr(periodEnd)}. Renouvelez-le pour garder toutes vos annonces en ligne et vos avantages.`,
     data: { daysLeft, periodEnd: periodEnd.toISOString() },
     dedupeKey: `sub-reminder:${userId}:${periodEnd.toISOString()}:${daysLeft}`,
   };
@@ -158,11 +164,11 @@ export function subscriptionGraceNotification(
   return {
     userId,
     type: 'SUBSCRIPTION_GRACE',
-    title: 'Votre abonnement a expiré',
+    title: 'Votre abonnement a expiré — 7 jours pour renouveler',
     body:
       freeLimit === null
         ? 'Vous avez 7 jours pour renouveler votre abonnement.'
-        : `Vous avez 7 jours pour renouveler avant le masquage de vos annonces au-delà de ${freeLimit}.`,
+        : `Vos annonces restent en ligne pendant 7 jours. Passé ce délai, seules vos ${freeLimit} plus récentes resteront visibles : les autres seront masquées (pas supprimées) et reviendront dès le renouvellement.`,
     data: { periodEnd: periodEnd.toISOString() },
     dedupeKey: `sub-grace:${userId}:${periodEnd.toISOString()}`,
   };
@@ -174,7 +180,7 @@ export function subscriptionExpiredNotification(
   periodEnd: Date,
   disabledAlerts = 0,
 ): CreateNotificationInput {
-  const parts: string[] = [];
+  const parts: string[] = ['Votre abonnement est terminé : votre compte repasse au plan Gratuit.'];
   if (hiddenCount > 0) {
     parts.push(
       `${hiddenCount} annonce(s) ont été masquées. Elles reviendront dès le renouvellement.`,
@@ -187,7 +193,7 @@ export function subscriptionExpiredNotification(
     userId,
     type: 'SUBSCRIPTION_EXPIRED',
     title: 'Abonnement terminé',
-    body: parts.length > 0 ? parts.join(' ') : 'Votre compte repasse au plan Gratuit.',
+    body: parts.join(' '),
     data: { hiddenCount, disabledAlerts, periodEnd: periodEnd.toISOString() },
     dedupeKey: `sub-expired:${userId}:${periodEnd.toISOString()}`,
   };
@@ -198,7 +204,7 @@ export function trialReminderNotification(userId: string, trialEnd: Date): Creat
     userId,
     type: 'TRIAL_REMINDER',
     title: 'Votre essai Pro se termine bientôt',
-    body: `Votre essai gratuit se termine le ${isoDay(trialEnd)}. Passez à Pro pour garder vos 30 annonces et vos alertes.`,
+    body: `Votre essai gratuit se termine le ${formatDateFr(trialEnd)}. Passez à Pro avant cette date pour garder vos 30 annonces et vos alertes.`,
     data: { trialEnd: trialEnd.toISOString() },
     dedupeKey: `trial-reminder:${userId}:${trialEnd.toISOString()}`,
   };
@@ -226,5 +232,96 @@ export function trialEndedNotification(
     body: parts.join(' '),
     data: { hiddenCount, disabledAlerts, trialEnd: trialEnd.toISOString() },
     dedupeKey: `trial-ended:${userId}:${trialEnd.toISOString()}`,
+  };
+}
+
+/** The agent's listing passed moderation and is now public. */
+export function listingApprovedNotification(
+  userId: string,
+  listingId: string,
+  listingTitle: string,
+  moderatedAt: Date,
+): CreateNotificationInput {
+  return {
+    userId,
+    type: 'LISTING_APPROVED',
+    title: 'Annonce publiée',
+    body: `« ${listingTitle} » a été validée : elle est maintenant visible par tous les visiteurs.`,
+    data: { listingId },
+    dedupeKey: `listing-approved:${listingId}:${moderatedAt.toISOString()}`,
+  };
+}
+
+/** The listing was refused; the reason tells the agent what to fix. */
+export function listingRejectedNotification(
+  userId: string,
+  listingId: string,
+  listingTitle: string,
+  reason: string,
+  moderatedAt: Date,
+): CreateNotificationInput {
+  return {
+    userId,
+    type: 'LISTING_REJECTED',
+    title: 'Annonce refusée',
+    body: `« ${listingTitle} » n'a pas été validée. Motif : ${reason}. Corrigez-la puis soumettez-la à nouveau.`,
+    data: { listingId, reason },
+    dedupeKey: `listing-rejected:${listingId}:${moderatedAt.toISOString()}`,
+  };
+}
+
+export function withdrawalRequestedNotification(
+  userId: string,
+  withdrawalId: string,
+  amount: number,
+  currency: string,
+): CreateNotificationInput {
+  return {
+    userId,
+    type: 'WITHDRAWAL_REQUESTED',
+    title: 'Demande de retrait enregistrée',
+    body: `Votre retrait de ${formatAmount(amount, currency)} est en cours de traitement. Vous serez prévenu dès qu'il sera finalisé.`,
+    data: { withdrawalId, amount, currency },
+    dedupeKey: `withdrawal-requested:${withdrawalId}`,
+  };
+}
+
+export function withdrawalCancelledNotification(
+  userId: string,
+  withdrawalId: string,
+  amount: number,
+  currency: string,
+  reason: string,
+): CreateNotificationInput {
+  return {
+    userId,
+    type: 'WITHDRAWAL_CANCELLED',
+    title: 'Retrait annulé',
+    body: `Votre retrait de ${formatAmount(amount, currency)} a été annulé par notre équipe. Motif : ${reason}. Le montant reste disponible sur votre solde.`,
+    data: { withdrawalId, amount, currency, reason },
+    dedupeKey: `withdrawal-cancelled:${withdrawalId}`,
+  };
+}
+
+const REVIEW_COMMENT_PREVIEW = 140;
+
+/** An agent received a rating on their public profile. */
+export function newReviewNotification(
+  agentId: string,
+  reviewId: string,
+  rating: number,
+  authorLabel: string,
+  comment: string,
+): CreateNotificationInput {
+  const text = comment.trim();
+  const preview =
+    text.length > REVIEW_COMMENT_PREVIEW ? `${text.slice(0, REVIEW_COMMENT_PREVIEW)}…` : text;
+  return {
+    userId: agentId,
+    type: 'NEW_REVIEW',
+    title: `Nouvel avis : ${rating}/5`,
+    body: `${authorLabel} vous a noté ${rating}/5${preview ? ` : « ${preview} »` : '.'} Il est visible sur votre profil public.`,
+    data: { agentId, reviewId, rating },
+    dedupeKey: `review:${reviewId}`,
   };
 }

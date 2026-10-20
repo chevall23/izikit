@@ -223,7 +223,7 @@ export function requestFeedbackEmail(args: {
   /** Plain URL shown at the bottom to stop the reminders. */
   stopUrl: string;
 }): EmailContent {
-  const firstName = args.name.trim().split(/s+/)[0];
+  const firstName = args.name.trim().split(/\s+/)[0];
   return renderEmail({
     subject: args.reminder
       ? 'Rappel : un agent vous a-t-il contacté ?'
@@ -263,6 +263,8 @@ export function paymentConfirmationEmail(args: {
   orderId: string;
   amount: number;
   currency: string;
+  /** What was bought and what the account received ("Pack Starter : 50 jetons crédités"). */
+  description?: string;
 }): EmailContent {
   const amount = formatAmount(args.amount, args.currency);
   return renderEmail({
@@ -272,8 +274,9 @@ export function paymentConfirmationEmail(args: {
       'Nous vous confirmons la bonne réception de votre paiement. Merci pour votre confiance !',
     ],
     details: [
-      { label: 'Commande', value: args.orderId },
+      ...(args.description ? [{ label: 'Achat', value: args.description }] : []),
       { label: 'Montant', value: amount },
+      { label: 'Référence', value: args.orderId },
     ],
     button: { label: 'Accéder à mon tableau de bord', path: '/dashboard' },
     closing: ['Conservez cet e-mail : il fait office de confirmation de paiement.'],
@@ -301,5 +304,38 @@ export function legalDocumentsSubmittedEmail(args: {
       value: LEGAL_DOCUMENT_LABEL[t] ?? t,
     })),
     button: { label: "Ouvrir l'administration", path: '/admin' },
+  });
+}
+
+// ── Account notices (listing decisions, subscription, withdrawals) ──────────
+
+/** "30 octobre 2026" — UTC, so the date never shifts with the server's zone. */
+export function formatDateFr(d: Date): string {
+  return new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeZone: 'UTC' }).format(d);
+}
+
+/**
+ * Generic "something happened on your account" e-mail: what happened, why it
+ * matters, and the one button that fixes or follows it up.
+ */
+export function noticeEmail(args: {
+  firstName: string;
+  subject: string;
+  preheader: string;
+  paragraphs: string[];
+  details?: { label: string; value: string }[];
+  quote?: string;
+  button?: { label: string; path: string };
+  closing?: string[];
+}): EmailContent {
+  return renderEmail({
+    subject: args.subject,
+    preheader: args.preheader,
+    ...(args.firstName ? { greetingName: args.firstName } : {}),
+    paragraphs: args.paragraphs,
+    ...(args.details ? { details: args.details } : {}),
+    ...(args.quote ? { quote: args.quote } : {}),
+    ...(args.button ? { button: args.button } : {}),
+    ...(args.closing ? { closing: args.closing } : {}),
   });
 }

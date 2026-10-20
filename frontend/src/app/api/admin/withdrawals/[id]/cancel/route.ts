@@ -27,6 +27,9 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireSuperadmin } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { logAdminAction } from '@/lib/server/admin/audit';
+import { notifyUser } from '@/lib/server/notifications/notify-user';
+import { withdrawalCancelledNotification } from '@/lib/server/notifications/templates';
+import { withdrawalCancelledEmail } from '@/lib/server/emails/account-notices';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { lockUserTx } from '@/lib/server/withdrawals/lock';
@@ -40,7 +43,10 @@ const CANCELLABLE: ReadonlySet<string> = new Set(['PENDING', 'PROCESSING']);
 type Discriminator =
   | { kind: 'NOT_FOUND' }
   | { kind: 'NOT_CANCELLABLE' }
-  | { kind: 'OK'; withdrawal: { id: string; status: string; userId: string } };
+  | {
+      kind: 'OK';
+      withdrawal: { id: string; status: string; userId: string; amount: number; currency: string };
+    };
 
 export async function POST(
   req: NextRequest,
@@ -148,6 +154,22 @@ export async function POST(
         { status: 409 },
       );
     }
+    await notifyUser(
+      prisma,
+      withdrawalCancelledNotification(
+        result.withdrawal.userId,
+        id,
+        result.withdrawal.amount,
+        result.withdrawal.currency,
+        parsed.data.reason,
+      ),
+      withdrawalCancelledEmail(
+        result.withdrawal.amount,
+        result.withdrawal.currency,
+        parsed.data.reason,
+      ),
+    );
+
     return NextResponse.json({ withdrawal: result.withdrawal }, { status: 200 });
   });
 }

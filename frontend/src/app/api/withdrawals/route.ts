@@ -50,6 +50,7 @@ import { lockUserTx } from '@/lib/server/withdrawals/lock';
 import { createDefaultBalanceComputer } from '@/lib/server/withdrawals/balance';
 import { loadGuardConfigFromEnv, validateWithdrawalRequest } from '@/lib/server/withdrawals/guards';
 import { verifyPin } from '@/lib/server/auth/pin';
+import { withdrawalRequestedNotification } from '@/lib/server/notifications/templates';
 import { createNotification } from '@/lib/server/notifications';
 
 import { clampLimit, decodeCursor, encodeCursor } from '@/lib/server/pagination/paginate';
@@ -178,18 +179,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // any retry idempotent. A failure here must NOT poison the response —
       // the withdrawal is already committed (T-04-04-11).
       try {
-        await createNotification(prisma, {
-          userId: auth.user.sub,
-          type: 'WITHDRAWAL_REQUESTED',
-          title: 'Withdrawal requested',
-          body: `Withdrawal of ${amount} ${currency} is pending.`,
-          data: {
-            withdrawalId: result.withdrawal.id,
-            amount,
-            currency,
-          },
-          dedupeKey: `withdrawal-requested:${result.withdrawal.id}`,
-        });
+        await createNotification(
+          prisma,
+          withdrawalRequestedNotification(auth.user.sub, result.withdrawal.id, amount, currency),
+        );
       } catch {
         // Swallow — `createNotification` already returns null on P2002 dedup
         // hits; a thrown error here is some other DB hiccup. The withdrawal

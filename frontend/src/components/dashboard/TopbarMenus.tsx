@@ -72,8 +72,22 @@ function notificationHref(n: NotificationItem): string | null {
   const requestId = typeof data.requestId === 'string' ? data.requestId : null;
   switch (n.type) {
     case 'ALERT_MATCH':
-    case 'REQUEST_REVIEW':
       return requestId ? `/demandes/${requestId}` : '/demandes';
+    case 'REQUEST_REVIEW':
+      return '/admin/demandes';
+    case 'NEW_REVIEW':
+      return typeof data.agentId === 'string' ? `/agents/${data.agentId}` : null;
+    case 'WELCOME':
+      return '/dashboard';
+    case 'REQUEST_NO_CONTACT':
+      return '/admin/avis';
+    case 'LISTING_APPROVED':
+    case 'LISTING_REJECTED': {
+      const listingId = typeof data.listingId === 'string' ? data.listingId : null;
+      return n.type === 'LISTING_REJECTED' && listingId
+        ? `/listings/${listingId}/edit`
+        : '/listings';
+    }
     case 'LISTING_INQUIRY':
       return '/contacts';
     case 'PAYMENT_RECEIVED':

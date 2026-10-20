@@ -16,6 +16,8 @@ import { z } from 'zod';
 import { zEmail } from '@/lib/server/zod-helpers';
 import { prisma } from '@/lib/server/prisma';
 import { redis } from '@/lib/server/redis';
+import { createNotification } from '@/lib/server/notifications';
+import { welcomeNotification } from '@/lib/server/notifications/templates';
 import { createEmailLimiter } from '@/lib/server/middleware/rate-limit-by-email';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { log } from '@/lib/server/observability/log';
@@ -167,6 +169,14 @@ export async function POST(req: NextRequest): Promise<Response> {
     const refresh = await createRefreshToken(user.id, user.tokenVersion);
     await setAuthCookies(access, refresh);
     await setCsrfCookie();
+
+    // First verified login: greet the user in the app (once — deterministic
+    // dedupeKey). Best-effort: it must never fail the verification.
+    try {
+      await createNotification(prisma, welcomeNotification(user.id, user.email));
+    } catch (err) {
+      log.warn('verify-email: welcome notification failed', { userId: user.id, err: String(err) });
+    }
 
     log.info('verify-email success', { userId: user.id });
     const res = NextResponse.json({

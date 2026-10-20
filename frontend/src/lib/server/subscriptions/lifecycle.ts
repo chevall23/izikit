@@ -10,7 +10,14 @@ import { planMaxListings, type PricingData } from '@/lib/pricing';
 import { disableExcessAlerts, lockUserAlertQuota } from '../alerts/quota';
 import { createLogger } from '@/lib/server/logger';
 import { hideExcessListings, lockUserListingQuota } from '../listings/quota';
-import { createNotification } from '../notifications';
+import { notifyUser } from '../notifications/notify-user';
+import {
+  subscriptionExpiredEmail,
+  subscriptionGraceEmail,
+  subscriptionReminderEmail,
+  trialEndedEmail,
+  trialReminderEmail,
+} from '../emails/account-notices';
 import {
   subscriptionExpiredNotification,
   subscriptionGraceNotification,
@@ -57,9 +64,10 @@ export async function runSubscriptionLifecycle(opts: {
     if (!end) continue;
     try {
       const daysLeft: 7 | 3 = (end.getTime() - now.getTime()) / DAY_MS <= 3 ? 3 : 7;
-      const created = await createNotification(
+      const created = await notifyUser(
         prisma,
         subscriptionReminderNotification(sub.userId, daysLeft, end),
+        subscriptionReminderEmail(daysLeft, end),
       );
       if (created) result.reminded++;
     } catch (err) {
@@ -88,9 +96,11 @@ export async function runSubscriptionLifecycle(opts: {
         data: { status: 'GRACE' },
       });
       if (moved.count > 0) {
-        await createNotification(
+        const freeLimitForNotice = planMaxListings(pricing, 'FREE');
+        await notifyUser(
           prisma,
-          subscriptionGraceNotification(sub.userId, end, planMaxListings(pricing, 'FREE')),
+          subscriptionGraceNotification(sub.userId, end, freeLimitForNotice),
+          subscriptionGraceEmail(freeLimitForNotice),
         );
         result.graced++;
       }
@@ -139,9 +149,10 @@ export async function runSubscriptionLifecycle(opts: {
         return { hidden, alertsDisabled };
       });
       if (outcome) {
-        await createNotification(
+        await notifyUser(
           prisma,
           subscriptionExpiredNotification(sub.userId, outcome.hidden, end, outcome.alertsDisabled),
+          subscriptionExpiredEmail(outcome.hidden, outcome.alertsDisabled),
         );
         result.expired++;
         result.hidden += outcome.hidden;
@@ -165,7 +176,11 @@ export async function runSubscriptionLifecycle(opts: {
     const end = sub.currentPeriodEnd;
     if (!end) continue;
     try {
-      const created = await createNotification(prisma, trialReminderNotification(sub.userId, end));
+      const created = await notifyUser(
+        prisma,
+        trialReminderNotification(sub.userId, end),
+        trialReminderEmail(end),
+      );
       if (created) result.reminded++;
     } catch (err) {
       log.warn('trial reminder failed', { userId: sub.userId, error: String(err) });
@@ -196,9 +211,10 @@ export async function runSubscriptionLifecycle(opts: {
         return { hidden, alertsDisabled };
       });
       if (outcome) {
-        await createNotification(
+        await notifyUser(
           prisma,
           trialEndedNotification(sub.userId, outcome.hidden, end, outcome.alertsDisabled),
+          trialEndedEmail(outcome.hidden, outcome.alertsDisabled),
         );
         result.trialEnded++;
         result.hidden += outcome.hidden;

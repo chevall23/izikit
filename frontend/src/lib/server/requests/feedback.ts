@@ -19,6 +19,7 @@ import type { PrismaClient } from '@prisma/client';
 import { createLogger } from '../logger';
 import { createNotification } from '../notifications';
 import { requestNoContactNotification } from '../notifications/templates';
+import { notifyAgentOfReview } from '../notifications/review-received';
 import { getEmailQueue } from '../queues/email-queue-singleton';
 import { requestFeedbackEmail } from '../emails/templates';
 import { PROPERTY_TYPE_LABEL, TRANSACTION_TYPE_LABEL } from '@/lib/listings';
@@ -387,9 +388,10 @@ export async function submitFeedback(
       where: { id: feedback.id, submittedAt: null },
       data: { contacted: answer.contacted, comment: comment || null, submittedAt: new Date() },
     });
-    if (claimed.count !== 1) return false;
+    if (claimed.count !== 1) return null;
+    const created: Array<{ id: string; agentId: string; rating: number; comment: string }> = [];
     for (const r of answer.ratings) {
-      await tx.agentReview.create({
+      const row = await tx.agentReview.create({
         data: {
           agentId: r.agentId,
           requestFeedbackId: feedback.id,
@@ -397,11 +399,16 @@ export async function submitFeedback(
           rating: r.rating,
           comment,
         },
+        select: { id: true, agentId: true, rating: true, comment: true },
       });
+      created.push(row);
     }
-    return true;
+    return created;
   });
   if (!won) return { ok: false, code: 'ALREADY_SUBMITTED' };
+
+  // Tell each rated agent (after commit; best-effort, never fails the answer).
+  for (const review of won) await notifyAgentOfReview(prisma, review, label);
 
   if (!answer.contacted) await notifyAdminsNoContact(prisma, feedback.requestId, feedback.request);
   return { ok: true };

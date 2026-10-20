@@ -13,6 +13,7 @@ import {
   ModerationError,
   asModerationClient,
 } from '@/lib/server/listings/moderation';
+import { notifyListingDecision } from '@/lib/server/listings/moderation-notify';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
@@ -58,6 +59,8 @@ export async function POST(
       targetId: id,
       metadata: { from: before?.status },
     });
+
+    await notifyListingDecision(prisma, [id], 'approved');
 
     return NextResponse.json({ listing }, { headers: { 'x-request-id': reqCtx.requestId } });
   });

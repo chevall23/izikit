@@ -14,6 +14,7 @@ import {
   ModerationError,
   asModerationClient,
 } from '@/lib/server/listings/moderation';
+import { notifyListingDecision } from '@/lib/server/listings/moderation-notify';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
@@ -86,6 +87,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         skipped: result.skipped,
       },
     });
+
+    if (parsed.data.action === 'approve') {
+      await notifyListingDecision(prisma, result.ok, 'approved');
+    } else if (parsed.data.action === 'reject') {
+      await notifyListingDecision(prisma, result.ok, 'rejected', parsed.data.reason);
+    }
 
     return NextResponse.json(result, { headers: { 'x-request-id': reqCtx.requestId } });
   });
